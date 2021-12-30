@@ -5,6 +5,10 @@ Tiled scrollable window manager for MacOS. Inspired by
 
 Spoon plugin for [HammerSpoon](https://www.hammerspoon.org) MacOS automation app.
 
+# Demo
+
+https://user-images.githubusercontent.com/900731/147793584-f937811a-20aa-4282-baf5-035e5ddc12ea.mp4
+
 ## Installation
 
 Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
