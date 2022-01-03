@@ -4,6 +4,9 @@
 ---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
 
+-- install from https://github.com/asmagill/hs._asm.undocumented.spaces
+local spaces = require("hs._asm.undocumented.spaces")
+
 local obj = {}
 obj.__index = obj
 
@@ -35,7 +38,8 @@ obj.default_hotkeys = {
 
 -- filter for windows to manage
 obj.window_filter = hs.window.filter.new():setOverrideFilter({
-    currentSpace = true,
+    visible = true,
+    fullscreen = false,
     allowScreens = hs.screen.primaryScreen():id(),
 })
 
@@ -43,7 +47,7 @@ obj.window_filter = hs.window.filter.new():setOverrideFilter({
 obj.window_gap = 8
 
 -- logger
-obj.logger = hs.logger.new("PaperWM")
+obj.logger = hs.logger.new(obj.name)
 
 -- constants
 Direction = {
@@ -56,18 +60,33 @@ Direction = {
 }
 
 -- array of windows sorted from left to right
-local window_list = { {} }
+local window_list = {}
 local index_table = {}
 
 local function dumpState()
-    for x, window_column in ipairs(window_list) do
-        for y, window in ipairs(window_column) do
-            local id = window:id()
-            local title = window:title()
-            local frame = window:frame()
-            local index = index_table[id]
-            obj.logger.df('window_list[%d][%d] = [%d] "%s" -> %s', x, y, id, title, frame)
-            obj.logger.df("index_table[%d] = {x=%d,y=%d}", id, index.x, index.y)
+    for space, windows in pairs(window_list) do
+        for x, window_column in ipairs(windows) do
+            for y, window in ipairs(window_column) do
+                local id = window:id()
+                obj.logger.df(
+                    'window_list[%d][%d][%d] = [%d] "%s" -> %s %s',
+                    space,
+                    x,
+                    y,
+                    id,
+                    window:title(),
+                    window:frame(),
+                    hs.inspect(window:spaces())
+                )
+                local index = index_table[id]
+                obj.logger.df(
+                    "index_table[%d] = {space=%d, x=%d,y=%d}",
+                    id,
+                    index.space,
+                    index.x,
+                    index.y
+                )
+            end
         end
     end
 end
@@ -106,53 +125,50 @@ end
 
 function obj:start()
     -- clear state
-    window_list = { {} }
+    window_list = {}
     index_table = {}
 
-    -- sort windows from left to right
-    local windows = self.window_filter:getWindows()
-    table.sort(windows, function(first_window, second_window)
-        return first_window:frame().x < second_window:frame().x
-    end)
-
-    -- create window list and index table
-    local y = 1
-    for x, window in ipairs(windows) do
-        window_list[x] = { window }
-        index_table[window:id()] = { x = x, y = y }
-    end
+    -- populate window list and index table
+    self:refreshWindows()
 
     -- set initial layout
     self:tileWindows()
 
     -- listen for window events
-
     self.window_filter:subscribe(
         { hs.window.filter.windowFocused, hs.window.filter.windowMoved },
         function(window, app, event)
-            self.logger.d(event .. " for " .. window:title())
-            self:tileWindows()
+            self.logger.d(event .. " for " .. window:title() or app)
+            self:tileWindows(window)
         end
     )
 
     self.window_filter:subscribe(hs.window.filter.windowAllowed, function(window, app, event)
-        self.logger.d(event .. " for " .. window:title())
-        self:addWindow(window)
+        self.logger.d(event .. " for " .. window:title() or app)
+        if self:addWindow(window) then
+            self:tileWindows()
+        end
     end)
 
-    self.window_filter:subscribe({
-        hs.window.filter.windowDestroyed,
-        hs.window.filter.windowFullscreened,
-        hs.window.filter.windowHidden,
-        hs.window.filter.windowMinimized,
-        hs.window.filter.windowNotInCurrentSpace,
-        hs.window.filter.windowNotOnScreen,
-        hs.window.filter.windowNotVisible,
-    }, function(window, app, event)
-        self.logger.d(event)
-        self.logger.d(event .. " for " .. window:title())
-        self:removeWindow(window)
-    end)
+    self.window_filter:subscribe(
+        { hs.window.filter.windowNotVisible, hs.window.filter.windowFullscreened },
+        function(window, app, event)
+            self.logger.d(event .. " for " .. window:title() or app)
+            if self:removeWindow(window) then
+                self:tileWindows()
+            end
+        end
+    )
+
+    self.window_filter:subscribe(
+        { hs.window.filter.windowNotInCurrentSpace, hs.window.filter.windowInCurrentSpace },
+        function(window, app, event)
+            self.logger.d(event .. " for " .. window:title() or app)
+            if self:refreshWindows() then
+                self:tileWindows()
+            end
+        end
+    )
 
     return self
 end
@@ -198,21 +214,7 @@ function obj:tileColumn(windows, bounds, h, w, id, h4id)
     return w -- return width of column
 end
 
-function obj:tileWindows()
-    -- find anchor window to tile from
-    local anchor_window = hs.window.focusedWindow() or window_list[1][1]
-    if not anchor_window then
-        self.logger.d("anchor window not found")
-        return -- bail
-    end
-
-    -- find anchor window index
-    local anchor_index = index_table[anchor_window:id()]
-    if not anchor_index then
-        self.logger.d("anchor index not found")
-        return -- bail
-    end
-
+function obj:tileSpace(anchor_window, column_index, space)
     -- MacOS doesn't allow windows to be moved off screen
     -- stack windows in a visible margin on either side
     local screen_margin = 40
@@ -235,7 +237,7 @@ function obj:tileWindows()
 
     -- TODO: need a min window height
     -- adjust anchor window column
-    local column = window_list[anchor_index.x]
+    local column = window_list[space][column_index]
     if #column == 1 then
         anchor_frame.y, anchor_frame.h = work_area.y, work_area.h
         anchor_window:setFrame(anchor_frame)
@@ -255,18 +257,59 @@ function obj:tileWindows()
 
     -- tile windows from anchor right
     local target_x = math.min(anchor_frame.x2 + self.window_gap, right_margin)
-    for x = anchor_index.x + 1, #window_list do
+    for x = column_index + 1, #window_list[space] do
         local bounds = { x = target_x, x2 = nil, y = work_area.y, y2 = work_area.y2 }
-        local column_width = self:tileColumn(window_list[x], bounds)
+        local column_width = self:tileColumn(window_list[space][x], bounds)
         target_x = math.min(target_x + column_width + self.window_gap, right_margin)
     end
 
     -- tile windows from anchor left
     local target_x2 = math.max(anchor_frame.x - self.window_gap, left_margin)
-    for x = anchor_index.x - 1, 1, -1 do
+    for x = column_index - 1, 1, -1 do
         local bounds = { x = nil, x2 = target_x2, y = work_area.y, y2 = work_area.y2 }
-        local column_width = self:tileColumn(window_list[x], bounds)
+        local column_width = self:tileColumn(window_list[space][x], bounds)
         target_x2 = math.max(target_x2 - column_width - self.window_gap, left_margin)
+    end
+end
+
+function obj:tileWindows(anchor_window)
+    if anchor_window then
+        local space = anchor_window:spaces()[1]
+        if not space then
+            self.logger.d("anchor window does not have space")
+            return
+        end
+
+        if spaces.spaceType(space) ~= spaces.types.user then
+            self.logger.d("current space invalid")
+            return -- bail
+        end
+
+        -- TODO: seems finicky
+        -- if space ~= spaces.currentSpace() then
+        --     self.logger.d("window not in current space")
+        --     return
+        -- end
+
+        -- find anchor window index
+        local anchor_index = index_table[anchor_window:id()]
+        if not anchor_index then
+            self.logger.d("anchor index not found")
+            return -- bail
+        end
+
+        self:tileSpace(anchor_window, anchor_index.x, space)
+    else
+        for space, windows in pairs(window_list) do
+            anchor_window = windows[1][1]
+            local space = anchor_window:spaces()[1]
+            self:tileSpace(anchor_window, 1, space)
+        end
+    end
+
+    if self.window_filter.pending then
+        self.logger.d("cancelled pending events")
+        self.window_filter.pending = {}
     end
 
     hs.timer.doAfter(1.5 * hs.window.animationDuration, function()
@@ -280,16 +323,47 @@ function obj:tileWindows()
     end)
 end
 
+function obj:refreshWindows()
+    -- get all windows across spaces
+    local all_windows = self.window_filter:getWindows()
+
+    local refresh_needed = false
+    for _, window in ipairs(all_windows) do
+        local index = index_table[window:id()]
+        if not index then
+            -- add window
+            self:addWindow(window)
+            refresh_needed = true
+        elseif index.space ~= window:spaces()[1] then
+            -- move to window list in new space
+            self:removeWindow(window)
+            self:addWindow(window)
+            refresh_needed = true
+        end
+    end
+
+    return refresh_needed
+end
+
 function obj:addWindow(add_window)
     -- check if window is already in window list
     if index_table[add_window:id()] then
-        return
+        return false
+    end
+
+    local space = add_window:spaces()[1]
+    if not space then
+        self.logger.d("add window does not have a space")
+        return false
     end
 
     -- find where to insert window
+    if not window_list[space] then
+        window_list[space] = {}
+    end
     local add_x = add_window:frame().center.x
     local add_index = 1
-    for index, column in ipairs(window_list) do
+    for index, column in ipairs(window_list[space]) do
         if add_x < column[1]:frame().center.x then
             add_index = index
             break
@@ -297,17 +371,16 @@ function obj:addWindow(add_window)
     end
 
     -- add window
-    table.insert(window_list, add_index, { add_window })
+    table.insert(window_list[space], add_index, { add_window })
 
     -- update index table
-    for x = add_index, #window_list do
-        for y, window in ipairs(window_list[x]) do
-            index_table[window:id()] = { x = x, y = y }
+    for x = add_index, #window_list[space] do
+        for y, window in ipairs(window_list[space][x]) do
+            index_table[window:id()] = { space = space, x = x, y = y }
         end
     end
 
-    -- update layout
-    self:tileWindows()
+    return true
 end
 
 function obj:removeWindow(remove_window)
@@ -315,25 +388,27 @@ function obj:removeWindow(remove_window)
     local remove_index = index_table[remove_window:id()]
     if not remove_index then
         self.logger.d("remove index not found")
-        return
+        return false
     end
 
     -- remove window
-    table.remove(window_list[remove_index.x], remove_index.y)
-    if #window_list[remove_index.x] == 0 then
-        table.remove(window_list, remove_index.x)
+    table.remove(window_list[remove_index.space][remove_index.x], remove_index.y)
+    if #window_list[remove_index.space][remove_index.x] == 0 then
+        table.remove(window_list[remove_index.space], remove_index.x)
+    end
+    if #window_list[remove_index.space] == 0 then
+        window_list[remove_index.space] = nil
     end
 
     -- update index table
     index_table[remove_window:id()] = nil
-    for x = remove_index.x, #window_list do
-        for y, window in ipairs(window_list[x]) do
-            index_table[window:id()] = { x = x, y = y }
+    for x = remove_index.x, #window_list[remove_index.space] do
+        for y, window in ipairs(window_list[remove_index.space][x]) do
+            index_table[window:id()] = { space = remove_index.space, x = x, y = y }
         end
     end
 
-    -- update layout
-    self:tileWindows()
+    return true
 end
 
 function obj:focusWindow(direction)
@@ -353,7 +428,7 @@ function obj:focusWindow(direction)
     -- get new focused window
     local new_focused_window
     if direction == Direction.LEFT or direction == Direction.RIGHT then
-        local column = window_list[focused_index.x + direction]
+        local column = window_list[focused_index.space][focused_index.x + direction]
         if column then
             for y = focused_index.y, 1, -1 do
                 new_focused_window = column[y]
@@ -363,7 +438,8 @@ function obj:focusWindow(direction)
             end
         end
     elseif direction == Direction.UP or direction == Direction.DOWN then
-        new_focused_window = window_list[focused_index.x][focused_index.y + (direction / 2)]
+        new_focused_window =
+            window_list[focused_index.space][focused_index.x][focused_index.y + (direction / 2)]
     end
 
     if not new_focused_window then
@@ -392,23 +468,23 @@ function obj:swapWindows(direction)
     if direction == Direction.LEFT or direction == Direction.RIGHT then
         -- get target windows
         local target_index = { x = focused_index.x + direction }
-        local target_column = window_list[target_index.x]
+        local target_column = window_list[focused_index.space][target_index.x]
         if not target_column then
             self.logger.d("target column not found")
             return
         end
 
         -- swap place in window list
-        local focused_column = window_list[focused_index.x]
-        window_list[target_index.x] = focused_column
-        window_list[focused_index.x] = target_column
+        local focused_column = window_list[focused_index.space][focused_index.x]
+        window_list[focused_index.space][target_index.x] = focused_column
+        window_list[focused_index.space][focused_index.x] = target_column
 
         -- update index table
         for y, window in ipairs(target_column) do
-            index_table[window:id()] = { x = focused_index.x, y = y }
+            index_table[window:id()] = { space = focused_index.space, x = focused_index.x, y = y }
         end
         for y, window in ipairs(focused_column) do
-            index_table[window:id()] = { x = target_index.x, y = y }
+            index_table[window:id()] = { space = focused_index.space, x = target_index.x, y = y }
         end
 
         -- swap frames
@@ -433,16 +509,20 @@ function obj:swapWindows(direction)
         end
     elseif direction == Direction.UP or direction == Direction.DOWN then
         -- get target window
-        local target_index = { x = focused_index.x, y = focused_index.y + (direction / 2) }
-        local target_window = window_list[target_index.x][target_index.y]
+        local target_index = {
+            space = focused_index.space,
+            x = focused_index.x,
+            y = focused_index.y + (direction / 2),
+        }
+        local target_window = window_list[target_index.space][target_index.x][target_index.y]
         if not target_window then
             self.logger.d("target window not found")
             return
         end
 
         -- swap places in window list
-        window_list[target_index.x][target_index.y] = focused_window
-        window_list[focused_index.x][focused_index.y] = target_window
+        window_list[target_index.space][target_index.x][target_index.y] = focused_window
+        window_list[focused_index.space][focused_index.x][focused_index.y] = target_window
 
         -- update index table
         index_table[target_window:id()] = focused_index
@@ -463,7 +543,7 @@ function obj:swapWindows(direction)
     end
 
     -- update layout
-    self:tileWindows()
+    self:tileWindows(focused_window)
 end
 
 function obj:centerWindow()
@@ -482,7 +562,7 @@ function obj:centerWindow()
     focused_window:setFrame(focused_frame)
 
     -- update layout
-    self:tileWindows()
+    self:tileWindows(focused_window)
 end
 
 function obj:setWindowFullWidth()
@@ -499,7 +579,7 @@ function obj:setWindowFullWidth()
     focused_window:setFrame(focused_frame)
 
     -- update layout
-    self:tileWindows()
+    self:tileWindows(focused_window)
 end
 
 function obj:cycleWindowSize(direction)
@@ -549,7 +629,7 @@ function obj:cycleWindowSize(direction)
     focused_window:setFrame(focused_frame)
 
     -- update layout
-    self:tileWindows()
+    self:tileWindows(focused_window)
 end
 
 function obj:slurpWindow()
@@ -567,16 +647,16 @@ function obj:slurpWindow()
     end
 
     -- get column to left
-    local column = window_list[focused_index.x - 1]
+    local column = window_list[focused_index.space][focused_index.x - 1]
     if not column then
         self.logger.d("column not found")
         return
     end
 
     -- remove window
-    table.remove(window_list[focused_index.x], focused_index.y)
-    if #window_list[focused_index.x] == 0 then
-        table.remove(window_list, focused_index.x)
+    table.remove(window_list[focused_index.space][focused_index.x], focused_index.y)
+    if #window_list[focused_index.space][focused_index.x] == 0 then
+        table.remove(window_list[focused_index.space], focused_index.x)
     end
 
     -- append to end of column
@@ -584,10 +664,14 @@ function obj:slurpWindow()
 
     -- update index table
     local num_windows = #column
-    index_table[focused_window:id()] = { x = focused_index.x - 1, y = num_windows }
-    for x = focused_index.x, #window_list do
-        for y, window in ipairs(window_list[x]) do
-            index_table[window:id()] = { x = x, y = y }
+    index_table[focused_window:id()] = {
+        space = focused_index.space,
+        x = focused_index.x - 1,
+        y = num_windows,
+    }
+    for x = focused_index.x, #window_list[focused_index.space] do
+        for y, window in ipairs(window_list[focused_index.space][x]) do
+            index_table[window:id()] = { space = focused_index.space, x = x, y = y }
         end
     end
 
@@ -598,7 +682,7 @@ function obj:slurpWindow()
     self:tileColumn(column, bounds, target_h)
 
     -- update layout
-    self:tileWindows()
+    self:tileWindows(focused_window)
 end
 
 function obj:barfWindow()
@@ -616,7 +700,7 @@ function obj:barfWindow()
     end
 
     -- get column
-    local column = window_list[focused_index.x]
+    local column = window_list[focused_index.space][focused_index.x]
     if #column == 1 then
         self.logger.d("only window in column")
         return
@@ -624,12 +708,12 @@ function obj:barfWindow()
 
     -- remove window and insert in new column
     table.remove(column, focused_index.y)
-    table.insert(window_list, focused_index.x + 1, { focused_window })
+    table.insert(window_list[focused_index.space], focused_index.x + 1, { focused_window })
 
     -- update index table
-    for x = focused_index.x, #window_list do
-        for y, window in ipairs(window_list[x]) do
-            index_table[window:id()] = { x = x, y = y }
+    for x = focused_index.x, #window_list[focused_index.space] do
+        for y, window in ipairs(window_list[focused_index.space][x]) do
+            index_table[window:id()] = { space = focused_index.space, x = x, y = y }
         end
     end
 
@@ -646,7 +730,7 @@ function obj:barfWindow()
     self:tileColumn(column, bounds, target_h)
 
     -- update layout
-    self:tileWindows()
+    self:tileWindows(focused_window)
 end
 
 return obj

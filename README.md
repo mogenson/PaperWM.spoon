@@ -11,8 +11,15 @@ https://user-images.githubusercontent.com/900731/147793584-f937811a-20aa-4282-ba
 
 ## Installation
 
-Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
+1. Install the required
+[hs._asm.undocumented.spaces](https://github.com/asmagill/hs._asm.undocumented.spaces)
+module.
+
+2. Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
 located at `~/.hammerspoon/Spoons/PaperWM.spoon/init.lua`.
+
+3. Open `System Preferences` -> `Mission Control` and uncheck "Automatically
+rearrange Spaces based on most reced use"
 
 ## Usage
 
@@ -59,9 +66,6 @@ PaperWM:start() -- restart for new window filter to take effect
 
 Automatic tiling only occurs on primary screen. Multiple screens are not
 currently supported.
-
-Multiple Mission Control Spaces are supported, but the previous layout is
-lost when switching back and forth between Spaces.
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would
 be tiled off-screen are placed in a margin on the left and right edge of the
