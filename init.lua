@@ -19,7 +19,7 @@ obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 obj.default_hotkeys = {
     dump_state = { { "ctrl", "alt", "cmd", "shift" }, "d" },
-    stop = { { "ctrl", "alt", "cmd", "shift" }, "q" },
+    stop_events = { { "ctrl", "alt", "cmd", "shift" }, "q" },
     focus_left = { { "ctrl", "alt", "cmd" }, "h" },
     focus_right = { { "ctrl", "alt", "cmd" }, "l" },
     focus_up = { { "ctrl", "alt", "cmd" }, "k" },
@@ -34,6 +34,24 @@ obj.default_hotkeys = {
     cycle_height = { { "ctrl", "alt", "cmd", "shift" }, "r" },
     slurp_in = { { "ctrl", "alt", "cmd" }, "i" },
     barf_out = { { "ctrl", "alt", "cmd" }, "o" },
+    switch_space_1 = { { "ctrl", "alt", "cmd" }, "1" },
+    switch_space_2 = { { "ctrl", "alt", "cmd" }, "2" },
+    switch_space_3 = { { "ctrl", "alt", "cmd" }, "3" },
+    switch_space_4 = { { "ctrl", "alt", "cmd" }, "4" },
+    switch_space_5 = { { "ctrl", "alt", "cmd" }, "5" },
+    switch_space_6 = { { "ctrl", "alt", "cmd" }, "6" },
+    switch_space_7 = { { "ctrl", "alt", "cmd" }, "7" },
+    switch_space_8 = { { "ctrl", "alt", "cmd" }, "8" },
+    switch_space_9 = { { "ctrl", "alt", "cmd" }, "9" },
+    move_window_1 = { { "ctrl", "alt", "cmd", "shift" }, "1" },
+    move_window_2 = { { "ctrl", "alt", "cmd", "shift" }, "2" },
+    move_window_3 = { { "ctrl", "alt", "cmd", "shift" }, "3" },
+    move_window_4 = { { "ctrl", "alt", "cmd", "shift" }, "4" },
+    move_window_5 = { { "ctrl", "alt", "cmd", "shift" }, "5" },
+    move_window_6 = { { "ctrl", "alt", "cmd", "shift" }, "6" },
+    move_window_7 = { { "ctrl", "alt", "cmd", "shift" }, "7" },
+    move_window_8 = { { "ctrl", "alt", "cmd", "shift" }, "8" },
+    move_window_9 = { { "ctrl", "alt", "cmd", "shift" }, "9" },
 }
 
 -- filter for windows to manage
@@ -101,10 +119,24 @@ local function getWorkArea(screen)
     )
 end
 
+local function doAfterAnimation(fn)
+    hs.timer.doAfter(1.5 * hs.window.animationDuration, fn)
+end
+
+local function cancelPendingMoveEvents()
+    for window, _ in pairs(obj.window_filter.windows) do
+        if window.movedDelayed then
+            obj.logger.d("cancelled windowMoved for " .. window.title)
+            window.movedDelayed:stop()
+            window.movedDelayed = nil
+        end
+    end
+end
+
 function obj:bindHotkeys(mapping)
     local spec = {
         dump_state = dumpState,
-        stop = hs.fnutils.partial(self.stop, self),
+        stop_events = hs.fnutils.partial(self.stop, self),
         focus_left = hs.fnutils.partial(self.focusWindow, self, Direction.LEFT),
         focus_right = hs.fnutils.partial(self.focusWindow, self, Direction.RIGHT),
         focus_up = hs.fnutils.partial(self.focusWindow, self, Direction.UP),
@@ -119,6 +151,24 @@ function obj:bindHotkeys(mapping)
         cycle_height = hs.fnutils.partial(self.cycleWindowSize, self, Direction.HEIGHT),
         slurp_in = hs.fnutils.partial(self.slurpWindow, self),
         barf_out = hs.fnutils.partial(self.barfWindow, self),
+        switch_space_1 = hs.fnutils.partial(self.switchToSpace, self, 1),
+        switch_space_2 = hs.fnutils.partial(self.switchToSpace, self, 2),
+        switch_space_3 = hs.fnutils.partial(self.switchToSpace, self, 3),
+        switch_space_4 = hs.fnutils.partial(self.switchToSpace, self, 4),
+        switch_space_5 = hs.fnutils.partial(self.switchToSpace, self, 5),
+        switch_space_6 = hs.fnutils.partial(self.switchToSpace, self, 6),
+        switch_space_7 = hs.fnutils.partial(self.switchToSpace, self, 7),
+        switch_space_8 = hs.fnutils.partial(self.switchToSpace, self, 8),
+        switch_space_9 = hs.fnutils.partial(self.switchToSpace, self, 9),
+        move_window_1 = hs.fnutils.partial(self.moveWindowToSpace, self, 1),
+        move_window_2 = hs.fnutils.partial(self.moveWindowToSpace, self, 2),
+        move_window_3 = hs.fnutils.partial(self.moveWindowToSpace, self, 3),
+        move_window_4 = hs.fnutils.partial(self.moveWindowToSpace, self, 4),
+        move_window_5 = hs.fnutils.partial(self.moveWindowToSpace, self, 5),
+        move_window_6 = hs.fnutils.partial(self.moveWindowToSpace, self, 6),
+        move_window_7 = hs.fnutils.partial(self.moveWindowToSpace, self, 7),
+        move_window_8 = hs.fnutils.partial(self.moveWindowToSpace, self, 8),
+        move_window_9 = hs.fnutils.partial(self.moveWindowToSpace, self, 9),
     }
     hs.spoons.bindHotkeysToSpec(spec, mapping)
 end
@@ -312,15 +362,7 @@ function obj:tileWindows(anchor_window)
         self.window_filter.pending = {}
     end
 
-    hs.timer.doAfter(1.5 * hs.window.animationDuration, function()
-        for window, _ in pairs(self.window_filter.windows) do
-            if window.movedDelayed then
-                self.logger.d("cancelled windowMoved for " .. window.title)
-                window.movedDelayed:stop()
-                window.movedDelayed = nil
-            end
-        end
-    end)
+    doAfterAnimation(cancelPendingMoveEvents)
 end
 
 function obj:refreshWindows()
@@ -731,6 +773,78 @@ function obj:barfWindow()
 
     -- update layout
     self:tileWindows(focused_window)
+end
+
+function obj:switchToSpace(index)
+    local uuid = hs.screen.mainScreen():spacesUUID()
+    if not uuid then
+        self.logger.d("screen not found")
+        return
+    end
+
+    local space = spaces.layout()[uuid][index]
+    if not space then
+        self.logger.d("space not found")
+        return
+    end
+
+    self.window_filter:pause()
+    spaces.changeToSpace(space)
+    doAfterAnimation(function()
+        self.window_filter:resume()
+    end)
+end
+
+function obj:moveWindowToSpace(index)
+    local focused_window = hs.window.focusedWindow()
+    if not focused_window then
+        self.logger.d("focused window not found")
+        return
+    end
+
+    local focused_index = index_table[focused_window:id()]
+    if not focused_index then
+        self.logger.d("focused index not found")
+        return
+    end
+
+    local uuid = focused_window:screen():spacesUUID()
+    if not uuid then
+        self.logger.d("screen not found")
+        return
+    end
+
+    local space = spaces.layout()[uuid][index]
+    if not space then
+        self.logger.d("space not found")
+        return
+    end
+
+    if spaces.spaceType(space) ~= spaces.types.user then
+        self.logger.d("space is invalid")
+        return
+    end
+
+    self.window_filter:pause()
+    self:removeWindow(focused_window)
+    focused_window:spacesMoveTo(space)
+    spaces.changeToSpace(space)
+
+    -- update layout in old space
+    local anchor_window = window_list[focused_index.space][1][1]
+    if anchor_window then -- grab first window in old space
+        self:tileSpace(anchor_window, 1, focused_index.space)
+    end
+
+    -- tile windows in new space
+    doAfterAnimation(function()
+        if anchor_window then
+            cancelPendingMoveEvents()
+        end
+        self:addWindow(focused_window)
+        self:tileWindows(focused_window)
+        self.window_filter:resume()
+    end)
 end
 
 return obj
