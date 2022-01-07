@@ -22,6 +22,8 @@ located at `~/.hammerspoon/Spoons/PaperWM.spoon/init.lua`.
 rearrange Spaces based on most recent use" and check "Displays have separate
 Spaces".
 
+<img width="780" alt="Screen Shot 2022-01-07 at 14 10 11" src="https://user-images.githubusercontent.com/900731/148595715-1f7a3509-1289-4d10-b64d-86b84c076b43.png">
+
 ## Usage
 
 Add the following to your `~/.hammerspoon/init.lua`:
@@ -92,3 +94,5 @@ another. Use the `move_window_N` commands to move windows between spaces and
 screens.
 
 Arrange screens vertically to prevent windows from bleeding into other screens.
+
+<img width="780" alt="Screen Shot 2022-01-07 at 14 18 27" src="https://user-images.githubusercontent.com/900731/148595785-546f9086-9add-4731-8477-233b202378f4.png">
