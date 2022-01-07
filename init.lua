@@ -58,7 +58,6 @@ obj.default_hotkeys = {
 obj.window_filter = hs.window.filter.new():setOverrideFilter({
     visible = true,
     fullscreen = false,
-    allowScreens = hs.screen.primaryScreen():id(),
 })
 
 -- number of pixels between windows
@@ -81,7 +80,20 @@ Direction = {
 local window_list = {}
 local index_table = {}
 
+local function getSpacesList()
+    local spaces_list = {}
+    local layout = spaces.layout()
+    for _, screen in ipairs(hs.screen.allScreens()) do
+        for _, space in ipairs(layout[screen:getUUID()]) do
+            table.insert(spaces_list, space)
+        end
+    end
+    return spaces_list
+end
+
 local function dumpState()
+    obj.logger.df("spaces: %s", hs.inspect(getSpacesList()))
+
     for space, windows in pairs(window_list) do
         for x, window_column in ipairs(windows) do
             for y, window in ipairs(window_column) do
@@ -113,7 +125,7 @@ local function getWorkArea(screen)
     local screen_frame = screen:frame()
     return hs.geometry.rect(
         screen_frame.x + obj.window_gap,
-        screen:fullFrame().h - screen_frame.h + obj.window_gap,
+        screen_frame.y + obj.window_gap,
         screen_frame.w - (2 * obj.window_gap),
         screen_frame.h - (2 * obj.window_gap)
     )
@@ -438,9 +450,6 @@ function obj:removeWindow(remove_window)
     if #window_list[remove_index.space][remove_index.x] == 0 then
         table.remove(window_list[remove_index.space], remove_index.x)
     end
-    if #window_list[remove_index.space] == 0 then
-        window_list[remove_index.space] = nil
-    end
 
     -- update index table
     index_table[remove_window:id()] = nil
@@ -448,6 +457,11 @@ function obj:removeWindow(remove_window)
         for y, window in ipairs(window_list[remove_index.space][x]) do
             index_table[window:id()] = { space = remove_index.space, x = x, y = y }
         end
+    end
+
+    -- remove if space is empty
+    if #window_list[remove_index.space] == 0 then
+        window_list[remove_index.space] = nil
     end
 
     return true
@@ -776,13 +790,7 @@ function obj:barfWindow()
 end
 
 function obj:switchToSpace(index)
-    local uuid = hs.screen.mainScreen():spacesUUID()
-    if not uuid then
-        self.logger.d("screen not found")
-        return
-    end
-
-    local space = spaces.layout()[uuid][index]
+    local space = getSpacesList()[index]
     if not space then
         self.logger.d("space not found")
         return
@@ -808,13 +816,7 @@ function obj:moveWindowToSpace(index)
         return
     end
 
-    local uuid = focused_window:screen():spacesUUID()
-    if not uuid then
-        self.logger.d("screen not found")
-        return
-    end
-
-    local space = spaces.layout()[uuid][index]
+    local space = getSpacesList()[index]
     if not space then
         self.logger.d("space not found")
         return
@@ -825,20 +827,34 @@ function obj:moveWindowToSpace(index)
         return
     end
 
+    local screen = hs.screen.find(spaces.spaceScreenUUID(space))
+    if not screen then
+        self.logger.d("screen not found")
+        return
+    end
+
     self.window_filter:pause()
     self:removeWindow(focused_window)
     focused_window:spacesMoveTo(space)
     spaces.changeToSpace(space)
 
+    -- center window
+    local work_area = getWorkArea(screen) -- use new screen
+    local focused_frame = focused_window:frame()
+    focused_frame.w = math.min(focused_frame.w, work_area.w)
+    focused_frame.x = work_area.x + (work_area.w / 2) - (focused_frame.w / 2)
+    focused_frame.y, focused_frame.h = work_area.y, work_area.h
+    focused_window:setFrame(focused_frame)
+
     -- update layout in old space
-    local anchor_window = window_list[focused_index.space][1][1]
-    if anchor_window then -- grab first window in old space
-        self:tileSpace(anchor_window, 1, focused_index.space)
+    local windows = window_list[focused_index.space]
+    if windows then -- grab first window in old space
+        self:tileSpace(windows[1][1], 1, focused_index.space)
     end
 
     -- tile windows in new space
     doAfterAnimation(function()
-        if anchor_window then
+        if windows then
             cancelPendingMoveEvents()
         end
         self:addWindow(focused_window)

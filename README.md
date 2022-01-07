@@ -18,8 +18,9 @@ module.
 2. Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
 located at `~/.hammerspoon/Spoons/PaperWM.spoon/init.lua`.
 
-3. Open `System Preferences` -> `Mission Control` and uncheck "Automatically
-rearrange Spaces based on most reced use"
+3. Open `System Preferences` -> `Mission Control`. Uncheck "Automatically
+rearrange Spaces based on most recent use" and check "Displays have separate
+Spaces".
 
 ## Usage
 
@@ -82,9 +83,12 @@ PaperWM:start() -- restart for new window filter to take effect
 
 ## Limitations
 
-Automatic tiling only occurs on primary screen. Multiple screens are not
-currently supported.
-
 MacOS does not allow a window to be moved fully off-screen. Windows that would
 be tiled off-screen are placed in a margin on the left and right edge of the
 screen. They are still visible and clickable.
+
+It's difficult to detect when a window is dragged from one space or screen to
+another. Use the `move_window_N` commands to move windows between spaces and
+screens.
+
+Arrange screens vertically to prevent windows from bleeding into other screens.
