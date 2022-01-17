@@ -80,6 +80,9 @@ Direction = {
 local window_list = {}
 local index_table = {}
 
+-- id of previously focused window
+local prev_focused_id
+
 local function getSpacesList()
     local spaces_list = {}
     local layout = spaces.layout()
@@ -99,12 +102,14 @@ local function dumpState()
             for y, window in ipairs(window_column) do
                 local id = window:id()
                 obj.logger.df(
-                    'window_list[%d][%d][%d] = [%d] "%s" -> %s %s',
+                    'window_list[%d][%d][%d] = [%d] "%s" -> (%s:%s) %s %s',
                     space,
                     x,
                     y,
                     id,
                     window:title(),
+                    window:role(),
+                    window:subrole(),
                     window:frame(),
                     hs.inspect(window:spaces())
                 )
@@ -202,6 +207,7 @@ function obj:start()
         function(window, app, event)
             self.logger.d(event .. " for " .. window:title() or app)
             self:tileWindows(window)
+            prev_focused_id = window:id()
         end
     )
 
@@ -362,7 +368,7 @@ function obj:tileWindows(anchor_window)
 
         self:tileSpace(anchor_window, anchor_index.x, space)
     else
-        for space, windows in pairs(window_list) do
+        for _, windows in pairs(window_list) do
             anchor_window = windows[1][1]
             local space = anchor_window:spaces()[1]
             self:tileSpace(anchor_window, 1, space)
@@ -410,17 +416,23 @@ function obj:addWindow(add_window)
         self.logger.d("add window does not have a space")
         return false
     end
-
-    -- find where to insert window
     if not window_list[space] then
         window_list[space] = {}
     end
-    local add_x = add_window:frame().center.x
+
+    -- find where to insert window
     local add_index = 1
-    for index, column in ipairs(window_list[space]) do
-        if add_x < column[1]:frame().center.x then
-            add_index = index
-            break
+    local prev_index = index_table[prev_focused_id]
+    if prev_index and prev_index.space == space then
+        add_index = prev_index.x + 1 -- insert to the right
+        print("prev_index " .. prev_index.x)
+    else
+        local add_x = add_window:frame().center.x
+        for index, column in ipairs(window_list[space]) do
+            if add_x < column[1]:frame().center.x then
+                add_index = index
+                break
+            end
         end
     end
 
@@ -433,6 +445,8 @@ function obj:addWindow(add_window)
             index_table[window:id()] = { space = space, x = x, y = y }
         end
     end
+
+    prev_focused_id = add_window:id()
 
     return true
 end
@@ -462,6 +476,10 @@ function obj:removeWindow(remove_window)
     -- remove if space is empty
     if #window_list[remove_index.space] == 0 then
         window_list[remove_index.space] = nil
+    end
+
+    if prev_focused_id == remove_window:id() then
+        prev_focused_id = nil
     end
 
     return true
@@ -504,6 +522,7 @@ function obj:focusWindow(direction)
     end
 
     -- focus new window, windowFocused event will be emited immediately
+    prev_focused_id = new_focused_window:id()
     new_focused_window:focus()
 end
 
@@ -553,12 +572,12 @@ function obj:swapWindows(direction)
             target_frame.x = focused_frame.x
             focused_frame.x = target_frame.x2 + self.window_gap
         end
-        for y, window in ipairs(target_column) do
+        for _, window in ipairs(target_column) do
             local frame = window:frame()
             frame.x = target_frame.x
             window:setFrame(frame)
         end
-        for y, window in ipairs(focused_column) do
+        for _, window in ipairs(focused_column) do
             local frame = window:frame()
             frame.x = focused_frame.x
             window:setFrame(frame)
@@ -645,7 +664,7 @@ function obj:cycleWindowSize(direction)
         return
     end
 
-    function findNewSize(area_size, frame_size)
+    local function findNewSize(area_size, frame_size)
         -- calculate pixel widths from ratios
         local sizes = { 0.38195, 0.5, 0.61804 }
         for index, size in ipairs(sizes) do
