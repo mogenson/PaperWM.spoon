@@ -425,7 +425,6 @@ function obj:addWindow(add_window)
     local prev_index = index_table[prev_focused_id]
     if prev_index and prev_index.space == space then
         add_index = prev_index.x + 1 -- insert to the right
-        print("prev_index " .. prev_index.x)
     else
         local add_x = add_window:frame().center.x
         for index, column in ipairs(window_list[space]) do
@@ -459,6 +458,17 @@ function obj:removeWindow(remove_window)
         return false
     end
 
+    -- find new focused window
+    if prev_focused_id == remove_window:id() then
+        prev_focused_id = nil
+        for _, direction in ipairs({ Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT }) do
+            self:focusWindow(direction, remove_index)
+            if prev_focused_id then
+                break
+            end
+        end
+    end
+
     -- remove window
     table.remove(window_list[remove_index.space][remove_index.x], remove_index.y)
     if #window_list[remove_index.space][remove_index.x] == 0 then
@@ -478,22 +488,21 @@ function obj:removeWindow(remove_window)
         window_list[remove_index.space] = nil
     end
 
-    if prev_focused_id == remove_window:id() then
-        prev_focused_id = nil
-    end
-
     return true
 end
 
-function obj:focusWindow(direction)
-    -- get current focused window
-    local focused_window = hs.window.focusedWindow()
-    if not focused_window then
-        return
+function obj:focusWindow(direction, focused_index)
+    if not focused_index then
+        -- get current focused window
+        local focused_window = hs.window.focusedWindow()
+        if not focused_window then
+            return
+        end
+
+        -- get focused window index
+        focused_index = index_table[focused_window:id()]
     end
 
-    -- get focused window index
-    local focused_index = index_table[focused_window:id()]
     if not focused_index then
         self.logger.d("focused index not found")
         return
@@ -708,6 +717,11 @@ function obj:cycleWindowSize(direction)
 end
 
 function obj:slurpWindow()
+    -- TODO paperwm behavior:
+    -- add top window from column to the right to bottom of current column
+    -- if no colum to the right and current window is only window in current column,
+    -- add current window to bottom of column to the left
+
     -- get current focused window
     local focused_window = hs.window.focusedWindow()
     if not focused_window then
@@ -761,6 +775,10 @@ function obj:slurpWindow()
 end
 
 function obj:barfWindow()
+    -- TODO paperwm behavior:
+    -- remove bottom window of current column
+    -- place window into a new column to the right--
+
     -- get current focused window
     local focused_window = hs.window.focusedWindow()
     if not focused_window then
