@@ -12,7 +12,7 @@ https://user-images.githubusercontent.com/900731/147793584-f937811a-20aa-4282-ba
 ## Installation
 
 1. Install the required
-[hs._asm.undocumented.spaces](https://github.com/asmagill/hs._asm.undocumented.spaces)
+[hs.spaces](https://github.com/asmagill/hammerspoon_asm/tree/master/spaces)
 module.
 
 2. Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is

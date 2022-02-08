@@ -4,8 +4,8 @@
 ---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
 
--- install from https://github.com/asmagill/hs._asm.undocumented.spaces
-local spaces = require("hs._asm.undocumented.spaces")
+-- install from https://github.com/asmagill/hammerspoon_asm/tree/master/spaces
+local spaces = require("hs.spaces")
 
 local obj = {}
 obj.__index = obj
@@ -85,7 +85,7 @@ local prev_focused_id
 
 local function getSpacesList()
     local spaces_list = {}
-    local layout = spaces.layout()
+    local layout = spaces.allSpaces()
     for _, screen in ipairs(hs.screen.allScreens()) do
         for _, space in ipairs(layout[screen:getUUID()]) do
             table.insert(spaces_list, space)
@@ -111,7 +111,7 @@ local function dumpState()
                     window:role(),
                     window:subrole(),
                     window:frame(),
-                    hs.inspect(window:spaces())
+                    hs.inspect(spaces.windowSpaces(window))
                 )
                 local index = index_table[id]
                 obj.logger.df(
@@ -342,13 +342,13 @@ end
 
 function obj:tileWindows(anchor_window)
     if anchor_window then
-        local space = anchor_window:spaces()[1]
+        local space = spaces.windowSpaces(anchor_window)[1]
         if not space then
             self.logger.d("anchor window does not have space")
             return
         end
 
-        if spaces.spaceType(space) ~= spaces.types.user then
+        if spaces.spaceType(space) ~= "user" then
             self.logger.d("current space invalid")
             return -- bail
         end
@@ -370,7 +370,7 @@ function obj:tileWindows(anchor_window)
     else
         for _, windows in pairs(window_list) do
             anchor_window = windows[1][1]
-            local space = anchor_window:spaces()[1]
+            local space = spaces.windowSpaces(anchor_window)[1]
             self:tileSpace(anchor_window, 1, space)
         end
     end
@@ -394,7 +394,7 @@ function obj:refreshWindows()
             -- add window
             self:addWindow(window)
             refresh_needed = true
-        elseif index.space ~= window:spaces()[1] then
+        elseif index.space ~= spaces.windowSpaces(window)[1] then
             -- move to window list in new space
             self:removeWindow(window)
             self:addWindow(window)
@@ -411,7 +411,7 @@ function obj:addWindow(add_window)
         return false
     end
 
-    local space = add_window:spaces()[1]
+    local space = spaces.windowSpaces(add_window)[1]
     if not space then
         self.logger.d("add window does not have a space")
         return false
@@ -834,7 +834,7 @@ function obj:switchToSpace(index)
     end
 
     self.window_filter:pause()
-    spaces.changeToSpace(space)
+    spaces.gotoSpace(space)
     doAfterAnimation(function()
         self.window_filter:resume()
     end)
@@ -859,12 +859,12 @@ function obj:moveWindowToSpace(index)
         return
     end
 
-    if spaces.spaceType(space) ~= spaces.types.user then
+    if spaces.spaceType(space) ~= "user" then
         self.logger.d("space is invalid")
         return
     end
 
-    local screen = hs.screen.find(spaces.spaceScreenUUID(space))
+    local screen = hs.screen.find(spaces.spaceDisplay(space))
     if not screen then
         self.logger.d("screen not found")
         return
@@ -872,8 +872,8 @@ function obj:moveWindowToSpace(index)
 
     self.window_filter:pause()
     self:removeWindow(focused_window)
-    focused_window:spacesMoveTo(space)
-    spaces.changeToSpace(space)
+    spaces.moveWindowToSpace(focused_window, space)
+    spaces.gotoSpace(space)
 
     -- center window
     local work_area = getWorkArea(screen) -- use new screen
