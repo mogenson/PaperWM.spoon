@@ -834,7 +834,7 @@ function obj:switchToSpace(index)
     end
 
     self.window_filter:pause()
-    spaces.changeToSpace(space)
+    spaces.gotoSpace(space)
     doAfterAnimation(function()
         self.window_filter:resume()
     end)
@@ -864,7 +864,7 @@ function obj:moveWindowToSpace(index)
         return
     end
 
-    local screen = hs.screen.find(spaces.spaceScreenUUID(space))
+    local screen = hs.screen.find(spaces.spaceDisplay(space))
     if not screen then
         self.logger.d("screen not found")
         return
@@ -872,8 +872,8 @@ function obj:moveWindowToSpace(index)
 
     self.window_filter:pause()
     self:removeWindow(focused_window)
-    focused_window:spacesMoveTo(space)
-    spaces.changeToSpace(space)
+    spaces.moveWindowToSpace(focused_window, space)
+    spaces.gotoSpace(space)
 
     -- center window
     local work_area = getWorkArea(screen) -- use new screen
