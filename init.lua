@@ -214,7 +214,7 @@ function obj:start()
     self.window_filter:subscribe(hs.window.filter.windowAllowed, function(window, app, event)
         self.logger.d(event .. " for " .. window:title() or app)
         if self:addWindow(window) then
-            self:tileWindows()
+            self:tileWindows(hs.window.get(prev_focused_id))
         end
     end)
 
@@ -223,7 +223,7 @@ function obj:start()
         function(window, app, event)
             self.logger.d(event .. " for " .. window:title() or app)
             if self:removeWindow(window) then
-                self:tileWindows()
+                self:tileWindows(hs.window.get(prev_focused_id))
             end
         end
     )
