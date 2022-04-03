@@ -11,14 +11,10 @@ https://user-images.githubusercontent.com/900731/147793584-f937811a-20aa-4282-ba
 
 ## Installation
 
-1. Install the required
-[hs.spaces](https://github.com/asmagill/hammerspoon_asm/tree/master/spaces)
-module.
-
-2. Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
+1. Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
 located at `~/.hammerspoon/Spoons/PaperWM.spoon/init.lua`.
 
-3. Open `System Preferences` -> `Mission Control`. Uncheck "Automatically
+2. Open `System Preferences` -> `Mission Control`. Uncheck "Automatically
 rearrange Spaces based on most recent use" and check "Displays have separate
 Spaces".
 
