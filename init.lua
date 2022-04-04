@@ -53,7 +53,9 @@ obj.default_hotkeys = {
 -- filter for windows to manage
 obj.window_filter = hs.window.filter.new():setOverrideFilter({
     visible = true,
-    fullscreen = false
+    fullscreen = false,
+    hasTitlebar = true,
+    allowRoles = "AXStandardWindow"
 })
 
 -- number of pixels between windows
