@@ -3,28 +3,28 @@
 --- Tile windows horizontally. Inspired by PaperWM Gnome extension.
 ---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
-local obj = {}
-obj.__index = obj
+local PaperWM = {}
+PaperWM.__index = PaperWM
 
 -- Metadata
-obj.name = "PaperWM"
-obj.version = "0.1"
-obj.author = "Michael Mogenson"
-obj.homepage = "https://github.com/mogenson/PaperWM.spoon"
-obj.license = "MIT - https://opensource.org/licenses/MIT"
+PaperWM.name = "PaperWM"
+PaperWM.version = "0.1"
+PaperWM.author = "Michael Mogenson"
+PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
+PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
 
-obj.default_hotkeys = {
+PaperWM.default_hotkeys = {
     dump_state = {{"ctrl", "alt", "cmd", "shift"}, "d"},
     stop_events = {{"ctrl", "alt", "cmd", "shift"}, "q"},
-    focus_left = {{"ctrl", "alt", "cmd"}, "h"},
-    focus_right = {{"ctrl", "alt", "cmd"}, "l"},
-    focus_up = {{"ctrl", "alt", "cmd"}, "k"},
-    focus_down = {{"ctrl", "alt", "cmd"}, "j"},
-    swap_left = {{"ctrl", "alt", "cmd", "shift"}, "h"},
-    swap_right = {{"ctrl", "alt", "cmd", "shift"}, "l"},
-    swap_up = {{"ctrl", "alt", "cmd", "shift"}, "k"},
-    swap_down = {{"ctrl", "alt", "cmd", "shift"}, "j"},
-    center_window = {{"ctrl", "alt", "cmd"}, "u"},
+    focus_left = {{"ctrl", "alt", "cmd"}, "left"},
+    focus_right = {{"ctrl", "alt", "cmd"}, "right"},
+    focus_up = {{"ctrl", "alt", "cmd"}, "up"},
+    focus_down = {{"ctrl", "alt", "cmd"}, "down"},
+    swap_left = {{"ctrl", "alt", "cmd", "shift"}, "left"},
+    swap_right = {{"ctrl", "alt", "cmd", "shift"}, "right"},
+    swap_up = {{"ctrl", "alt", "cmd", "shift"}, "up"},
+    swap_down = {{"ctrl", "alt", "cmd", "shift"}, "down"},
+    center_window = {{"ctrl", "alt", "cmd"}, "c"},
     full_width = {{"ctrl", "alt", "cmd"}, "f"},
     cycle_width = {{"ctrl", "alt", "cmd"}, "r"},
     cycle_height = {{"ctrl", "alt", "cmd", "shift"}, "r"},
@@ -51,7 +51,7 @@ obj.default_hotkeys = {
 }
 
 -- filter for windows to manage
-obj.window_filter = hs.window.filter.new():setOverrideFilter({
+PaperWM.window_filter = hs.window.filter.new():setOverrideFilter({
     visible = true,
     fullscreen = false,
     hasTitlebar = true,
@@ -59,10 +59,10 @@ obj.window_filter = hs.window.filter.new():setOverrideFilter({
 })
 
 -- number of pixels between windows
-obj.window_gap = 8
+PaperWM.window_gap = 8
 
 -- logger
-obj.logger = hs.logger.new(obj.name)
+PaperWM.logger = hs.logger.new(PaperWM.name)
 
 -- constants
 Direction = {
@@ -93,20 +93,20 @@ local function getSpacesList()
 end
 
 local function dumpState()
-    obj.logger.df("spaces: %s", hs.inspect(getSpacesList()))
+    PaperWM.logger.df("spaces: %s", hs.inspect(getSpacesList()))
 
     for space, windows in pairs(window_list) do
         for x, window_column in ipairs(windows) do
             for y, window in ipairs(window_column) do
                 local id = window:id()
-                obj.logger.df(
+                PaperWM.logger.df(
                     'window_list[%d][%d][%d] = [%d] "%s" -> (%s:%s) %s %s',
                     space, x, y, id, window:title(), window:role(),
                     window:subrole(), window:frame(),
                     hs.inspect(hs.spaces.windowSpaces(window)))
                 local index = index_table[id]
-                obj.logger.df("index_table[%d] = {space=%d, x=%d,y=%d}", id,
-                              index.space, index.x, index.y)
+                PaperWM.logger.df("index_table[%d] = {space=%d, x=%d,y=%d}", id,
+                                  index.space, index.x, index.y)
             end
         end
     end
@@ -114,10 +114,10 @@ end
 
 local function getWorkArea(screen)
     local screen_frame = screen:frame()
-    return hs.geometry.rect(screen_frame.x + obj.window_gap,
-                            screen_frame.y + obj.window_gap,
-                            screen_frame.w - (2 * obj.window_gap),
-                            screen_frame.h - (2 * obj.window_gap))
+    return hs.geometry.rect(screen_frame.x + PaperWM.window_gap,
+                            screen_frame.y + PaperWM.window_gap,
+                            screen_frame.w - (2 * PaperWM.window_gap),
+                            screen_frame.h - (2 * PaperWM.window_gap))
 end
 
 local function doAfterAnimation(fn)
@@ -125,16 +125,16 @@ local function doAfterAnimation(fn)
 end
 
 local function cancelPendingMoveEvents()
-    for window, _ in pairs(obj.window_filter.windows) do
+    for window, _ in pairs(PaperWM.window_filter.windows) do
         if window.movedDelayed then
-            obj.logger.d("cancelled windowMoved for " .. window.title)
+            PaperWM.logger.d("cancelled windowMoved for " .. window.title)
             window.movedDelayed:stop()
             window.movedDelayed = nil
         end
     end
 end
 
-function obj:bindHotkeys(mapping)
+function PaperWM:bindHotkeys(mapping)
     local spec = {
         dump_state = dumpState,
         stop_events = hs.fnutils.partial(self.stop, self),
@@ -177,7 +177,7 @@ function obj:bindHotkeys(mapping)
     hs.spoons.bindHotkeysToSpec(spec, mapping)
 end
 
-function obj:start()
+function PaperWM:start()
     -- clear state
     window_list = {}
     index_table = {}
@@ -225,14 +225,14 @@ function obj:start()
     return self
 end
 
-function obj:stop()
+function PaperWM:stop()
     -- stop events
     self.window_filter:unsubscribeAll()
 
     return self
 end
 
-function obj:tileColumn(windows, bounds, h, w, id, h4id)
+function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
     local last_window, frame
     for _, window in ipairs(windows) do
         frame = window:frame()
@@ -266,7 +266,7 @@ function obj:tileColumn(windows, bounds, h, w, id, h4id)
     return w -- return width of column
 end
 
-function obj:tileSpace(anchor_window, column_index, space)
+function PaperWM:tileSpace(anchor_window, column_index, space)
     -- MacOS doesn't allow windows to be moved off screen
     -- stack windows in a visible margin on either side
     local screen_margin = 40
@@ -336,7 +336,7 @@ function obj:tileSpace(anchor_window, column_index, space)
     end
 end
 
-function obj:tileWindows(anchor_window)
+function PaperWM:tileWindows(anchor_window)
     if anchor_window then
         local space = hs.spaces.windowSpaces(anchor_window)[1]
         if not space then
@@ -379,7 +379,7 @@ function obj:tileWindows(anchor_window)
     doAfterAnimation(cancelPendingMoveEvents)
 end
 
-function obj:refreshWindows()
+function PaperWM:refreshWindows()
     -- get all windows across spaces
     local all_windows = self.window_filter:getWindows()
 
@@ -401,7 +401,7 @@ function obj:refreshWindows()
     return refresh_needed
 end
 
-function obj:addWindow(add_window)
+function PaperWM:addWindow(add_window)
     -- check if window is already in window list
     if index_table[add_window:id()] then return false end
 
@@ -450,7 +450,7 @@ function obj:addWindow(add_window)
     return true
 end
 
-function obj:removeWindow(remove_window)
+function PaperWM:removeWindow(remove_window)
     -- get index of window
     local remove_index = index_table[remove_window:id()]
     if not remove_index then
@@ -495,7 +495,7 @@ function obj:removeWindow(remove_window)
     return true
 end
 
-function obj:focusWindow(direction, focused_index)
+function PaperWM:focusWindow(direction, focused_index)
     if not focused_index then
         -- get current focused window
         local focused_window = hs.window.focusedWindow()
@@ -537,7 +537,7 @@ function obj:focusWindow(direction, focused_index)
     new_focused_window:focus()
 end
 
-function obj:swapWindows(direction)
+function PaperWM:swapWindows(direction)
     -- use focused window as source window
     local focused_window = hs.window.focusedWindow()
     if not focused_window then return end
@@ -641,7 +641,7 @@ function obj:swapWindows(direction)
     self:tileWindows(focused_window)
 end
 
-function obj:centerWindow()
+function PaperWM:centerWindow()
     -- get current focused window
     local focused_window = hs.window.focusedWindow()
     if not focused_window then return end
@@ -659,7 +659,7 @@ function obj:centerWindow()
     self:tileWindows(focused_window)
 end
 
-function obj:setWindowFullWidth()
+function PaperWM:setWindowFullWidth()
     -- get current focused window
     local focused_window = hs.window.focusedWindow()
     if not focused_window then return end
@@ -674,7 +674,7 @@ function obj:setWindowFullWidth()
     self:tileWindows(focused_window)
 end
 
-function obj:cycleWindowSize(direction)
+function PaperWM:cycleWindowSize(direction)
     -- get current focused window
     local focused_window = hs.window.focusedWindow()
     if not focused_window then return end
@@ -721,7 +721,7 @@ function obj:cycleWindowSize(direction)
     self:tileWindows(focused_window)
 end
 
-function obj:slurpWindow()
+function PaperWM:slurpWindow()
     -- TODO paperwm behavior:
     -- add top window from column to the right to bottom of current column
     -- if no colum to the right and current window is only window in current column,
@@ -789,7 +789,7 @@ function obj:slurpWindow()
     self:tileWindows(focused_window)
 end
 
-function obj:barfWindow()
+function PaperWM:barfWindow()
     -- TODO paperwm behavior:
     -- remove bottom window of current column
     -- place window into a new column to the right--
@@ -851,7 +851,7 @@ function obj:barfWindow()
     self:tileWindows(focused_window)
 end
 
-function obj:switchToSpace(index)
+function PaperWM:switchToSpace(index)
     local space = getSpacesList()[index]
     if not space then
         self.logger.d("space not found")
@@ -863,7 +863,7 @@ function obj:switchToSpace(index)
     doAfterAnimation(function() self.window_filter:resume() end)
 end
 
-function obj:moveWindowToSpace(index)
+function PaperWM:moveWindowToSpace(index)
     local focused_window = hs.window.focusedWindow()
     if not focused_window then
         self.logger.d("focused window not found")
@@ -921,4 +921,4 @@ function obj:moveWindowToSpace(index)
     end)
 end
 
-return obj
+return PaperWM
