@@ -78,7 +78,7 @@ local window_list = {} -- 3D array of tiles in order of [space][x][y]
 local index_table = {} -- dictionary of {space, x, y} with window id for keys
 
 -- id of previously focused window
-local prev_focused_id
+local prev_focused_id = nil
 
 local function getSpace(index)
     local layout = hs.spaces.allSpaces()
@@ -432,9 +432,10 @@ function PaperWM:addWindow(add_window)
     updateIndexTable(space, add_index)
 
     -- move window to right of prev focused
-    if prev_focused_id and space == index_table[prev_focused_id].space then
+    local prev_window = hs.window.get(prev_focused_id)
+    if prev_window and space == index_table[prev_focused_id].space then
         local add_frame = add_window:frame()
-        local prev_frame = hs.window.get(prev_focused_id):frame()
+        local prev_frame = prev_window:frame()
         add_frame.x = prev_frame.x2 + self.window_gap
         add_window:setFrame(add_frame)
     end
