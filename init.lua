@@ -1,14 +1,50 @@
---- === PaperWM ===
+--- === PaperWM.spoon ===
 ---
 --- Tile windows horizontally. Inspired by PaperWM Gnome extension.
 ---
+--- # Usage
+---
+--- `PaperWM:start()` will begin automatically tiling new and existing windows.
+--- `PaperWM:stop()` will release control over windows.
+---
+--- Set `PaperWM.window_gap` to the number of pixels to space between windows and
+--- the top and bottom screen edges.
+---
+--- Overwrite `PaperWM.window_filter` to ignore specific applications. For example:
+---
+--- ```
+--- PaperWM.window_filter = PaperWM.window_filter:setAppFilter("Finder", false)
+--- PaperWM:start() -- restart for new window filter to take effect
+--- ```
+---
+--- # Limitations
+---
+--- MacOS does not allow a window to be moved fully off-screen. Windows that would
+--- be tiled off-screen are placed in a margin on the left and right edge of the
+--- screen. They are still visible and clickable.
+---
+--- It's difficult to detect when a window is dragged from one space or screen to
+--- another. Use the move_window_N commands to move windows between spaces and
+--- screens.
+---
+--- Arrange screens vertically to prevent windows from bleeding into other screens.
+---
+---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
+local WindowFilter<const> = hs.window.filter
+local Window<const> = hs.window
+local Spaces<const> = hs.spaces
+local Screen<const> = hs.screen
+local DoAfter<const> = hs.timer.doAfter
+local Rect<const> = hs.geometry.rect
+local Watcher<const> = hs.uielement.watcher
+
 local PaperWM = {}
 PaperWM.__index = PaperWM
 
 -- Metadata
 PaperWM.name = "PaperWM"
-PaperWM.version = "0.2"
+PaperWM.version = "0.3"
 PaperWM.author = "Michael Mogenson"
 PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
@@ -50,7 +86,7 @@ PaperWM.default_hotkeys = {
 }
 
 -- filter for windows to manage
-PaperWM.window_filter = hs.window.filter.new():setOverrideFilter({
+PaperWM.window_filter = WindowFilter.new():setOverrideFilter({
     visible = true,
     fullscreen = false,
     hasTitlebar = true,
@@ -64,112 +100,113 @@ PaperWM.window_gap = 8
 PaperWM.logger = hs.logger.new(PaperWM.name)
 
 -- constants
-Direction = {
-    ["LEFT"] = -1,
-    ["RIGHT"] = 1,
-    ["UP"] = -2,
-    ["DOWN"] = 2,
-    ["WIDTH"] = 3,
-    ["HEIGHT"] = 4
+local Direction<const> = {
+    LEFT = -1,
+    RIGHT = 1,
+    UP = -2,
+    DOWN = 2,
+    WIDTH = 3,
+    HEIGHT = 4
 }
 
 -- array of windows sorted from left to right
 local window_list = {} -- 3D array of tiles in order of [space][x][y]
 local index_table = {} -- dictionary of {space, x, y} with window id for keys
+local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
 
--- id of previously focused window
-local prev_focused_id = nil
+-- current focused window
+local focused_window = nil
 
 local function getSpace(index)
-    local layout = hs.spaces.allSpaces()
-    for _, screen in ipairs(hs.screen.allScreens()) do
+    local layout = Spaces.allSpaces()
+    for _, screen in ipairs(Screen.allScreens()) do
         local screen_uuid = screen:getUUID()
         local num_spaces = #layout[screen_uuid]
         if num_spaces >= index then return layout[screen_uuid][index] end
         index = index - num_spaces
     end
-    return nil
 end
 
-local function getWindow(space, x, y)
-    return ((window_list[space] or {})[x] or {})[y]
+local function getFirstVisibleWindow(columns, screen)
+    local x = screen:frame().x
+    for _, windows in ipairs(columns or {}) do
+        local window = windows[1] -- take first window in column
+        if window:frame().x >= x then return window end
+    end
 end
 
-local function getWorkArea(screen)
+local function getColumn(space, col) return (window_list[space] or {})[col] end
+
+local function getWindow(space, col, row)
+    return (getColumn(space, col) or {})[row]
+end
+
+local function getCanvas(screen)
     local screen_frame = screen:frame()
-    return hs.geometry.rect(screen_frame.x + PaperWM.window_gap,
-                            screen_frame.y + PaperWM.window_gap,
-                            screen_frame.w - (2 * PaperWM.window_gap),
-                            screen_frame.h - (2 * PaperWM.window_gap))
+    return Rect(screen_frame.x + PaperWM.window_gap,
+                screen_frame.y + PaperWM.window_gap,
+                screen_frame.w - (2 * PaperWM.window_gap),
+                screen_frame.h - (2 * PaperWM.window_gap))
 end
 
-local function updateIndexTable(space, x)
-    for col = x, #window_list[space] do
-        for row, window in ipairs(window_list[space][col]) do
-            index_table[window:id()] = {space = space, x = col, y = row}
+local function updateIndexTable(space, column)
+    local columns = window_list[space] or {}
+    for col = column, #columns do
+        for row, window in ipairs(getColumn(space, col)) do
+            index_table[window:id()] = {space = space, col = col, row = row}
         end
     end
 end
 
-local function doAfterAnimation(fn)
-    hs.timer.doAfter(1.5 * hs.window.animationDuration, fn)
-end
-
-local function cancelPendingMoveEvents()
-    for window, _ in pairs(PaperWM.window_filter.windows) do
-        if window.movedDelayed then
-            PaperWM.logger.d("cancelled windowMoved for " .. window.title)
-            window.movedDelayed:stop()
-            window.movedDelayed = nil
-        end
-    end
+local function windowMovedHandler(window, event, watcher, self)
+    self.logger.df("%s for %s", event, window)
+    local space = Spaces.windowSpaces(window)[1]
+    self:tileSpace(space)
 end
 
 function PaperWM:bindHotkeys(mapping)
+    local partial = hs.fnutils.partial
     local spec = {
-        stop_events = hs.fnutils.partial(self.stop, self),
-        focus_left = hs.fnutils.partial(self.focusWindow, self, Direction.LEFT),
-        focus_right = hs.fnutils
-            .partial(self.focusWindow, self, Direction.RIGHT),
-        focus_up = hs.fnutils.partial(self.focusWindow, self, Direction.UP),
-        focus_down = hs.fnutils.partial(self.focusWindow, self, Direction.DOWN),
-        swap_left = hs.fnutils.partial(self.swapWindows, self, Direction.LEFT),
-        swap_right = hs.fnutils.partial(self.swapWindows, self, Direction.RIGHT),
-        swap_up = hs.fnutils.partial(self.swapWindows, self, Direction.UP),
-        swap_down = hs.fnutils.partial(self.swapWindows, self, Direction.DOWN),
-        center_window = hs.fnutils.partial(self.centerWindow, self),
-        full_width = hs.fnutils.partial(self.setWindowFullWidth, self),
-        cycle_width = hs.fnutils.partial(self.cycleWindowSize, self,
-                                         Direction.WIDTH),
-        cycle_height = hs.fnutils.partial(self.cycleWindowSize, self,
-                                          Direction.HEIGHT),
-        slurp_in = hs.fnutils.partial(self.slurpWindow, self),
-        barf_out = hs.fnutils.partial(self.barfWindow, self),
-        switch_space_1 = hs.fnutils.partial(self.switchToSpace, self, 1),
-        switch_space_2 = hs.fnutils.partial(self.switchToSpace, self, 2),
-        switch_space_3 = hs.fnutils.partial(self.switchToSpace, self, 3),
-        switch_space_4 = hs.fnutils.partial(self.switchToSpace, self, 4),
-        switch_space_5 = hs.fnutils.partial(self.switchToSpace, self, 5),
-        switch_space_6 = hs.fnutils.partial(self.switchToSpace, self, 6),
-        switch_space_7 = hs.fnutils.partial(self.switchToSpace, self, 7),
-        switch_space_8 = hs.fnutils.partial(self.switchToSpace, self, 8),
-        switch_space_9 = hs.fnutils.partial(self.switchToSpace, self, 9),
-        move_window_1 = hs.fnutils.partial(self.moveWindowToSpace, self, 1),
-        move_window_2 = hs.fnutils.partial(self.moveWindowToSpace, self, 2),
-        move_window_3 = hs.fnutils.partial(self.moveWindowToSpace, self, 3),
-        move_window_4 = hs.fnutils.partial(self.moveWindowToSpace, self, 4),
-        move_window_5 = hs.fnutils.partial(self.moveWindowToSpace, self, 5),
-        move_window_6 = hs.fnutils.partial(self.moveWindowToSpace, self, 6),
-        move_window_7 = hs.fnutils.partial(self.moveWindowToSpace, self, 7),
-        move_window_8 = hs.fnutils.partial(self.moveWindowToSpace, self, 8),
-        move_window_9 = hs.fnutils.partial(self.moveWindowToSpace, self, 9)
+        stop_events = partial(self.stop, self),
+        focus_left = partial(self.focusWindow, self, Direction.LEFT),
+        focus_right = partial(self.focusWindow, self, Direction.RIGHT),
+        focus_up = partial(self.focusWindow, self, Direction.UP),
+        focus_down = partial(self.focusWindow, self, Direction.DOWN),
+        swap_left = partial(self.swapWindows, self, Direction.LEFT),
+        swap_right = partial(self.swapWindows, self, Direction.RIGHT),
+        swap_up = partial(self.swapWindows, self, Direction.UP),
+        swap_down = partial(self.swapWindows, self, Direction.DOWN),
+        center_window = partial(self.centerWindow, self),
+        full_width = partial(self.setWindowFullWidth, self),
+        cycle_width = partial(self.cycleWindowSize, self, Direction.WIDTH),
+        cycle_height = partial(self.cycleWindowSize, self, Direction.HEIGHT),
+        slurp_in = partial(self.slurpWindow, self),
+        barf_out = partial(self.barfWindow, self),
+        switch_space_1 = partial(self.switchToSpace, self, 1),
+        switch_space_2 = partial(self.switchToSpace, self, 2),
+        switch_space_3 = partial(self.switchToSpace, self, 3),
+        switch_space_4 = partial(self.switchToSpace, self, 4),
+        switch_space_5 = partial(self.switchToSpace, self, 5),
+        switch_space_6 = partial(self.switchToSpace, self, 6),
+        switch_space_7 = partial(self.switchToSpace, self, 7),
+        switch_space_8 = partial(self.switchToSpace, self, 8),
+        switch_space_9 = partial(self.switchToSpace, self, 9),
+        move_window_1 = partial(self.moveWindowToSpace, self, 1),
+        move_window_2 = partial(self.moveWindowToSpace, self, 2),
+        move_window_3 = partial(self.moveWindowToSpace, self, 3),
+        move_window_4 = partial(self.moveWindowToSpace, self, 4),
+        move_window_5 = partial(self.moveWindowToSpace, self, 5),
+        move_window_6 = partial(self.moveWindowToSpace, self, 6),
+        move_window_7 = partial(self.moveWindowToSpace, self, 7),
+        move_window_8 = partial(self.moveWindowToSpace, self, 8),
+        move_window_9 = partial(self.moveWindowToSpace, self, 9)
     }
     hs.spoons.bindHotkeysToSpec(spec, mapping)
 end
 
 function PaperWM:start()
     -- check for some settings
-    if not hs.spaces.screensHaveSeparateSpaces() then
+    if not Spaces.screensHaveSeparateSpaces() then
         self.logger.e(
             "please check 'Displays have separate Spaces' in System Preferences -> Mission Control")
     end
@@ -177,47 +214,37 @@ function PaperWM:start()
     -- clear state
     window_list = {}
     index_table = {}
+    ui_watchers = {}
 
-    -- populate window list and index table
+    -- populate window list, index table, and ui_watchers
     self:refreshWindows()
 
     -- set initial layout
-    self:tileWindows()
+    for space, _ in pairs(window_list) do self:tileSpace(space) end
 
     -- listen for window events
-    self.window_filter:subscribe({
-        hs.window.filter.windowFocused, hs.window.filter.windowMoved
-    }, function(window, app, event)
-        self.logger.d(event .. " for " .. window:title() or app)
-        self:tileWindows(window)
-        prev_focused_id = window:id()
-    end)
-
-    self.window_filter:subscribe(hs.window.filter.windowAllowed,
+    self.window_filter:subscribe(WindowFilter.windowFocused,
                                  function(window, app, event)
-        self.logger.d(event .. " for " .. window:title() or app)
-        if self:addWindow(window) then
-            self:tileWindows(hs.window.get(prev_focused_id))
-        end
+        self.logger.df("%s for %s", event, window or app)
+        focused_window = window -- windowVisible event happens before windowFocused
+        local space = Spaces.windowSpaces(window)[1]
+        self:tileSpace(space)
     end)
 
     self.window_filter:subscribe({
-        hs.window.filter.windowNotVisible, hs.window.filter.windowFullscreened
+        WindowFilter.windowVisible, WindowFilter.windowUnfullscreened
     }, function(window, app, event)
-        self.logger.d(event .. " for " .. window:title() or app)
-        if self:removeWindow(window) then
-            self:tileWindows(hs.window.get(prev_focused_id))
-        end
+        self.logger.df("%s for %s", event, window or app)
+        local space = self:addWindow(window)
+        if space then self:tileSpace(space) end
     end)
 
     self.window_filter:subscribe({
-        hs.window.filter.windowNotInCurrentSpace,
-        hs.window.filter.windowInCurrentSpace
+        WindowFilter.windowNotVisible, WindowFilter.windowFullscreened
     }, function(window, app, event)
-        self.logger.d(event .. " for " .. window:title() or app)
-        if self:refreshWindows() then
-            self:tileWindows(hs.window.focusedWindow())
-        end
+        self.logger.df("%s for %s", event, window or app)
+        local space = self:removeWindow(window) -- destroyed windows don't have a space
+        if space then self:tileSpace(space) end
     end)
 
     return self
@@ -226,6 +253,7 @@ end
 function PaperWM:stop()
     -- stop events
     self.window_filter:unsubscribeAll()
+    for _, watcher in pairs(ui_watchers) do watcher:stop() end
 
     return self
 end
@@ -235,14 +263,12 @@ function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
     for _, window in ipairs(windows) do
         frame = window:frame()
         w = w or frame.w -- take given width or width of first window
-        -- set either left or right x coord
-        if bounds.x then
+        if bounds.x then -- set either left or right x coord
             frame.x = bounds.x
         elseif bounds.x2 then
             frame.x = bounds.x2 - w
         end
-        -- set height if given
-        if h then
+        if h then -- set height if given
             if id and h4id and window:id() == id then
                 frame.h = h4id -- use this height for window with id
             else
@@ -252,129 +278,108 @@ function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
         frame.y = bounds.y
         frame.w = w
         frame.y2 = math.min(frame.y2, bounds.y2) -- don't overflow bottom of bounds
-        window:setFrame(frame)
+        self:moveWindow(window, frame)
         bounds.y = math.min(frame.y2 + self.window_gap, bounds.y2)
         last_window = window
     end
     -- expand last window height to bottom
     if frame.y2 ~= bounds.y2 then
         frame.y2 = bounds.y2
-        last_window:setFrame(frame)
+        self:moveWindow(last_window, frame)
     end
     return w -- return width of column
 end
 
-function PaperWM:tileSpace(anchor_window, column_index, space)
+function PaperWM:tileSpace(space)
     -- MacOS doesn't allow windows to be moved off screen
     -- stack windows in a visible margin on either side
-    local screen_margin = 40
+    local screen_margin<const> = 40
 
-    -- get some global coordinates
-    local screen = anchor_window:screen()
-    local screen_frame = screen:frame()
-    local left_margin = screen_frame.x + screen_margin
-    local right_margin = screen_frame.x2 - screen_margin
-    local work_area = getWorkArea(screen)
-
-    -- adjust anchor window
-    local anchor_frame = anchor_window:frame()
-    anchor_frame.x = math.max(anchor_frame.x, work_area.x)
-    anchor_frame.w = math.min(anchor_frame.w, work_area.w)
-    anchor_frame.h = math.min(anchor_frame.h, work_area.h)
-    if anchor_frame.x2 > work_area.x2 then
-        anchor_frame.x = work_area.x2 - anchor_frame.w
+    if not space or Spaces.spaceType(space) ~= "user" then
+        self.logger.e("current space invalid")
+        return
     end
 
-    -- TODO: need a min window height
+    -- find screen for space
+    local screen = Screen(Spaces.spaceDisplay(space))
+    if not screen then
+        self.logger.e("no screen for space")
+        return
+    end
+
+    -- if focused window is in space, tile from that
+    focused_window = focused_window or Window.focusedWindow()
+    local anchor_window = (focused_window and
+                              (Spaces.windowSpaces(focused_window)[1] == space)) and
+                              focused_window or
+                              getFirstVisibleWindow(window_list[space], screen)
+
+    if not anchor_window then
+        self.logger.e("no anchor window in space")
+        return
+    end
+
+    local anchor_index = index_table[anchor_window:id()]
+    if not anchor_index then
+        self.logger.e("anchor index not found")
+        return -- bail
+    end
+
+    -- get some global coordinates
+    local screen_frame<const> = screen:frame()
+    local left_margin<const> = screen_frame.x + screen_margin
+    local right_margin<const> = screen_frame.x2 - screen_margin
+    local canvas<const> = getCanvas(screen)
+
+    -- make sure anchor window is on screen
+    local anchor_frame = anchor_window:frame()
+    anchor_frame.x = math.max(anchor_frame.x, canvas.x)
+    anchor_frame.w = math.min(anchor_frame.w, canvas.w)
+    anchor_frame.h = math.min(anchor_frame.h, canvas.h)
+    if anchor_frame.x2 > canvas.x2 then
+        anchor_frame.x = canvas.x2 - anchor_frame.w
+    end
+
     -- adjust anchor window column
-    local column = window_list[space][column_index]
+    local column = getColumn(space, anchor_index.col)
+    if not column then
+        self.logger.e("no anchor window column")
+        return
+    end
+
+    -- TODO: need a minimum window height
     if #column == 1 then
-        anchor_frame.y, anchor_frame.h = work_area.y, work_area.h
-        anchor_window:setFrame(anchor_frame)
+        anchor_frame.y, anchor_frame.h = canvas.y, canvas.h
+        self:moveWindow(anchor_window, anchor_frame)
     else
         local n = #column - 1 -- number of other windows in column
-        local target_h = math.max(0, work_area.h - anchor_frame.h -
-                                      (n * self.window_gap)) // n
+        local h =
+            math.max(0, canvas.h - anchor_frame.h - (n * self.window_gap)) // n
         local bounds = {
             x = anchor_frame.x,
             x2 = nil,
-            y = work_area.y,
-            y2 = work_area.y2
+            y = canvas.y,
+            y2 = canvas.y2
         }
-        self:tileColumn(column, bounds, target_h, anchor_frame.w,
-                        anchor_window:id(), anchor_frame.h)
+        self:tileColumn(column, bounds, h, anchor_frame.w, anchor_window:id(),
+                        anchor_frame.h)
     end
 
     -- tile windows from anchor right
-    local target_x = math.min(anchor_frame.x2 + self.window_gap, right_margin)
-    for x = column_index + 1, #window_list[space] do
-        local bounds = {
-            x = target_x,
-            x2 = nil,
-            y = work_area.y,
-            y2 = work_area.y2
-        }
-        local column_width = self:tileColumn(window_list[space][x], bounds)
-        target_x = math.min(target_x + column_width + self.window_gap,
-                            right_margin)
+    local x = math.min(anchor_frame.x2 + self.window_gap, right_margin)
+    for col = anchor_index.col + 1, #(window_list[space] or {}) do
+        local bounds = {x = x, x2 = nil, y = canvas.y, y2 = canvas.y2}
+        local column_width = self:tileColumn(getColumn(space, col), bounds)
+        x = math.min(x + column_width + self.window_gap, right_margin)
     end
 
     -- tile windows from anchor left
-    local target_x2 = math.max(anchor_frame.x - self.window_gap, left_margin)
-    for x = column_index - 1, 1, -1 do
-        local bounds = {
-            x = nil,
-            x2 = target_x2,
-            y = work_area.y,
-            y2 = work_area.y2
-        }
-        local column_width = self:tileColumn(window_list[space][x], bounds)
-        target_x2 = math.max(target_x2 - column_width - self.window_gap,
-                             left_margin)
+    local x2 = math.max(anchor_frame.x - self.window_gap, left_margin)
+    for col = anchor_index.col - 1, 1, -1 do
+        local bounds = {x = nil, x2 = x2, y = canvas.y, y2 = canvas.y2}
+        local column_width = self:tileColumn(getColumn(space, col), bounds)
+        x2 = math.max(x2 - column_width - self.window_gap, left_margin)
     end
-end
-
-function PaperWM:tileWindows(anchor_window)
-    if anchor_window then
-        local space = hs.spaces.windowSpaces(anchor_window)[1]
-        if not space then
-            self.logger.d("anchor window does not have space")
-            return
-        end
-
-        if hs.spaces.spaceType(space) ~= "user" then
-            self.logger.d("current space invalid")
-            return -- bail
-        end
-
-        -- TODO: seems finicky
-        -- if space ~= hs.spaces.currentSpace() then
-        --     self.logger.d("window not in current space")
-        --     return
-        -- end
-
-        -- find anchor window index
-        local anchor_index = index_table[anchor_window:id()]
-        if not anchor_index then
-            self.logger.d("anchor index not found")
-            return -- bail
-        end
-
-        self:tileSpace(anchor_window, anchor_index.x, space)
-    else
-        for _, windows in pairs(window_list) do
-            anchor_window = windows[1][1]
-            local space = hs.spaces.windowSpaces(anchor_window)[1]
-            self:tileSpace(anchor_window, 1, space)
-        end
-    end
-
-    if self.window_filter.pending then
-        self.logger.d("cancelled pending events")
-        self.window_filter.pending = {}
-    end
-
-    doAfterAnimation(cancelPendingMoveEvents)
 end
 
 function PaperWM:refreshWindows()
@@ -388,7 +393,7 @@ function PaperWM:refreshWindows()
             -- add window
             self:addWindow(window)
             refresh_needed = true
-        elseif index.space ~= hs.spaces.windowSpaces(window)[1] then
+        elseif index.space ~= Spaces.windowSpaces(window)[1] then
             -- move to window list in new space
             self:removeWindow(window)
             self:addWindow(window)
@@ -401,165 +406,167 @@ end
 
 function PaperWM:addWindow(add_window)
     -- check if window is already in window list
-    if index_table[add_window:id()] then return false end
+    if index_table[add_window:id()] then return end
 
-    local space = hs.spaces.windowSpaces(add_window)[1]
+    local space = Spaces.windowSpaces(add_window)[1]
     if not space then
-        self.logger.d("add window does not have a space")
-        return false
+        self.logger.e("add window does not have a space")
+        return
     end
     if not window_list[space] then window_list[space] = {} end
 
     -- find where to insert window
-    local add_index = 1
-    local prev_index = index_table[prev_focused_id]
-    if prev_index and prev_index.space == space then
-        add_index = prev_index.x + 1 -- insert to the right
+    local add_column = 1
+
+    -- when addWindow() is called from a window created event:
+    -- focused_window from previous window focused event will not be add_window
+    -- hs.window.focusedWindow() will return add_window
+    -- new window focused event for add_window has not happened yet
+    if focused_window and
+        ((index_table[focused_window:id()] or {}).space == space) and
+        (focused_window:id() ~= add_window:id()) then
+        add_column = index_table[focused_window:id()].col + 1 -- insert to the right
     else
-        local add_x = add_window:frame().center.x
-        for index, column in ipairs(window_list[space]) do
-            if add_x < column[1]:frame().center.x then
-                add_index = index
+        local x = add_window:frame().center.x
+        for col, windows in ipairs(window_list[space]) do
+            if x < windows[1]:frame().center.x then
+                add_column = col
                 break
             end
         end
     end
 
     -- add window
-    table.insert(window_list[space], add_index, {add_window})
+    table.insert(window_list[space], add_column, {add_window})
 
     -- update index table
-    updateIndexTable(space, add_index)
+    updateIndexTable(space, add_column)
 
-    -- move window to right of prev focused
-    local prev_window = hs.window.get(prev_focused_id)
-    if prev_window and space == index_table[prev_focused_id].space then
-        local add_frame = add_window:frame()
-        local prev_frame = prev_window:frame()
-        add_frame.x = prev_frame.x2 + self.window_gap
-        add_window:setFrame(add_frame)
-    end
+    -- subscribe to window moved events
+    local watcher = add_window:newWatcher(windowMovedHandler, self)
+    watcher:start({Watcher.windowMoved, Watcher.windowResized})
+    ui_watchers[add_window:id()] = watcher
 
-    prev_focused_id = add_window:id()
-
-    return true
+    return space
 end
 
 function PaperWM:removeWindow(remove_window)
     -- get index of window
     local remove_index = index_table[remove_window:id()]
     if not remove_index then
-        self.logger.d("remove index not found")
-        return false
+        self.logger.e("remove index not found")
+        return
     end
 
-    -- find new focused window
-    if prev_focused_id == remove_window:id() then
-        prev_focused_id = nil
-        for _, direction in ipairs({
+    -- clear prev focused window
+    if focused_window and focused_window:id() == remove_window:id() then
+        focused_window = nil -- MacOS will focus a window of the same app
+        for _, direction in ipairs({ -- find nearby window of any app to focus
             Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
-        }) do
-            self:focusWindow(direction, remove_index)
-            if prev_focused_id then break end
-        end
+        }) do if self:focusWindow(direction, remove_index) then break end end
     end
 
     -- remove window
-    table.remove(window_list[remove_index.space][remove_index.x], remove_index.y)
-    if #window_list[remove_index.space][remove_index.x] == 0 then
-        table.remove(window_list[remove_index.space], remove_index.x)
+    table.remove(window_list[remove_index.space][remove_index.col],
+                 remove_index.row)
+    if #window_list[remove_index.space][remove_index.col] == 0 then
+        table.remove(window_list[remove_index.space], remove_index.col)
     end
+
+    -- remove watcher
+    ui_watchers[remove_window:id()] = nil
 
     -- update index table
     index_table[remove_window:id()] = nil
-    updateIndexTable(remove_index.space, remove_index.x)
+    updateIndexTable(remove_index.space, remove_index.col)
 
     -- remove if space is empty
     if #window_list[remove_index.space] == 0 then
         window_list[remove_index.space] = nil
     end
 
-    return true
+    return remove_index.space -- return space for removed window
 end
 
 function PaperWM:focusWindow(direction, focused_index)
     if not focused_index then
         -- get current focused window
-        local focused_window = hs.window.focusedWindow()
-        if not focused_window then return end
+        focused_window = focused_window or Window.focusedWindow()
+        if not focused_window then return false end
 
         -- get focused window index
         focused_index = index_table[focused_window:id()]
     end
 
     if not focused_index then
-        self.logger.d("focused index not found")
-        return
+        self.logger.e("focused index not found")
+        return false
     end
 
     -- get new focused window
     local new_focused_window
     if direction == Direction.LEFT or direction == Direction.RIGHT then
         -- walk down column, looking for match in neighbor column
-        for y = focused_index.y, 1, -1 do
+        for row = focused_index.row, 1, -1 do
             new_focused_window = getWindow(focused_index.space,
-                                           focused_index.x + direction, y)
+                                           focused_index.col + direction, row)
             if new_focused_window then break end
         end
     elseif direction == Direction.UP or direction == Direction.DOWN then
-        new_focused_window = getWindow(focused_index.space, focused_index.x,
-                                       focused_index.y + (direction // 2))
+        new_focused_window = getWindow(focused_index.space, focused_index.col,
+                                       focused_index.row + (direction // 2))
     end
 
     if not new_focused_window then
         self.logger.d("new focused window not found")
-        return
+        return false
     end
 
     -- focus new window, windowFocused event will be emited immediately
-    prev_focused_id = new_focused_window:id()
     new_focused_window:focus()
+    return true
 end
 
 function PaperWM:swapWindows(direction)
     -- use focused window as source window
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
     -- get focused window index
     local focused_index = index_table[focused_window:id()]
     if not focused_index then
-        self.logger.d("focused index not found")
+        self.logger.e("focused index not found")
         return
     end
 
     if direction == Direction.LEFT or direction == Direction.RIGHT then
         -- get target windows
-        local target_index = {x = focused_index.x + direction}
-        local target_column = window_list[focused_index.space][target_index.x]
+        local target_index = {col = focused_index.col + direction}
+        local target_column = window_list[focused_index.space][target_index.col]
         if not target_column then
             self.logger.d("target column not found")
             return
         end
 
         -- swap place in window list
-        local focused_column = window_list[focused_index.space][focused_index.x]
-        window_list[focused_index.space][target_index.x] = focused_column
-        window_list[focused_index.space][focused_index.x] = target_column
+        local focused_column =
+            window_list[focused_index.space][focused_index.col]
+        window_list[focused_index.space][target_index.col] = focused_column
+        window_list[focused_index.space][focused_index.col] = target_column
 
         -- update index table
-        for y, window in ipairs(target_column) do
+        for row, window in ipairs(target_column) do
             index_table[window:id()] = {
                 space = focused_index.space,
-                x = focused_index.x,
-                y = y
+                col = focused_index.col,
+                row = row
             }
         end
-        for y, window in ipairs(focused_column) do
+        for row, window in ipairs(focused_column) do
             index_table[window:id()] = {
                 space = focused_index.space,
-                x = target_index.x,
-                y = y
+                col = target_index.col,
+                row = row
             }
         end
 
@@ -576,31 +583,31 @@ function PaperWM:swapWindows(direction)
         for _, window in ipairs(target_column) do
             local frame = window:frame()
             frame.x = target_frame.x
-            window:setFrame(frame)
+            self:moveWindow(window, frame)
         end
         for _, window in ipairs(focused_column) do
             local frame = window:frame()
             frame.x = focused_frame.x
-            window:setFrame(frame)
+            self:moveWindow(window, frame)
         end
     elseif direction == Direction.UP or direction == Direction.DOWN then
         -- get target window
         local target_index = {
             space = focused_index.space,
-            x = focused_index.x,
-            y = focused_index.y + (direction // 2)
+            col = focused_index.col,
+            row = focused_index.row + (direction // 2)
         }
-        local target_window = getWindow(target_index.space, target_index.x,
-                                        target_index.y)
+        local target_window = getWindow(target_index.space, target_index.col,
+                                        target_index.row)
         if not target_window then
             self.logger.d("target window not found")
             return
         end
 
         -- swap places in window list
-        window_list[target_index.space][target_index.x][target_index.y] =
+        window_list[target_index.space][target_index.col][target_index.row] =
             focused_window
-        window_list[focused_index.space][focused_index.x][focused_index.y] =
+        window_list[focused_index.space][focused_index.col][focused_index.row] =
             target_window
 
         -- update index table
@@ -617,17 +624,17 @@ function PaperWM:swapWindows(direction)
             target_frame.y = focused_frame.y
             focused_frame.y = target_frame.y2 + self.window_gap
         end
-        focused_window:setFrame(focused_frame)
-        target_window:setFrame(target_frame)
+        self:moveWindow(focused_window, focused_frame)
+        self:moveWindow(target_window, target_frame)
     end
 
     -- update layout
-    self:tileWindows(focused_window)
+    self:tileSpace(focused_index.space)
 end
 
 function PaperWM:centerWindow()
     -- get current focused window
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
     -- get global coordinates
@@ -637,35 +644,37 @@ function PaperWM:centerWindow()
     -- center window
     focused_frame.x = screen_frame.x + (screen_frame.w // 2) -
                           (focused_frame.w // 2)
-    focused_window:setFrame(focused_frame)
+    self:moveWindow(focused_window, focused_frame)
 
     -- update layout
-    self:tileWindows(focused_window)
+    local space = Spaces.windowSpaces(focused_window)[1]
+    self:tileSpace(space)
 end
 
 function PaperWM:setWindowFullWidth()
     -- get current focused window
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
     -- fullscreen window width
-    local work_area = getWorkArea(focused_window:screen())
+    local canvas = getCanvas(focused_window:screen())
     local focused_frame = focused_window:frame()
-    focused_frame.x, focused_frame.w = work_area.x, work_area.w
-    focused_window:setFrame(focused_frame)
+    focused_frame.x, focused_frame.w = canvas.x, canvas.w
+    self:moveWindow(focused_window, focused_frame)
 
     -- update layout
-    self:tileWindows(focused_window)
+    local space = Spaces.windowSpaces(focused_window)[1]
+    self:tileSpace(space)
 end
 
 function PaperWM:cycleWindowSize(direction)
     -- get current focused window
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
     local function findNewSize(area_size, frame_size)
         -- calculate pixel widths from ratios
-        local sizes = {0.38195, 0.5, 0.61804}
+        local sizes<const> = {0.38195, 0.5, 0.61804}
         for index, size in ipairs(sizes) do
             sizes[index] = size * area_size
         end
@@ -682,27 +691,28 @@ function PaperWM:cycleWindowSize(direction)
         return new_size
     end
 
-    local work_area = getWorkArea(focused_window:screen())
+    local canvas = getCanvas(focused_window:screen())
     local focused_frame = focused_window:frame()
 
     if direction == Direction.WIDTH then
-        local new_width = findNewSize(work_area.w, focused_frame.w)
+        local new_width = findNewSize(canvas.w, focused_frame.w)
         focused_frame.x = focused_frame.x + ((focused_frame.w - new_width) // 2)
         focused_frame.w = new_width
     elseif direction == Direction.HEIGHT then
-        local new_height = findNewSize(work_area.h, focused_frame.h)
-        focused_frame.y = math.max(work_area.y, focused_frame.y +
+        local new_height = findNewSize(canvas.h, focused_frame.h)
+        focused_frame.y = math.max(canvas.y, focused_frame.y +
                                        ((focused_frame.h - new_height) // 2))
         focused_frame.h = new_height
         focused_frame.y = focused_frame.y -
-                              math.max(0, focused_frame.y2 - work_area.y2)
+                              math.max(0, focused_frame.y2 - canvas.y2)
     end
 
     -- apply new size
-    focused_window:setFrame(focused_frame)
+    self:moveWindow(focused_window, focused_frame)
 
     -- update layout
-    self:tileWindows(focused_window)
+    local space = Spaces.windowSpaces(focused_window)[1]
+    self:tileSpace(space)
 end
 
 function PaperWM:slurpWindow()
@@ -712,28 +722,28 @@ function PaperWM:slurpWindow()
     -- add current window to bottom of column to the left
 
     -- get current focused window
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
     -- get window index
     local focused_index = index_table[focused_window:id()]
     if not focused_index then
-        self.logger.d("focused index not found")
+        self.logger.e("focused index not found")
         return
     end
 
     -- get column to left
-    local column = window_list[focused_index.space][focused_index.x - 1]
+    local column = window_list[focused_index.space][focused_index.col - 1]
     if not column then
         self.logger.d("column not found")
         return
     end
 
     -- remove window
-    table.remove(window_list[focused_index.space][focused_index.x],
-                 focused_index.y)
-    if #window_list[focused_index.space][focused_index.x] == 0 then
-        table.remove(window_list[focused_index.space], focused_index.x)
+    table.remove(window_list[focused_index.space][focused_index.col],
+                 focused_index.row)
+    if #window_list[focused_index.space][focused_index.col] == 0 then
+        table.remove(window_list[focused_index.space], focused_index.col)
     end
 
     -- append to end of column
@@ -743,26 +753,25 @@ function PaperWM:slurpWindow()
     local num_windows = #column
     index_table[focused_window:id()] = {
         space = focused_index.space,
-        x = focused_index.x - 1,
-        y = num_windows
+        col = focused_index.col - 1,
+        row = num_windows
     }
-    updateIndexTable(focused_index.space, focused_index.x)
+    updateIndexTable(focused_index.space, focused_index.col)
 
     -- adjust window frames
-    local work_area = getWorkArea(focused_window:screen())
+    local canvas = getCanvas(focused_window:screen())
     local bounds = {
         x = column[1]:frame().x,
         x2 = nil,
-        y = work_area.y,
-        y2 = work_area.y2
+        y = canvas.y,
+        y2 = canvas.y2
     }
-    local target_h = math.max(0, work_area.h -
-                                  ((num_windows - 1) * self.window_gap)) //
-                         num_windows
-    self:tileColumn(column, bounds, target_h)
+    local h = math.max(0, canvas.h - ((num_windows - 1) * self.window_gap)) //
+                  num_windows
+    self:tileColumn(column, bounds, h)
 
     -- update layout
-    self:tileWindows(focused_window)
+    self:tileSpace(focused_index.space)
 end
 
 function PaperWM:barfWindow()
@@ -771,52 +780,46 @@ function PaperWM:barfWindow()
     -- place window into a new column to the right--
 
     -- get current focused window
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
     -- get window index
     local focused_index = index_table[focused_window:id()]
     if not focused_index then
-        self.logger.d("focused index not found")
+        self.logger.e("focused index not found")
         return
     end
 
     -- get column
-    local column = window_list[focused_index.space][focused_index.x]
+    local column = window_list[focused_index.space][focused_index.col]
     if #column == 1 then
         self.logger.d("only window in column")
         return
     end
 
     -- remove window and insert in new column
-    table.remove(column, focused_index.y)
-    table.insert(window_list[focused_index.space], focused_index.x + 1,
+    table.remove(column, focused_index.row)
+    table.insert(window_list[focused_index.space], focused_index.col + 1,
                  {focused_window})
 
     -- update index table
-    updateIndexTable(focused_index.space, focused_index.x)
+    updateIndexTable(focused_index.space, focused_index.col)
 
     -- adjust window frames
     local num_windows = #column
-    local work_area = getWorkArea(focused_window:screen())
+    local canvas = getCanvas(focused_window:screen())
     local focused_frame = focused_window:frame()
-    local bounds = {
-        x = focused_frame.x,
-        x2 = nil,
-        y = work_area.y,
-        y2 = work_area.y2
-    }
-    local target_h = math.max(0, work_area.h -
-                                  ((num_windows - 1) * self.window_gap)) //
-                         num_windows
-    focused_frame.y = work_area.y
+    local bounds = {x = focused_frame.x, x2 = nil, y = canvas.y, y2 = canvas.y2}
+    local h = math.max(0, canvas.h - ((num_windows - 1) * self.window_gap)) //
+                  num_windows
+    focused_frame.y = canvas.y
     focused_frame.x = focused_frame.x2 + self.window_gap
-    focused_frame.h = work_area.h
-    focused_window:setFrame(focused_frame)
-    self:tileColumn(column, bounds, target_h)
+    focused_frame.h = canvas.h
+    self:moveWindow(focused_window, focused_frame)
+    self:tileColumn(column, bounds, h)
 
     -- update layout
-    self:tileWindows(focused_window)
+    self:tileSpace(focused_index.space)
 end
 
 function PaperWM:switchToSpace(index)
@@ -826,13 +829,11 @@ function PaperWM:switchToSpace(index)
         return
     end
 
-    self.window_filter:pause()
-    hs.spaces.gotoSpace(space)
-    doAfterAnimation(function() self.window_filter:resume() end)
+    Spaces.gotoSpace(space)
 end
 
 function PaperWM:moveWindowToSpace(index)
-    local focused_window = hs.window.focusedWindow()
+    focused_window = focused_window or Window.focusedWindow()
     if not focused_window then
         self.logger.d("focused window not found")
         return
@@ -840,52 +841,61 @@ function PaperWM:moveWindowToSpace(index)
 
     local focused_index = index_table[focused_window:id()]
     if not focused_index then
-        self.logger.d("focused index not found")
+        self.logger.e("focused index not found")
         return
     end
 
-    local space = getSpace(index)
-    if not space then
+    local new_space = getSpace(index)
+    if not new_space then
         self.logger.d("space not found")
         return
     end
 
-    if hs.spaces.spaceType(space) ~= "user" then
+    if Spaces.spaceType(new_space) ~= "user" then
         self.logger.d("space is invalid")
         return
     end
 
-    local screen = hs.screen.find(hs.spaces.spaceDisplay(space))
+    local screen = Screen(Spaces.spaceDisplay(new_space))
     if not screen then
         self.logger.d("screen not found")
         return
     end
 
-    self.window_filter:pause()
-    self:removeWindow(focused_window)
-    hs.spaces.moveWindowToSpace(focused_window, space)
-    hs.spaces.gotoSpace(space)
-
-    -- center window
-    local work_area = getWorkArea(screen) -- use new screen
-    local focused_frame = focused_window:frame()
-    focused_frame.w = math.min(focused_frame.w, work_area.w)
-    focused_frame.x = work_area.x + (work_area.w // 2) - (focused_frame.w // 2)
-    focused_frame.y, focused_frame.h = work_area.y, work_area.h
-    focused_window:setFrame(focused_frame)
-
-    -- update layout in old space
-    local windows = window_list[focused_index.space]
-    if windows then -- grab first window in old space
-        self:tileSpace(windows[1][1], 1, focused_index.space)
+    -- self.window_filter:pause()
+    local old_space = self:removeWindow(focused_window)
+    if not old_space then
+        self.logger.e("can't remove focused window")
+        return
     end
 
-    -- tile windows in new space
-    doAfterAnimation(function()
-        if windows then cancelPendingMoveEvents() end
-        self:addWindow(focused_window)
-        self:tileWindows(focused_window)
-        self.window_filter:resume()
+    Spaces.moveWindowToSpace(focused_window, new_space)
+    self:addWindow(focused_window)
+    self:tileSpace(old_space)
+    self:tileSpace(new_space)
+    Spaces.gotoSpace(new_space)
+
+end
+
+function PaperWM:moveWindow(window, frame)
+    -- greater than 0.017 hs.window animation step time
+    local padding<const> = 0.02
+
+    local watcher = ui_watchers[window:id()]
+    if not watcher then
+        self.logger.e("window does not have ui watcher")
+        return
+    end
+
+    if frame == window:frame() then
+        self.logger.v("no change in window frame")
+        return
+    end
+
+    watcher:stop()
+    window:setFrame(frame)
+    DoAfter(Window.animationDuration + padding, function()
+        watcher:start({Watcher.windowMoved, Watcher.windowResized})
     end)
 end
 
