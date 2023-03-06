@@ -862,7 +862,8 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
-    -- self.window_filter:pause()
+    -- cache a local copy, removeWindow() will clear global focused_window
+    local focused_window = focused_window
     local old_space = self:removeWindow(focused_window)
     if not old_space then
         self.logger.e("can't remove focused window")
