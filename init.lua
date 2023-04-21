@@ -228,7 +228,7 @@ function PaperWM:start()
         self.logger.df("%s for %s", event, window or app)
         focused_window = window -- windowVisible event happens before windowFocused
         local space = Spaces.windowSpaces(window)[1]
-        self:tileSpace(space)
+        if space then self:tileSpace(space) end
     end)
 
     self.window_filter:subscribe({
@@ -322,7 +322,12 @@ function PaperWM:tileSpace(space)
     local anchor_index = index_table[anchor_window:id()]
     if not anchor_index then
         self.logger.e("anchor index not found")
-        return -- bail
+        if self:addWindow(anchor_window) == space then
+            self.logger.d("added missing window")
+            anchor_index = index_table[anchor_window:id()]
+        else
+            return -- bail
+        end
     end
 
     -- get some global coordinates
