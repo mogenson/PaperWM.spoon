@@ -44,7 +44,7 @@ PaperWM.__index = PaperWM
 
 -- Metadata
 PaperWM.name = "PaperWM"
-PaperWM.version = "0.3"
+PaperWM.version = "0.4"
 PaperWM.author = "Michael Mogenson"
 PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
@@ -158,10 +158,47 @@ local function updateIndexTable(space, column)
     end
 end
 
-local function windowMovedHandler(window, event, watcher, self)
+local pending_window = nil
+local function windowEventHandler(window, event, self)
     self.logger.df("%s for %s", event, window)
-    local space = Spaces.windowSpaces(window)[1]
-    self:tileSpace(space)
+    local space = nil
+
+    --[[ When a new window is created, We first get a windowVisible event but
+    without a Space. Next we receive a windowFocused event for the window, but
+    this also sometimes lacks a Space. Our approach is to store the window
+    pending a Space in the pending_window variable and set a timer to try to add
+    the window again later. Also schedule the windowFocused handler to run later
+    after the window was added ]] --
+
+    if event == "windowFocused" then
+        if pending_window and window == pending_window then
+            DoAfter(Window.animationDuration,
+                    function()
+                windowEventHandler(window, event, self)
+            end)
+            return
+        end
+        focused_window = window
+        space = Spaces.windowSpaces(window)[1]
+    elseif event == "windowVisible" or event == "windowUnfullscreened" then
+        space = self:addWindow(window)
+        if pending_window and window == pending_window then
+            pending_window = nil -- tried to add window for the second time
+        elseif not space then
+            pending_window = window
+            DoAfter(Window.animationDuration,
+                    function()
+                windowEventHandler(window, event, self)
+            end)
+            return
+        end
+    elseif event == "windowNotVisible" or event == "windowFullscreened" then
+        space = self:removeWindow(window) -- destroyed windows don't have a space
+    elseif event == "AXWindowMoved" or event == "AXWindowResized" then
+        space = Spaces.windowSpaces(window)[1]
+    end
+
+    if space then self:tileSpace(space) end
 end
 
 function PaperWM:bindHotkeys(mapping)
@@ -223,29 +260,11 @@ function PaperWM:start()
     for space, _ in pairs(window_list) do self:tileSpace(space) end
 
     -- listen for window events
-    self.window_filter:subscribe(WindowFilter.windowFocused,
-                                 function(window, app, event)
-        self.logger.df("%s for %s", event, window or app)
-        focused_window = window -- windowVisible event happens before windowFocused
-        local space = Spaces.windowSpaces(window)[1]
-        if space then self:tileSpace(space) end
-    end)
-
     self.window_filter:subscribe({
-        WindowFilter.windowVisible, WindowFilter.windowUnfullscreened
-    }, function(window, app, event)
-        self.logger.df("%s for %s", event, window or app)
-        local space = self:addWindow(window)
-        if space then self:tileSpace(space) end
-    end)
-
-    self.window_filter:subscribe({
-        WindowFilter.windowNotVisible, WindowFilter.windowFullscreened
-    }, function(window, app, event)
-        self.logger.df("%s for %s", event, window or app)
-        local space = self:removeWindow(window) -- destroyed windows don't have a space
-        if space then self:tileSpace(space) end
-    end)
+        WindowFilter.windowFocused, WindowFilter.windowVisible,
+        WindowFilter.windowNotVisible, WindowFilter.windowFullscreened,
+        WindowFilter.windowUnfullscreened
+    }, function(window, _, event) windowEventHandler(window, event, self) end)
 
     return self
 end
@@ -448,7 +467,10 @@ function PaperWM:addWindow(add_window)
     updateIndexTable(space, add_column)
 
     -- subscribe to window moved events
-    local watcher = add_window:newWatcher(windowMovedHandler, self)
+    local watcher = add_window:newWatcher(
+                        function(window, event, _, self)
+            windowEventHandler(window, event, self)
+        end, self)
     watcher:start({Watcher.windowMoved, Watcher.windowResized})
     ui_watchers[add_window:id()] = watcher
 
@@ -463,13 +485,10 @@ function PaperWM:removeWindow(remove_window)
         return
     end
 
-    -- clear prev focused window
-    if focused_window and focused_window:id() == remove_window:id() then
-        focused_window = nil -- MacOS will focus a window of the same app
-        for _, direction in ipairs({ -- find nearby window of any app to focus
-            Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
-        }) do if self:focusWindow(direction, remove_index) then break end end
-    end
+    -- find nearby window to focus
+    for _, direction in ipairs({
+        Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
+    }) do if self:focusWindow(direction, remove_index) then break end end
 
     -- remove window
     table.remove(window_list[remove_index.space][remove_index.col],
