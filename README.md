@@ -11,8 +11,7 @@ https://user-images.githubusercontent.com/900731/147793584-f937811a-20aa-4282-ba
 
 ## Installation
 
-1. Clone to `~/.hammerspoon/Spoons` directory so `init.lua` from this repo is
-located at `~/.hammerspoon/Spoons/PaperWM.spoon/init.lua`.
+1. Clone to Hammerspoon Spoons directory: `git clone https://github.com/mogenson/PaperWM.spoon ~/.hammerspoon/Spoons/PaperWM.spoon`.
 
 2. Open `System Preferences` -> `Mission Control`. Uncheck "Automatically
 rearrange Spaces based on most recent use" and check "Displays have separate
