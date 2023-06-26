@@ -192,8 +192,10 @@ local function windowEventHandler(window, event, self)
             end)
             return
         end
-    elseif event == "windowNotVisible" or event == "windowFullscreened" then
-        space = self:removeWindow(window) -- destroyed windows don't have a space
+    elseif event == "windowNotVisible" then
+        self:removeWindow(window) -- destroyed windows don't have a space
+    elseif event == "windowFullscreened" then
+        space = self:removeWindow(window, true) -- don't focus new window if fullscreened
     elseif event == "AXWindowMoved" or event == "AXWindowResized" then
         space = Spaces.windowSpaces(window)[1]
     end
@@ -477,7 +479,7 @@ function PaperWM:addWindow(add_window)
     return space
 end
 
-function PaperWM:removeWindow(remove_window)
+function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     -- get index of window
     local remove_index = index_table[remove_window:id()]
     if not remove_index then
@@ -485,10 +487,11 @@ function PaperWM:removeWindow(remove_window)
         return
     end
 
-    -- find nearby window to focus
-    for _, direction in ipairs({
-        Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
-    }) do if self:focusWindow(direction, remove_index) then break end end
+    if not skip_new_window_focus then -- find nearby window to focus
+        for _, direction in ipairs({
+            Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
+        }) do if self:focusWindow(direction, remove_index) then break end end
+    end
 
     -- remove window
     table.remove(window_list[remove_index.space][remove_index.col],
@@ -899,7 +902,6 @@ function PaperWM:moveWindowToSpace(index)
     self:tileSpace(old_space)
     self:tileSpace(new_space)
     Spaces.gotoSpace(new_space)
-
 end
 
 function PaperWM:moveWindow(window, frame)
