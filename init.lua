@@ -857,6 +857,18 @@ function PaperWM:switchToSpace(index)
         return
     end
 
+
+    -- find a window to focus in new space
+    local windows = Spaces.windowsForSpace(space)
+    for _, id in ipairs(windows) do
+        local index = index_table[id]
+        if index then
+            local window = getWindow(index.space, index.col, index.row)
+            window:focus()
+            break
+        end
+    end
+
     Spaces.gotoSpace(space)
 end
 
