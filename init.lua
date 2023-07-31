@@ -35,7 +35,7 @@ local WindowFilter <const> = hs.window.filter
 local Window <const> = hs.window
 local Spaces <const> = hs.spaces
 local Screen <const> = hs.screen
-local DoAfter <const> = hs.timer.doAfter
+local Timer <const> = hs.timer
 local Rect <const> = hs.geometry.rect
 local Watcher <const> = hs.uielement.watcher
 
@@ -173,7 +173,7 @@ local function windowEventHandler(window, event, self)
 
     if event == "windowFocused" then
         if pending_window and window == pending_window then
-            DoAfter(Window.animationDuration,
+            Timer.doAfter(Window.animationDuration,
                 function()
                     windowEventHandler(window, event, self)
                 end)
@@ -187,7 +187,7 @@ local function windowEventHandler(window, event, self)
             pending_window = nil -- tried to add window for the second time
         elseif not space then
             pending_window = window
-            DoAfter(Window.animationDuration,
+            Timer.doAfter(Window.animationDuration,
                 function()
                     windowEventHandler(window, event, self)
                 end)
@@ -863,7 +863,12 @@ function PaperWM:switchToSpace(index)
     for _, id in ipairs(windows) do
         local index = index_table[id]
         if index then
+            -- https://github.com/Hammerspoon/hammerspoon/issues/370
+            -- raise app before focusing window
             local window = getWindow(index.space, index.col, index.row)
+            local app = window:application()
+            app:activate()
+            Timer.usleep(10000)
             window:focus()
             break
         end
@@ -934,7 +939,7 @@ function PaperWM:moveWindow(window, frame)
 
     watcher:stop()
     window:setFrame(frame)
-    DoAfter(Window.animationDuration + padding, function()
+    Timer.doAfter(Window.animationDuration + padding, function()
         watcher:start({ Watcher.windowMoved, Watcher.windowResized })
     end)
 end
