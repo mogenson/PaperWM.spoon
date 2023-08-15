@@ -50,39 +50,40 @@ PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
 
 PaperWM.default_hotkeys = {
-    stop_events = { { "ctrl", "alt", "cmd", "shift" }, "q" },
-    focus_left = { { "ctrl", "alt", "cmd" }, "left" },
-    focus_right = { { "ctrl", "alt", "cmd" }, "right" },
-    focus_up = { { "ctrl", "alt", "cmd" }, "up" },
-    focus_down = { { "ctrl", "alt", "cmd" }, "down" },
-    swap_left = { { "ctrl", "alt", "cmd", "shift" }, "left" },
-    swap_right = { { "ctrl", "alt", "cmd", "shift" }, "right" },
-    swap_up = { { "ctrl", "alt", "cmd", "shift" }, "up" },
-    swap_down = { { "ctrl", "alt", "cmd", "shift" }, "down" },
-    center_window = { { "ctrl", "alt", "cmd" }, "c" },
-    full_width = { { "ctrl", "alt", "cmd" }, "f" },
-    cycle_width = { { "ctrl", "alt", "cmd" }, "r" },
-    cycle_height = { { "ctrl", "alt", "cmd", "shift" }, "r" },
-    slurp_in = { { "ctrl", "alt", "cmd" }, "i" },
-    barf_out = { { "ctrl", "alt", "cmd" }, "o" },
-    switch_space_1 = { { "ctrl", "alt", "cmd" }, "1" },
-    switch_space_2 = { { "ctrl", "alt", "cmd" }, "2" },
-    switch_space_3 = { { "ctrl", "alt", "cmd" }, "3" },
-    switch_space_4 = { { "ctrl", "alt", "cmd" }, "4" },
-    switch_space_5 = { { "ctrl", "alt", "cmd" }, "5" },
-    switch_space_6 = { { "ctrl", "alt", "cmd" }, "6" },
-    switch_space_7 = { { "ctrl", "alt", "cmd" }, "7" },
-    switch_space_8 = { { "ctrl", "alt", "cmd" }, "8" },
-    switch_space_9 = { { "ctrl", "alt", "cmd" }, "9" },
-    move_window_1 = { { "ctrl", "alt", "cmd", "shift" }, "1" },
-    move_window_2 = { { "ctrl", "alt", "cmd", "shift" }, "2" },
-    move_window_3 = { { "ctrl", "alt", "cmd", "shift" }, "3" },
-    move_window_4 = { { "ctrl", "alt", "cmd", "shift" }, "4" },
-    move_window_5 = { { "ctrl", "alt", "cmd", "shift" }, "5" },
-    move_window_6 = { { "ctrl", "alt", "cmd", "shift" }, "6" },
-    move_window_7 = { { "ctrl", "alt", "cmd", "shift" }, "7" },
-    move_window_8 = { { "ctrl", "alt", "cmd", "shift" }, "8" },
-    move_window_9 = { { "ctrl", "alt", "cmd", "shift" }, "9" }
+    stop_events     = { { "ctrl", "alt", "cmd", "shift" }, "q" },
+    refresh_windows = { { "ctrl", "alt", "cmd", "shift" }, "r" },
+    focus_left      = { { "ctrl", "alt", "cmd" }, "left" },
+    focus_right     = { { "ctrl", "alt", "cmd" }, "right" },
+    focus_up        = { { "ctrl", "alt", "cmd" }, "up" },
+    focus_down      = { { "ctrl", "alt", "cmd" }, "down" },
+    swap_left       = { { "ctrl", "alt", "cmd", "shift" }, "left" },
+    swap_right      = { { "ctrl", "alt", "cmd", "shift" }, "right" },
+    swap_up         = { { "ctrl", "alt", "cmd", "shift" }, "up" },
+    swap_down       = { { "ctrl", "alt", "cmd", "shift" }, "down" },
+    center_window   = { { "ctrl", "alt", "cmd" }, "c" },
+    full_width      = { { "ctrl", "alt", "cmd" }, "f" },
+    cycle_width     = { { "ctrl", "alt", "cmd" }, "r" },
+    cycle_height    = { { "ctrl", "alt", "cmd", "shift" }, "r" },
+    slurp_in        = { { "ctrl", "alt", "cmd" }, "i" },
+    barf_out        = { { "ctrl", "alt", "cmd" }, "o" },
+    switch_space_1  = { { "ctrl", "alt", "cmd" }, "1" },
+    switch_space_2  = { { "ctrl", "alt", "cmd" }, "2" },
+    switch_space_3  = { { "ctrl", "alt", "cmd" }, "3" },
+    switch_space_4  = { { "ctrl", "alt", "cmd" }, "4" },
+    switch_space_5  = { { "ctrl", "alt", "cmd" }, "5" },
+    switch_space_6  = { { "ctrl", "alt", "cmd" }, "6" },
+    switch_space_7  = { { "ctrl", "alt", "cmd" }, "7" },
+    switch_space_8  = { { "ctrl", "alt", "cmd" }, "8" },
+    switch_space_9  = { { "ctrl", "alt", "cmd" }, "9" },
+    move_window_1   = { { "ctrl", "alt", "cmd", "shift" }, "1" },
+    move_window_2   = { { "ctrl", "alt", "cmd", "shift" }, "2" },
+    move_window_3   = { { "ctrl", "alt", "cmd", "shift" }, "3" },
+    move_window_4   = { { "ctrl", "alt", "cmd", "shift" }, "4" },
+    move_window_5   = { { "ctrl", "alt", "cmd", "shift" }, "5" },
+    move_window_6   = { { "ctrl", "alt", "cmd", "shift" }, "6" },
+    move_window_7   = { { "ctrl", "alt", "cmd", "shift" }, "7" },
+    move_window_8   = { { "ctrl", "alt", "cmd", "shift" }, "8" },
+    move_window_9   = { { "ctrl", "alt", "cmd", "shift" }, "9" }
 }
 
 -- filter for windows to manage
@@ -208,6 +209,7 @@ function PaperWM:bindHotkeys(mapping)
     local partial = hs.fnutils.partial
     local spec = {
         stop_events = partial(self.stop, self),
+        refresh_windows = partial(self.refreshWindows, self),
         focus_left = partial(self.focusWindow, self, Direction.LEFT),
         focus_right = partial(self.focusWindow, self, Direction.RIGHT),
         focus_up = partial(self.focusWindow, self, Direction.UP),
@@ -256,11 +258,8 @@ function PaperWM:start()
     index_table = {}
     ui_watchers = {}
 
-    -- populate window list, index table, and ui_watchers
+    -- populate window list, index table, ui_watchers, and set initial layout
     self:refreshWindows()
-
-    -- set initial layout
-    for space, _ in pairs(window_list) do self:tileSpace(space) end
 
     -- listen for window events
     self.window_filter:subscribe({
@@ -413,22 +412,23 @@ function PaperWM:refreshWindows()
     -- get all windows across spaces
     local all_windows = self.window_filter:getWindows()
 
-    local refresh_needed = false
+    local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
         local index = index_table[window:id()]
         if not index then
             -- add window
-            self:addWindow(window)
-            refresh_needed = true
+            local space = self:addWindow(window)
+            if space then retile_spaces[space] = true end
         elseif index.space ~= Spaces.windowSpaces(window)[1] then
             -- move to window list in new space
             self:removeWindow(window)
-            self:addWindow(window)
-            refresh_needed = true
+            local space = self:addWindow(window)
+            if space then retile_spaces[space] = true end
         end
     end
 
-    return refresh_needed
+    -- retile spaces
+    for space, _ in pairs(retile_spaces) do self:tileSpace(space) end
 end
 
 function PaperWM:addWindow(add_window)
