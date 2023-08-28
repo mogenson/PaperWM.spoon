@@ -701,8 +701,8 @@ function PaperWM:cycleWindowSize(direction)
     if not focused_window then return end
 
     local function findNewSize(area_size, frame_size)
-        -- calculate pixel widths from ratios
-        local sizes <const> = { 0.38195, 0.5, 0.61804 }
+        -- calculate pixel widths from golden ratio
+        local sizes <const> = { 0.23607, 0.38195, 0.61804 }
         for index, size in ipairs(sizes) do
             sizes[index] = size * area_size
         end
