@@ -704,7 +704,7 @@ function PaperWM:cycleWindowSize(direction)
     if not focused_window then return end
 
     local function findNewSize(area_size, frame_size)
-        local sizes <const> = {}
+        local sizes = {}
         for index, ratio in ipairs(self.window_ratios) do
             sizes[index] = ratio * area_size
         end
