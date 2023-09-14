@@ -89,6 +89,13 @@ PaperWM.window_filter = PaperWM.window_filter:setAppFilter("Finder", false)
 PaperWM:start() -- restart for new window filter to take effect
 ```
 
+Set `PaperWM.window_ratios` to the ratios to cycle window widths and heights
+through. For example:
+
+```lua
+PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
+```
+
 ## Limitations
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would

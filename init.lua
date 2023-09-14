@@ -97,6 +97,9 @@ PaperWM.window_filter = WindowFilter.new():setOverrideFilter({
 -- number of pixels between windows
 PaperWM.window_gap = 8
 
+-- ratios to use when cycling widths and heights, golden ratio by default
+PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
+
 -- logger
 PaperWM.logger = hs.logger.new(PaperWM.name)
 
@@ -701,10 +704,9 @@ function PaperWM:cycleWindowSize(direction)
     if not focused_window then return end
 
     local function findNewSize(area_size, frame_size)
-        -- calculate pixel widths from golden ratio
-        local sizes <const> = { 0.23607, 0.38195, 0.61804 }
-        for index, size in ipairs(sizes) do
-            sizes[index] = size * area_size
+        local sizes = {}
+        for index, ratio in ipairs(self.window_ratios) do
+            sizes[index] = ratio * area_size
         end
 
         -- find new size
