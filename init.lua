@@ -706,7 +706,7 @@ function PaperWM:cycleWindowSize(direction)
     local function findNewSize(area_size, frame_size)
         local sizes = {}
         for index, ratio in ipairs(self.window_ratios) do
-            sizes[index] = ratio * area_size
+            sizes[index] = ratio * (area_size + self.window_gap) - self.window_gap
         end
 
         -- find new size
