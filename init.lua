@@ -100,6 +100,9 @@ PaperWM.window_gap = 8
 -- ratios to use when cycling widths and heights, golden ratio by default
 PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
 
+-- size of the on-screen margin to place off-screen windows
+PaperWM.screen_margin = 1
+
 -- logger
 PaperWM.logger = hs.logger.new(PaperWM.name)
 
@@ -315,10 +318,6 @@ function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
 end
 
 function PaperWM:tileSpace(space)
-    -- MacOS doesn't allow windows to be moved off screen
-    -- stack windows in a visible margin on either side
-    local screen_margin <const> = 40
-
     if not space or Spaces.spaceType(space) ~= "user" then
         self.logger.e("current space invalid")
         return
@@ -356,8 +355,8 @@ function PaperWM:tileSpace(space)
 
     -- get some global coordinates
     local screen_frame <const> = screen:frame()
-    local left_margin <const> = screen_frame.x + screen_margin
-    local right_margin <const> = screen_frame.x2 - screen_margin
+    local left_margin <const> = screen_frame.x + self.screen_margin
+    local right_margin <const> = screen_frame.x2 - self.screen_margin
     local canvas <const> = getCanvas(screen)
 
     -- make sure anchor window is on screen
