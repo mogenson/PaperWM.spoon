@@ -82,10 +82,11 @@ release control over windows.
 Set `PaperWM.window_gap` to the number of pixels to space between windows and
 the top and bottom screen edges.
 
-Overwrite `PaperWM.window_filter` to ignore specific applications. For example:
+Configure one or many `PaperWM.window_filter:rejectApp("appName")` to ignore specific applications. For example:
 
 ```lua
-PaperWM.window_filter = PaperWM.window_filter:setAppFilter("Finder", false)
+PaperWM.window_filter:rejectApp("iStat Menus Status")
+PaperWM.window_filter:rejectApp("Finder")
 PaperWM:start() -- restart for new window filter to take effect
 ```
 
