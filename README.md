@@ -74,7 +74,24 @@ PaperWM:start()
 ```
 
 Feel free to customize hotkeys or use
-`PaperWM:bindHotkeys(PaperWM.default_hotkeys)` for defaults.
+`PaperWM:bindHotkeys(PaperWM.default_hotkeys)` for defaults. PaperWM actions are also
+available for manual keybinding via the `PaperWM.actions` table; for example, the
+following would enable navigation by either arrow keys or vim-style h/j/k/l directions:
+
+```lua
+PaperWM = hs.loadSpoon("PaperWM")
+PaperWM:bindHotkeys(PaperWM.default_hotkeys)
+
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "h", PaperWM.actions.focus_left)
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "j", PaperWM.actions.focus_down)
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "k", PaperWM.actions.focus_up)
+hs.hotkey.bind({"ctrl", "alt", "cmd"}, "l", PaperWM.actions.focus_right)
+
+hs.hotkey.bind({"ctrl", "alt", "cmd", "shift"}, "h", PaperWM.actions.swap_left)
+hs.hotkey.bind({"ctrl", "alt", "cmd", "shift"}, "j", PaperWM.actions.swap_down)
+hs.hotkey.bind({"ctrl", "alt", "cmd", "shift"}, "k", PaperWM.actions.swap_up)
+hs.hotkey.bind({"ctrl", "alt", "cmd", "shift"}, "l", PaperWM.actions.swap_right)
+```
 
 `PaperWM:start()` will begin automatically tiling new and existing windows. `PaperWM:stop()` will
 release control over windows.
