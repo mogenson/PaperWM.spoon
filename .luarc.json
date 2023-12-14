@@ -1,0 +1,8 @@
+{
+  "diagnostics":
+  {
+    "globals": ["hs"],
+    "neededFileStatus": { "codestyle-check": "Any" },
+  },
+  "runtime.version": "Lua 5.4",
+}
