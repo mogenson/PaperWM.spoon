@@ -38,6 +38,7 @@ local Screen <const> = hs.screen
 local Timer <const> = hs.timer
 local Rect <const> = hs.geometry.rect
 local Watcher <const> = hs.uielement.watcher
+local partial <const> = hs.fnutils.partial
 
 local PaperWM = {}
 PaperWM.__index = PaperWM
@@ -209,47 +210,6 @@ local function windowEventHandler(window, event, self)
     end
 
     if space then self:tileSpace(space) end
-end
-
-function PaperWM:bindHotkeys(mapping)
-    local partial = hs.fnutils.partial
-    local spec = {
-        stop_events = partial(self.stop, self),
-        refresh_windows = partial(self.refreshWindows, self),
-        focus_left = partial(self.focusWindow, self, Direction.LEFT),
-        focus_right = partial(self.focusWindow, self, Direction.RIGHT),
-        focus_up = partial(self.focusWindow, self, Direction.UP),
-        focus_down = partial(self.focusWindow, self, Direction.DOWN),
-        swap_left = partial(self.swapWindows, self, Direction.LEFT),
-        swap_right = partial(self.swapWindows, self, Direction.RIGHT),
-        swap_up = partial(self.swapWindows, self, Direction.UP),
-        swap_down = partial(self.swapWindows, self, Direction.DOWN),
-        center_window = partial(self.centerWindow, self),
-        full_width = partial(self.setWindowFullWidth, self),
-        cycle_width = partial(self.cycleWindowSize, self, Direction.WIDTH),
-        cycle_height = partial(self.cycleWindowSize, self, Direction.HEIGHT),
-        slurp_in = partial(self.slurpWindow, self),
-        barf_out = partial(self.barfWindow, self),
-        switch_space_1 = partial(self.switchToSpace, self, 1),
-        switch_space_2 = partial(self.switchToSpace, self, 2),
-        switch_space_3 = partial(self.switchToSpace, self, 3),
-        switch_space_4 = partial(self.switchToSpace, self, 4),
-        switch_space_5 = partial(self.switchToSpace, self, 5),
-        switch_space_6 = partial(self.switchToSpace, self, 6),
-        switch_space_7 = partial(self.switchToSpace, self, 7),
-        switch_space_8 = partial(self.switchToSpace, self, 8),
-        switch_space_9 = partial(self.switchToSpace, self, 9),
-        move_window_1 = partial(self.moveWindowToSpace, self, 1),
-        move_window_2 = partial(self.moveWindowToSpace, self, 2),
-        move_window_3 = partial(self.moveWindowToSpace, self, 3),
-        move_window_4 = partial(self.moveWindowToSpace, self, 4),
-        move_window_5 = partial(self.moveWindowToSpace, self, 5),
-        move_window_6 = partial(self.moveWindowToSpace, self, 6),
-        move_window_7 = partial(self.moveWindowToSpace, self, 7),
-        move_window_8 = partial(self.moveWindowToSpace, self, 8),
-        move_window_9 = partial(self.moveWindowToSpace, self, 9)
-    }
-    hs.spoons.bindHotkeysToSpec(spec, mapping)
 end
 
 function PaperWM:start()
@@ -943,6 +903,48 @@ function PaperWM:moveWindow(window, frame)
     Timer.doAfter(Window.animationDuration + padding, function()
         watcher:start({ Watcher.windowMoved, Watcher.windowResized })
     end)
+end
+
+PaperWM.actions = {
+    stop_events = partial(PaperWM.stop, PaperWM),
+    refresh_windows = partial(PaperWM.refreshWindows, PaperWM),
+    focus_left = partial(PaperWM.focusWindow, PaperWM, Direction.LEFT),
+    focus_right = partial(PaperWM.focusWindow, PaperWM, Direction.RIGHT),
+    focus_up = partial(PaperWM.focusWindow, PaperWM, Direction.UP),
+    focus_down = partial(PaperWM.focusWindow, PaperWM, Direction.DOWN),
+    swap_left = partial(PaperWM.swapWindows, PaperWM, Direction.LEFT),
+    swap_right = partial(PaperWM.swapWindows, PaperWM, Direction.RIGHT),
+    swap_up = partial(PaperWM.swapWindows, PaperWM, Direction.UP),
+    swap_down = partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
+    center_window = partial(PaperWM.centerWindow, PaperWM),
+    full_width = partial(PaperWM.setWindowFullWidth, PaperWM),
+    cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH),
+    cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT),
+    slurp_in = partial(PaperWM.slurpWindow, PaperWM),
+    barf_out = partial(PaperWM.barfWindow, PaperWM),
+    switch_space_1 = partial(PaperWM.switchToSpace, PaperWM, 1),
+    switch_space_2 = partial(PaperWM.switchToSpace, PaperWM, 2),
+    switch_space_3 = partial(PaperWM.switchToSpace, PaperWM, 3),
+    switch_space_4 = partial(PaperWM.switchToSpace, PaperWM, 4),
+    switch_space_5 = partial(PaperWM.switchToSpace, PaperWM, 5),
+    switch_space_6 = partial(PaperWM.switchToSpace, PaperWM, 6),
+    switch_space_7 = partial(PaperWM.switchToSpace, PaperWM, 7),
+    switch_space_8 = partial(PaperWM.switchToSpace, PaperWM, 8),
+    switch_space_9 = partial(PaperWM.switchToSpace, PaperWM, 9),
+    move_window_1 = partial(PaperWM.moveWindowToSpace, PaperWM, 1),
+    move_window_2 = partial(PaperWM.moveWindowToSpace, PaperWM, 2),
+    move_window_3 = partial(PaperWM.moveWindowToSpace, PaperWM, 3),
+    move_window_4 = partial(PaperWM.moveWindowToSpace, PaperWM, 4),
+    move_window_5 = partial(PaperWM.moveWindowToSpace, PaperWM, 5),
+    move_window_6 = partial(PaperWM.moveWindowToSpace, PaperWM, 6),
+    move_window_7 = partial(PaperWM.moveWindowToSpace, PaperWM, 7),
+    move_window_8 = partial(PaperWM.moveWindowToSpace, PaperWM, 8),
+    move_window_9 = partial(PaperWM.moveWindowToSpace, PaperWM, 9)
+}
+
+function PaperWM:bindHotkeys(mapping)
+    local spec = self.actions
+    hs.spoons.bindHotkeysToSpec(spec, mapping)
 end
 
 return PaperWM
