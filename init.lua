@@ -50,6 +50,13 @@ PaperWM.author = "Michael Mogenson"
 PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
 
+-- Types
+
+---@alias Window userdata a ui.window
+---@alias Frame table hs.geometry rect
+---@alias Index { row: number, col: number, space: number }
+
+---@alias Mapping { [string]: (table | string)[]}
 PaperWM.default_hotkeys = {
     stop_events     = { { "ctrl", "alt", "cmd", "shift" }, "q" },
     refresh_windows = { { "ctrl", "alt", "cmd", "shift" }, "r" },
@@ -108,6 +115,7 @@ PaperWM.screen_margin = 1
 PaperWM.logger = hs.logger.new(PaperWM.name)
 
 -- constants
+---@enum Direction
 local Direction <const> = {
     LEFT = -1,
     RIGHT = 1,
@@ -478,6 +486,9 @@ function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     return remove_index.space -- return space for removed window
 end
 
+---move focus to a new window next to the currently focused window
+---@param direction Direction use either Direction UP, DOWN, LEFT, or RIGHT
+---@param focused_index Index index of focused window within the window_list
 function PaperWM:focusWindow(direction, focused_index)
     if not focused_index then
         -- get current focused window
@@ -517,6 +528,11 @@ function PaperWM:focusWindow(direction, focused_index)
     return true
 end
 
+---swap the focused window with a window next to it
+---if swapping horizontally and the adjacent window is in a column, swap the
+---entire column. if swapping vertically and the focused window is in a column,
+---swap positions within the column
+---@param direction Direction use Direction LEFT, RIGHT, UP, or DOWN
 function PaperWM:swapWindows(direction)
     -- use focused window as source window
     focused_window = focused_window or Window.focusedWindow()
@@ -622,6 +638,8 @@ function PaperWM:swapWindows(direction)
     self:tileSpace(focused_index.space)
 end
 
+---move the focused window to the center of the screen, horizontally
+---don't resize the window or change it's vertical position
 function PaperWM:centerWindow()
     -- get current focused window
     focused_window = focused_window or Window.focusedWindow()
@@ -641,6 +659,8 @@ function PaperWM:centerWindow()
     self:tileSpace(space)
 end
 
+---set the focused window to the width of the screen
+---don't change the height
 function PaperWM:setWindowFullWidth()
     -- get current focused window
     focused_window = focused_window or Window.focusedWindow()
@@ -657,6 +677,9 @@ function PaperWM:setWindowFullWidth()
     self:tileSpace(space)
 end
 
+---resize the width or height of the window, keeping the other dimension the
+---same. cycles through the ratios specified in PaperWM.window_ratios
+---@param direction Direction use Direction.WIDTH or Direction.HEIGHT
 function PaperWM:cycleWindowSize(direction)
     -- get current focused window
     focused_window = focused_window or Window.focusedWindow()
@@ -704,6 +727,8 @@ function PaperWM:cycleWindowSize(direction)
     self:tileSpace(space)
 end
 
+---take the current focused window and move it into the bottom of
+---the column to the left
 function PaperWM:slurpWindow()
     -- TODO paperwm behavior:
     -- add top window from column to the right to bottom of current column
@@ -763,6 +788,8 @@ function PaperWM:slurpWindow()
     self:tileSpace(focused_index.space)
 end
 
+---remove focused window from it's current column and place into
+---the bottom of the column to the right
 function PaperWM:barfWindow()
     -- TODO paperwm behavior:
     -- remove bottom window of current column
@@ -811,13 +838,14 @@ function PaperWM:barfWindow()
     self:tileSpace(focused_index.space)
 end
 
+---switch to a Mission Control space
+---@param index number ID for space
 function PaperWM:switchToSpace(index)
     local space = getSpace(index)
     if not space then
         self.logger.d("space not found")
         return
     end
-
 
     -- find a window to focus in new space
     local windows = Spaces.windowsForSpace(space)
@@ -838,6 +866,8 @@ function PaperWM:switchToSpace(index)
     Spaces.gotoSpace(space)
 end
 
+---move focused window to a Mission Control space
+---@param index number ID for space
 function PaperWM:moveWindowToSpace(index)
     focused_window = focused_window or Window.focusedWindow()
     if not focused_window then
@@ -883,6 +913,10 @@ function PaperWM:moveWindowToSpace(index)
     Spaces.gotoSpace(new_space)
 end
 
+---move and resize a window to the coordinates specified by the frame
+---disable watchers while window is moving and re-enable after
+---@param window Window window to move
+---@param frame Frame coordinates to set window size and location
 function PaperWM:moveWindow(window, frame)
     -- greater than 0.017 hs.window animation step time
     local padding <const> = 0.02
@@ -905,6 +939,7 @@ function PaperWM:moveWindow(window, frame)
     end)
 end
 
+---supported window movement actions
 PaperWM.actions = {
     stop_events = partial(PaperWM.stop, PaperWM),
     refresh_windows = partial(PaperWM.refreshWindows, PaperWM),
@@ -942,6 +977,9 @@ PaperWM.actions = {
     move_window_9 = partial(PaperWM.moveWindowToSpace, PaperWM, 9)
 }
 
+---bind userdefined hotkeys to PaperWM actions
+---use PaperWM.default_hotkeys for suggested defaults
+---@param mapping Mapping table of actions and hotkeys
 function PaperWM:bindHotkeys(mapping)
     local spec = self.actions
     hs.spoons.bindHotkeysToSpec(spec, mapping)
