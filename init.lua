@@ -31,14 +31,17 @@
 ---
 ---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
-local WindowFilter <const> = hs.window.filter
-local Window <const> = hs.window
-local Spaces <const> = hs.spaces
-local Screen <const> = hs.screen
-local Timer <const> = hs.timer
+local Mouse <const> = hs.mouse
 local Rect <const> = hs.geometry.rect
+local Screen <const> = hs.screen
+local Spaces <const> = hs.spaces
+local Timer <const> = hs.timer
 local Watcher <const> = hs.uielement.watcher
+local Window <const> = hs.window
+local WindowFilter <const> = hs.window.filter
+local leftClick <const> = hs.eventtap.leftClick
 local partial <const> = hs.fnutils.partial
+local rectMidPoint <const> = hs.geometry.rectMidPoint
 
 local PaperWM = {}
 PaperWM.__index = PaperWM
@@ -168,7 +171,7 @@ end
 
 local pending_window = nil
 local function windowEventHandler(window, event, self)
-    self.logger.df("%s for %s", event, window)
+    self.logger.df("%s for [%s] id:%d", event, window, window and window:id() or -1)
     local space = nil
 
     --[[ When a new window is created, We first get a windowVisible event but
@@ -210,6 +213,42 @@ local function windowEventHandler(window, event, self)
     end
 
     if space then self:tileSpace(space) end
+end
+
+local function focusSpace(space, window)
+    local screen = Screen(Spaces.spaceDisplay(space))
+    if not screen then
+        return
+    end
+
+    -- move cursor to center of screen
+    local point = rectMidPoint(screen:fullFrame())
+    Mouse.absolutePosition(point)
+
+    -- focus provided window or first window on new space
+    window = window or getFirstVisibleWindow(window_list[space], screen)
+    if window then
+        window:focus()
+        -- MacOS will sometimes switch to another window of the same applications on a different space
+        -- Setup a timer to check that the requested window stays focused
+        local function focusCheck()
+            if window ~= Window.focusedWindow() then
+                window:focus()
+            end
+        end
+        for i = 1, 3 do Timer.doAfter(i * Window.animationDuration, focusCheck) end
+    elseif Spaces.spaceType(space) == "user" then
+        leftClick(point) -- if there are no windows and the space is a user space then click
+        -- MacOS will sometimes switch to a another space with a focused window
+        -- Setup a timer to check that the requested space stays active
+        local function spaceCheck()
+            if space ~= Spaces.focusedSpace() then
+                Spaces.gotoSpace(space)
+                leftClick(point)
+            end
+        end
+        for i = 1, 3 do Timer.doAfter(i * Window.animationDuration, spaceCheck) end
+    end
 end
 
 function PaperWM:start()
@@ -818,24 +857,8 @@ function PaperWM:switchToSpace(index)
         return
     end
 
-
-    -- find a window to focus in new space
-    local windows = Spaces.windowsForSpace(space)
-    for _, id in ipairs(windows) do
-        local index = index_table[id]
-        if index then
-            -- https://github.com/Hammerspoon/hammerspoon/issues/370
-            -- raise app before focusing window
-            local window = getWindow(index.space, index.col, index.row)
-            local app = window:application()
-            app:activate()
-            Timer.usleep(10000)
-            window:focus()
-            break
-        end
-    end
-
     Spaces.gotoSpace(space)
+    focusSpace(space)
 end
 
 function PaperWM:moveWindowToSpace(index)
@@ -857,14 +880,13 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
-    if Spaces.spaceType(new_space) ~= "user" then
-        self.logger.d("space is invalid")
+    if new_space == Spaces.windowSpaces(focused_window)[1] then
+        self.logger.d("window already on space")
         return
     end
 
-    local screen = Screen(Spaces.spaceDisplay(new_space))
-    if not screen then
-        self.logger.d("screen not found")
+    if Spaces.spaceType(new_space) ~= "user" then
+        self.logger.d("space is invalid")
         return
     end
 
@@ -881,6 +903,8 @@ function PaperWM:moveWindowToSpace(index)
     self:tileSpace(old_space)
     self:tileSpace(new_space)
     Spaces.gotoSpace(new_space)
+
+    focusSpace(new_space, focused_window)
 end
 
 function PaperWM:moveWindow(window, frame)
