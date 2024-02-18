@@ -49,6 +49,8 @@ PaperWM:bindHotkeys({
     barf_out = {{"ctrl", "alt", "cmd"}, "o"},
 
     -- switch to a new Mission Control space
+    switch_space_l = {{"ctrl", "alt", "cmd"}, ","},
+    switch_space_r = {{"ctrl", "alt", "cmd"}, "."},
     switch_space_1 = {{"ctrl", "alt", "cmd"}, "1"},
     switch_space_2 = {{"ctrl", "alt", "cmd"}, "2"},
     switch_space_3 = {{"ctrl", "alt", "cmd"}, "3"},

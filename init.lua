@@ -67,6 +67,8 @@ PaperWM.default_hotkeys = {
     cycle_height    = { { "ctrl", "alt", "cmd", "shift" }, "r" },
     slurp_in        = { { "ctrl", "alt", "cmd" }, "i" },
     barf_out        = { { "ctrl", "alt", "cmd" }, "o" },
+    switch_space_l  = { { "ctrl", "alt", "cmd" }, "," },
+    switch_space_r  = { { "ctrl", "alt", "cmd" }, "." },
     switch_space_1  = { { "ctrl", "alt", "cmd" }, "1" },
     switch_space_2  = { { "ctrl", "alt", "cmd" }, "2" },
     switch_space_3  = { { "ctrl", "alt", "cmd" }, "3" },
@@ -838,6 +840,34 @@ function PaperWM:switchToSpace(index)
     Spaces.gotoSpace(space)
 end
 
+function PaperWM:incrementSpace(direction)
+    if (direction ~= Direction.LEFT and direction ~= Direction.RIGHT) then
+        self.logger.d("move is invalid, left and right only")
+        return
+    end
+    local curr_space_id = Spaces.focusedSpace()
+    local layout = Spaces.allSpaces()
+    local curr_space_idx = -1
+    local num_spaces = 0
+    for _, screen in ipairs(Screen.allScreens()) do
+        local screen_uuid = screen:getUUID()
+        if curr_space_idx < 0 then 
+            for idx, space_id in ipairs(layout[screen_uuid]) do
+                if curr_space_id == space_id then 
+                    curr_space_idx = idx + num_spaces
+                    break
+                end
+            end
+        end
+        num_spaces = num_spaces + #layout[screen_uuid]
+    end
+    self.logger.d(curr_space_idx)
+    if curr_space_idx >= 0 then 
+        local new_space_idx = ((curr_space_idx - 1 + direction) % num_spaces) + 1 
+        self:switchToSpace(new_space_idx)
+    end
+end
+
 function PaperWM:moveWindowToSpace(index)
     focused_window = focused_window or Window.focusedWindow()
     if not focused_window then
@@ -922,6 +952,8 @@ PaperWM.actions = {
     cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT),
     slurp_in = partial(PaperWM.slurpWindow, PaperWM),
     barf_out = partial(PaperWM.barfWindow, PaperWM),
+    switch_space_l = partial(PaperWM.incrementSpace, PaperWM, Direction.LEFT),
+    switch_space_r = partial(PaperWM.incrementSpace, PaperWM, Direction.RIGHT),
     switch_space_1 = partial(PaperWM.switchToSpace, PaperWM, 1),
     switch_space_2 = partial(PaperWM.switchToSpace, PaperWM, 2),
     switch_space_3 = partial(PaperWM.switchToSpace, PaperWM, 3),
