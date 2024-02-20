@@ -128,6 +128,9 @@ local ui_watchers = {} -- dictionary of uielement watchers with window id for ke
 -- current focused window
 local focused_window = nil
 
+-- refresh window layout on screen change
+local screen_watcher = Screen.watcher.new(function() PaperWM:refreshWindows() end)
+
 local function getSpace(index)
     local layout = Spaces.allSpaces()
     for _, screen in ipairs(Screen.allScreens()) do
@@ -273,6 +276,9 @@ function PaperWM:start()
         WindowFilter.windowUnfullscreened
     }, function(window, _, event) windowEventHandler(window, event, self) end)
 
+    -- watch for external monitor plug / unplug
+    screen_watcher:start()
+
     return self
 end
 
@@ -280,6 +286,7 @@ function PaperWM:stop()
     -- stop events
     self.window_filter:unsubscribeAll()
     for _, watcher in pairs(ui_watchers) do watcher:stop() end
+    screen_watcher:stop()
 
     return self
 end
