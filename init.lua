@@ -239,15 +239,6 @@ local function focusSpace(space, window)
         for i = 1, 3 do Timer.doAfter(i * Window.animationDuration, focusCheck) end
     elseif Spaces.spaceType(space) == "user" then
         leftClick(point) -- if there are no windows and the space is a user space then click
-        -- MacOS will sometimes switch to a another space with a focused window
-        -- Setup a timer to check that the requested space stays active
-        local function spaceCheck()
-            if space ~= Spaces.focusedSpace() then
-                Spaces.gotoSpace(space)
-                leftClick(point)
-            end
-        end
-        for i = 1, 3 do Timer.doAfter(i * Window.animationDuration, spaceCheck) end
     end
 end
 
