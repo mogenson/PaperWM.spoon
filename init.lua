@@ -54,40 +54,42 @@ PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
 
 PaperWM.default_hotkeys = {
-    stop_events     = { { "ctrl", "alt", "cmd", "shift" }, "q" },
-    refresh_windows = { { "ctrl", "alt", "cmd", "shift" }, "r" },
-    focus_left      = { { "ctrl", "alt", "cmd" }, "left" },
-    focus_right     = { { "ctrl", "alt", "cmd" }, "right" },
-    focus_up        = { { "ctrl", "alt", "cmd" }, "up" },
-    focus_down      = { { "ctrl", "alt", "cmd" }, "down" },
-    swap_left       = { { "ctrl", "alt", "cmd", "shift" }, "left" },
-    swap_right      = { { "ctrl", "alt", "cmd", "shift" }, "right" },
-    swap_up         = { { "ctrl", "alt", "cmd", "shift" }, "up" },
-    swap_down       = { { "ctrl", "alt", "cmd", "shift" }, "down" },
-    center_window   = { { "ctrl", "alt", "cmd" }, "c" },
-    full_width      = { { "ctrl", "alt", "cmd" }, "f" },
-    cycle_width     = { { "ctrl", "alt", "cmd" }, "r" },
-    cycle_height    = { { "ctrl", "alt", "cmd", "shift" }, "r" },
-    slurp_in        = { { "ctrl", "alt", "cmd" }, "i" },
-    barf_out        = { { "ctrl", "alt", "cmd" }, "o" },
-    switch_space_1  = { { "ctrl", "alt", "cmd" }, "1" },
-    switch_space_2  = { { "ctrl", "alt", "cmd" }, "2" },
-    switch_space_3  = { { "ctrl", "alt", "cmd" }, "3" },
-    switch_space_4  = { { "ctrl", "alt", "cmd" }, "4" },
-    switch_space_5  = { { "ctrl", "alt", "cmd" }, "5" },
-    switch_space_6  = { { "ctrl", "alt", "cmd" }, "6" },
-    switch_space_7  = { { "ctrl", "alt", "cmd" }, "7" },
-    switch_space_8  = { { "ctrl", "alt", "cmd" }, "8" },
-    switch_space_9  = { { "ctrl", "alt", "cmd" }, "9" },
-    move_window_1   = { { "ctrl", "alt", "cmd", "shift" }, "1" },
-    move_window_2   = { { "ctrl", "alt", "cmd", "shift" }, "2" },
-    move_window_3   = { { "ctrl", "alt", "cmd", "shift" }, "3" },
-    move_window_4   = { { "ctrl", "alt", "cmd", "shift" }, "4" },
-    move_window_5   = { { "ctrl", "alt", "cmd", "shift" }, "5" },
-    move_window_6   = { { "ctrl", "alt", "cmd", "shift" }, "6" },
-    move_window_7   = { { "ctrl", "alt", "cmd", "shift" }, "7" },
-    move_window_8   = { { "ctrl", "alt", "cmd", "shift" }, "8" },
-    move_window_9   = { { "ctrl", "alt", "cmd", "shift" }, "9" }
+    stop_events       = { { "ctrl", "alt", "cmd", "shift" }, "q" },
+    refresh_windows   = { { "ctrl", "alt", "cmd", "shift" }, "r" },
+    focus_left        = { { "ctrl", "alt", "cmd" }, "left" },
+    focus_right       = { { "ctrl", "alt", "cmd" }, "right" },
+    focus_up          = { { "ctrl", "alt", "cmd" }, "up" },
+    focus_down        = { { "ctrl", "alt", "cmd" }, "down" },
+    swap_left         = { { "ctrl", "alt", "cmd", "shift" }, "left" },
+    swap_right        = { { "ctrl", "alt", "cmd", "shift" }, "right" },
+    swap_up           = { { "ctrl", "alt", "cmd", "shift" }, "up" },
+    swap_down         = { { "ctrl", "alt", "cmd", "shift" }, "down" },
+    center_window     = { { "ctrl", "alt", "cmd" }, "c" },
+    full_width        = { { "ctrl", "alt", "cmd" }, "f" },
+    cycle_width       = { { "ctrl", "alt", "cmd" }, "r" },
+    cycle_height      = { { "ctrl", "alt", "cmd", "shift" }, "r" },
+    slurp_in          = { { "ctrl", "alt", "cmd" }, "i" },
+    barf_out          = { { "ctrl", "alt", "cmd" }, "o" },
+    cycle_space_left  = { { "ctrl", "alt", "cmd" }, "," },
+    cycle_space_right = { { "ctrl", "alt", "cmd" }, "." },
+    switch_space_1    = { { "ctrl", "alt", "cmd" }, "1" },
+    switch_space_2    = { { "ctrl", "alt", "cmd" }, "2" },
+    switch_space_3    = { { "ctrl", "alt", "cmd" }, "3" },
+    switch_space_4    = { { "ctrl", "alt", "cmd" }, "4" },
+    switch_space_5    = { { "ctrl", "alt", "cmd" }, "5" },
+    switch_space_6    = { { "ctrl", "alt", "cmd" }, "6" },
+    switch_space_7    = { { "ctrl", "alt", "cmd" }, "7" },
+    switch_space_8    = { { "ctrl", "alt", "cmd" }, "8" },
+    switch_space_9    = { { "ctrl", "alt", "cmd" }, "9" },
+    move_window_1     = { { "ctrl", "alt", "cmd", "shift" }, "1" },
+    move_window_2     = { { "ctrl", "alt", "cmd", "shift" }, "2" },
+    move_window_3     = { { "ctrl", "alt", "cmd", "shift" }, "3" },
+    move_window_4     = { { "ctrl", "alt", "cmd", "shift" }, "4" },
+    move_window_5     = { { "ctrl", "alt", "cmd", "shift" }, "5" },
+    move_window_6     = { { "ctrl", "alt", "cmd", "shift" }, "6" },
+    move_window_7     = { { "ctrl", "alt", "cmd", "shift" }, "7" },
+    move_window_8     = { { "ctrl", "alt", "cmd", "shift" }, "8" },
+    move_window_9     = { { "ctrl", "alt", "cmd", "shift" }, "9" }
 }
 
 -- filter for windows to manage
@@ -859,6 +861,38 @@ function PaperWM:switchToSpace(index)
     focusSpace(space)
 end
 
+function PaperWM:cycleSpace(direction)
+    if direction ~= Direction.LEFT and direction ~= Direction.RIGHT then
+        self.logger.e("invalid direction")
+        return
+    end
+
+    local curr_space_id = Spaces.focusedSpace()
+    local layout = Spaces.allSpaces()
+    local curr_space_idx = -1
+    local num_spaces = 0
+
+    -- iterate using screens so that spaces stay in the same order as getSpace
+    for _, screen in ipairs(Screen.allScreens()) do
+        local screen_uuid = screen:getUUID()
+        if curr_space_idx < 0 then -- space IDs must be positive integers
+            for idx, space_id in ipairs(layout[screen_uuid]) do
+                if curr_space_id == space_id then
+                    curr_space_idx = idx + num_spaces
+                    break
+                end
+            end
+        end
+        num_spaces = num_spaces + #layout[screen_uuid]
+    end
+
+    local new_space_idx = ((curr_space_idx - 1 + direction) % num_spaces) + 1
+    self.logger.f("current space index %d, current space id %d, new space idx %d", curr_space_idx, curr_space_id,
+        new_space_idx)
+
+    self:switchToSpace(new_space_idx)
+end
+
 function PaperWM:moveWindowToSpace(index)
     focused_window = focused_window or Window.focusedWindow()
     if not focused_window then
@@ -944,6 +978,8 @@ PaperWM.actions = {
     cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT),
     slurp_in = partial(PaperWM.slurpWindow, PaperWM),
     barf_out = partial(PaperWM.barfWindow, PaperWM),
+    cycle_space_left = partial(PaperWM.cycleSpace, PaperWM, Direction.LEFT),
+    cycle_space_right = partial(PaperWM.cycleSpace, PaperWM, Direction.RIGHT),
     switch_space_1 = partial(PaperWM.switchToSpace, PaperWM, 1),
     switch_space_2 = partial(PaperWM.switchToSpace, PaperWM, 2),
     switch_space_3 = partial(PaperWM.switchToSpace, PaperWM, 3),
