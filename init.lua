@@ -176,7 +176,7 @@ end
 
 local pending_window = nil
 local function windowEventHandler(window, event, self)
-    self.logger.df("%s for [%s] id:%d", event, window, window and window:id() or -1)
+    self.logger.df("%s for [%s] id: %d", event, window, window and window:id() or -1)
     local space = nil
 
     --[[ When a new window is created, We first get a windowVisible event but
@@ -210,7 +210,7 @@ local function windowEventHandler(window, event, self)
             return
         end
     elseif event == "windowNotVisible" then
-        self:removeWindow(window)               -- destroyed windows don't have a space
+        space = self:removeWindow(window)
     elseif event == "windowFullscreened" then
         space = self:removeWindow(window, true) -- don't focus new window if fullscreened
     elseif event == "AXWindowMoved" or event == "AXWindowResized" then
@@ -490,9 +490,12 @@ function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     end
 
     if not skip_new_window_focus then -- find nearby window to focus
-        for _, direction in ipairs({
-            Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
-        }) do if self:focusWindow(direction, remove_index) then break end end
+        local focused_window = focused_window or Window.focusedWindow()
+        if focused_window and remove_window:id() == focused_window:id() then
+            for _, direction in ipairs({
+                Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
+            }) do if self:focusWindow(direction, remove_index) then break end end
+        end
     end
 
     -- remove window
@@ -918,9 +921,9 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
-    -- cache a local copy, removeWindow() will clear global focused_window
+    -- cache a copy of focused_window, don't switch focus when removing window
     local focused_window = focused_window
-    local old_space = self:removeWindow(focused_window)
+    local old_space = self:removeWindow(focused_window, true)
     if not old_space then
         self.logger.e("can't remove focused window")
         return
