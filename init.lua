@@ -54,42 +54,44 @@ PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
 
 PaperWM.default_hotkeys = {
-    stop_events     = { { "ctrl", "alt", "cmd", "shift" }, "q" },
-    refresh_windows = { { "ctrl", "alt", "cmd", "shift" }, "r" },
-    focus_left      = { { "ctrl", "alt", "cmd" }, "left" },
-    focus_right     = { { "ctrl", "alt", "cmd" }, "right" },
-    focus_up        = { { "ctrl", "alt", "cmd" }, "up" },
-    focus_down      = { { "ctrl", "alt", "cmd" }, "down" },
-    swap_left       = { { "ctrl", "alt", "cmd", "shift" }, "left" },
-    swap_right      = { { "ctrl", "alt", "cmd", "shift" }, "right" },
-    swap_up         = { { "ctrl", "alt", "cmd", "shift" }, "up" },
-    swap_down       = { { "ctrl", "alt", "cmd", "shift" }, "down" },
-    center_window   = { { "ctrl", "alt", "cmd" }, "c" },
-    full_width      = { { "ctrl", "alt", "cmd" }, "f" },
-    cycle_width     = { { "ctrl", "alt", "cmd" }, "r" },
-    cycle_height    = { { "ctrl", "alt", "cmd", "shift" }, "r" },
-    slurp_in        = { { "ctrl", "alt", "cmd" }, "i" },
-    barf_out        = { { "ctrl", "alt", "cmd" }, "o" },
-    switch_space_l  = { { "ctrl", "alt", "cmd" }, "," },
-    switch_space_r  = { { "ctrl", "alt", "cmd" }, "." },
-    switch_space_1  = { { "ctrl", "alt", "cmd" }, "1" },
-    switch_space_2  = { { "ctrl", "alt", "cmd" }, "2" },
-    switch_space_3  = { { "ctrl", "alt", "cmd" }, "3" },
-    switch_space_4  = { { "ctrl", "alt", "cmd" }, "4" },
-    switch_space_5  = { { "ctrl", "alt", "cmd" }, "5" },
-    switch_space_6  = { { "ctrl", "alt", "cmd" }, "6" },
-    switch_space_7  = { { "ctrl", "alt", "cmd" }, "7" },
-    switch_space_8  = { { "ctrl", "alt", "cmd" }, "8" },
-    switch_space_9  = { { "ctrl", "alt", "cmd" }, "9" },
-    move_window_1   = { { "ctrl", "alt", "cmd", "shift" }, "1" },
-    move_window_2   = { { "ctrl", "alt", "cmd", "shift" }, "2" },
-    move_window_3   = { { "ctrl", "alt", "cmd", "shift" }, "3" },
-    move_window_4   = { { "ctrl", "alt", "cmd", "shift" }, "4" },
-    move_window_5   = { { "ctrl", "alt", "cmd", "shift" }, "5" },
-    move_window_6   = { { "ctrl", "alt", "cmd", "shift" }, "6" },
-    move_window_7   = { { "ctrl", "alt", "cmd", "shift" }, "7" },
-    move_window_8   = { { "ctrl", "alt", "cmd", "shift" }, "8" },
-    move_window_9   = { { "ctrl", "alt", "cmd", "shift" }, "9" }
+    stop_events          = { { "ctrl", "alt", "cmd", "shift" }, "q" },
+    refresh_windows      = { { "ctrl", "alt", "cmd", "shift" }, "r" },
+    focus_left           = { { "ctrl", "alt", "cmd" }, "left" },
+    focus_right          = { { "ctrl", "alt", "cmd" }, "right" },
+    focus_up             = { { "ctrl", "alt", "cmd" }, "up" },
+    focus_down           = { { "ctrl", "alt", "cmd" }, "down" },
+    swap_left            = { { "ctrl", "alt", "cmd", "shift" }, "left" },
+    swap_right           = { { "ctrl", "alt", "cmd", "shift" }, "right" },
+    swap_up              = { { "ctrl", "alt", "cmd", "shift" }, "up" },
+    swap_down            = { { "ctrl", "alt", "cmd", "shift" }, "down" },
+    center_window        = { { "ctrl", "alt", "cmd" }, "c" },
+    full_width           = { { "ctrl", "alt", "cmd" }, "f" },
+    cycle_width          = { { "ctrl", "alt", "cmd" }, "r" },
+    cycle_height         = { { "ctrl", "alt", "cmd", "shift" }, "r" },
+    reverse_cycle_width  = { { "alt", "cmd" }, "r" },
+    reverse_cycle_height = { { "alt", "cmd", "shift" }, "r" },
+    slurp_in             = { { "ctrl", "alt", "cmd" }, "i" },
+    barf_out             = { { "ctrl", "alt", "cmd" }, "o" },
+    switch_space_l       = { { "ctrl", "alt", "cmd" }, "," },
+    switch_space_r       = { { "ctrl", "alt", "cmd" }, "." },
+    switch_space_1       = { { "ctrl", "alt", "cmd" }, "1" },
+    switch_space_2       = { { "ctrl", "alt", "cmd" }, "2" },
+    switch_space_3       = { { "ctrl", "alt", "cmd" }, "3" },
+    switch_space_4       = { { "ctrl", "alt", "cmd" }, "4" },
+    switch_space_5       = { { "ctrl", "alt", "cmd" }, "5" },
+    switch_space_6       = { { "ctrl", "alt", "cmd" }, "6" },
+    switch_space_7       = { { "ctrl", "alt", "cmd" }, "7" },
+    switch_space_8       = { { "ctrl", "alt", "cmd" }, "8" },
+    switch_space_9       = { { "ctrl", "alt", "cmd" }, "9" },
+    move_window_1        = { { "ctrl", "alt", "cmd", "shift" }, "1" },
+    move_window_2        = { { "ctrl", "alt", "cmd", "shift" }, "2" },
+    move_window_3        = { { "ctrl", "alt", "cmd", "shift" }, "3" },
+    move_window_4        = { { "ctrl", "alt", "cmd", "shift" }, "4" },
+    move_window_5        = { { "ctrl", "alt", "cmd", "shift" }, "5" },
+    move_window_6        = { { "ctrl", "alt", "cmd", "shift" }, "6" },
+    move_window_7        = { { "ctrl", "alt", "cmd", "shift" }, "7" },
+    move_window_8        = { { "ctrl", "alt", "cmd", "shift" }, "8" },
+    move_window_9        = { { "ctrl", "alt", "cmd", "shift" }, "9" }
 }
 
 -- filter for windows to manage
@@ -119,7 +121,9 @@ local Direction <const> = {
     UP = -2,
     DOWN = 2,
     WIDTH = 3,
-    HEIGHT = 4
+    HEIGHT = 4,
+    ASCENDING = 5,
+    DESCENDING = 6
 }
 
 -- array of windows sorted from left to right
@@ -696,24 +700,43 @@ function PaperWM:setWindowFullWidth()
     self:tileSpace(space)
 end
 
-function PaperWM:cycleWindowSize(direction)
+function PaperWM:cycleWindowSize(direction, cycle_direction)
     -- get current focused window
     focused_window = focused_window or Window.focusedWindow()
     if not focused_window then return end
 
-    local function findNewSize(area_size, frame_size)
+    local function findNewSize(area_size, frame_size, cycle_direction)
         local sizes = {}
-        for index, ratio in ipairs(self.window_ratios) do
-            sizes[index] = ratio * (area_size + self.window_gap) - self.window_gap
-        end
-
-        -- find new size
-        local new_size = sizes[1]
-        for _, size in ipairs(sizes) do
-            if size > frame_size + 10 then
-                new_size = size
-                break
+        local new_size
+        if cycle_direction == Direction.ASCENDING then
+            for index, ratio in ipairs(self.window_ratios) do
+                sizes[index] = ratio * (area_size + self.window_gap) - self.window_gap
             end
+
+            -- find new size
+            new_size = sizes[1]
+            for _, size in ipairs(sizes) do
+                if size > frame_size + 10 then
+                    new_size = size
+                    break
+                end
+            end
+        elseif cycle_direction == Direction.DESCENDING then
+            for index, ratio in ipairs(self.window_ratios) do
+                sizes[index] = ratio * (area_size + self.window_gap) - self.window_gap
+            end
+
+            -- find new size, starting from the end
+            new_size = sizes[#sizes] -- Start with the largest size
+            for i = #sizes, 1, -1 do
+                if sizes[i] < frame_size - 10 then
+                    new_size = sizes[i]
+                    break
+                end
+            end
+        else
+            self.logger.e("cycle_direction must be either Direction.ASCENDING or Direction.DESCENDING")
+            return
         end
 
         return new_size
@@ -723,16 +746,17 @@ function PaperWM:cycleWindowSize(direction)
     local focused_frame = focused_window:frame()
 
     if direction == Direction.WIDTH then
-        local new_width = findNewSize(canvas.w, focused_frame.w)
+        local new_width = findNewSize(canvas.w, focused_frame.w, cycle_direction)
         focused_frame.x = focused_frame.x + ((focused_frame.w - new_width) // 2)
         focused_frame.w = new_width
     elseif direction == Direction.HEIGHT then
-        local new_height = findNewSize(canvas.h, focused_frame.h)
-        focused_frame.y = math.max(canvas.y, focused_frame.y +
-            ((focused_frame.h - new_height) // 2))
+        local new_height = findNewSize(canvas.h, focused_frame.h, cycle_direction)
+        focused_frame.y = math.max(canvas.y, focused_frame.y + ((focused_frame.h - new_height) // 2))
         focused_frame.h = new_height
-        focused_frame.y = focused_frame.y -
-            math.max(0, focused_frame.y2 - canvas.y2)
+        focused_frame.y = focused_frame.y - math.max(0, focused_frame.y2 - canvas.y2)
+    else
+        self.logger.e("direction must be either Direction.WIDTH or Direction.HEIGHT")
+        return
     end
 
     -- apply new size
@@ -970,8 +994,10 @@ PaperWM.actions = {
     swap_down = partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
     center_window = partial(PaperWM.centerWindow, PaperWM),
     full_width = partial(PaperWM.setWindowFullWidth, PaperWM),
-    cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH),
-    cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT),
+    cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
+    cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.ASCENDING),
+    reverse_cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.DESCENDING),
+    reverse_cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.DESCENDING),
     slurp_in = partial(PaperWM.slurpWindow, PaperWM),
     barf_out = partial(PaperWM.barfWindow, PaperWM),
     switch_space_l = partial(PaperWM.incrementSpace, PaperWM, Direction.LEFT),
