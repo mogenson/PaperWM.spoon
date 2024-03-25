@@ -130,12 +130,19 @@ local Direction <const> = {
 local window_list = {} -- 3D array of tiles in order of [space][x][y]
 local index_table = {} -- dictionary of {space, x, y} with window id for keys
 local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
-
--- current focused window
-local focused_window = nil
+local tab_table = {}   -- dictionary of tab host window ids with tab id for keys
 
 -- refresh window layout on screen change
 local screen_watcher = Screen.watcher.new(function() PaperWM:refreshWindows() end)
+
+-- current focused window
+local focused_window = nil
+local function getFocusedWindow()
+    -- used cached result if available and return host window for tabs
+    local win = focused_window or Window.focusedWindow()
+    local tab = tab_table[win]
+    return tab or win
+end
 
 local function getSpace(index)
     local layout = Spaces.allSpaces()
@@ -262,6 +269,7 @@ function PaperWM:start()
     window_list = {}
     index_table = {}
     ui_watchers = {}
+    tab_table = {}
 
     -- populate window list, index table, ui_watchers, and set initial layout
     self:refreshWindows()
@@ -334,11 +342,9 @@ function PaperWM:tileSpace(space)
     end
 
     -- if focused window is in space, tile from that
-    focused_window = focused_window or Window.focusedWindow()
-    local anchor_window = (focused_window and
-            (Spaces.windowSpaces(focused_window)[1] == space)) and
-        focused_window or
-        getFirstVisibleWindow(window_list[space], screen)
+    local focused_window = getFocusedWindow()
+    local anchor_window = (focused_window and (Spaces.windowSpaces(focused_window)[1] == space))
+        and focused_window or getFirstVisibleWindow(window_list[space], screen)
 
     if not anchor_window then
         self.logger.e("no anchor window in space")
@@ -437,13 +443,32 @@ function PaperWM:refreshWindows()
 end
 
 function PaperWM:addWindow(add_window)
+    --[[ A window with no tabs will have a tabCount of 0. A new tab for an
+        existing window will have a tabCount equal to the total number of tabs
+        (eg. 2 for the first new tab). The tabCount for existing tabs will be
+        set back to 0. This means we need to capture and track each new tab when
+        it is created. We cannot identify a tab later.]]
+    --
+    if add_window:tabCount() > 0 then
+        -- focus_window should still be set to the previously focused window at this point.
+        -- assume that the new tab was created from the focused window
+        if focused_window and focused_window:application():name() == add_window:application():name() then
+            tab_table[add_window:id()] = focused_window:id()
+        end
+
+        self.logger.df("ignoring window tab: %s", add_window)
+        return nil
+    elseif tab_table[add_window:id()] then -- tab already added
+        return nil
+    end
+
     -- check if window is already in window list
-    if index_table[add_window:id()] then return end
+    if index_table[add_window:id()] then return nil end
 
     local space = Spaces.windowSpaces(add_window)[1]
     if not space then
         self.logger.e("add window does not have a space")
-        return
+        return nil
     end
     if not window_list[space] then window_list[space] = {} end
 
@@ -486,15 +511,22 @@ function PaperWM:addWindow(add_window)
 end
 
 function PaperWM:removeWindow(remove_window, skip_new_window_focus)
+    -- check if window is a tab
+    if tab_table[remove_window:id()] then
+        self.logger.df("removing window tab: %s", remove_window)
+        tab_table[remove_window:id()] = nil
+        return nil
+    end
+
     -- get index of window
     local remove_index = index_table[remove_window:id()]
     if not remove_index then
         self.logger.e("remove index not found")
-        return
+        return nil
     end
 
     if not skip_new_window_focus then -- find nearby window to focus
-        local focused_window = focused_window or Window.focusedWindow()
+        local focused_window = getFocusedWindow()
         if focused_window and remove_window:id() == focused_window:id() then
             for _, direction in ipairs({
                 Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
@@ -527,8 +559,8 @@ end
 function PaperWM:focusWindow(direction, focused_index)
     if not focused_index then
         -- get current focused window
-        focused_window = focused_window or Window.focusedWindow()
-        if not focused_window then return false end
+        local focused_window = getFocusedWindow()
+        if not focused_window then return nil end
 
         -- get focused window index
         focused_index = index_table[focused_window:id()]
@@ -536,7 +568,7 @@ function PaperWM:focusWindow(direction, focused_index)
 
     if not focused_index then
         self.logger.e("focused index not found")
-        return false
+        return nil
     end
 
     -- get new focused window
@@ -555,17 +587,17 @@ function PaperWM:focusWindow(direction, focused_index)
 
     if not new_focused_window then
         self.logger.d("new focused window not found")
-        return false
+        return nil
     end
 
     -- focus new window, windowFocused event will be emited immediately
     new_focused_window:focus()
-    return true
+    return new_focused_window
 end
 
 function PaperWM:swapWindows(direction)
     -- use focused window as source window
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then return end
 
     -- get focused window index
@@ -670,7 +702,7 @@ end
 
 function PaperWM:centerWindow()
     -- get current focused window
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then return end
 
     -- get global coordinates
@@ -689,7 +721,7 @@ end
 
 function PaperWM:setWindowFullWidth()
     -- get current focused window
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then return end
 
     -- fullscreen window width
@@ -705,7 +737,7 @@ end
 
 function PaperWM:cycleWindowSize(direction, cycle_direction)
     -- get current focused window
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then return end
 
     local function findNewSize(area_size, frame_size, cycle_direction)
@@ -777,7 +809,7 @@ function PaperWM:slurpWindow()
     -- add current window to bottom of column to the left
 
     -- get current focused window
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then return end
 
     -- get window index
@@ -835,7 +867,7 @@ function PaperWM:barfWindow()
     -- place window into a new column to the right--
 
     -- get current focused window
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then return end
 
     -- get window index
@@ -917,7 +949,7 @@ function PaperWM:incrementSpace(direction)
 end
 
 function PaperWM:moveWindowToSpace(index)
-    focused_window = focused_window or Window.focusedWindow()
+    local focused_window = getFocusedWindow()
     if not focused_window then
         self.logger.d("focused window not found")
         return
@@ -945,8 +977,7 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
-    -- cache a copy of focused_window, don't switch focus when removing window
-    local focused_window = focused_window
+    -- focused_window needs to be a local copy so it is not garbage collected
     local old_space = self:removeWindow(focused_window, true)
     if not old_space then
         self.logger.e("can't remove focused window")
