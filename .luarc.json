@@ -5,4 +5,9 @@
     "neededFileStatus": { "codestyle-check": "Any" },
   },
   "runtime.version": "Lua 5.4",
+  "format.defaultConfig":
+  {
+    "indent_style": "space",
+    "indent_size": 4,
+  },
 }
