@@ -1029,8 +1029,9 @@ end
 
 ---move focused window to a Mission Control space
 ---@param index number ID for space
-function PaperWM:moveWindowToSpace(index)
-    local focused_window = Window.focusedWindow()
+---@param window Window|nil optional window to move
+function PaperWM:moveWindowToSpace(index, window)
+    local focused_window = window or Window.focusedWindow()
     if not focused_window then
         self.logger.d("focused window not found")
         return
