@@ -1,0 +1,29 @@
+name: Zip into spoon archive
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  zip-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Make folder
+        run: |
+          mkdir Spoons
+          mkdir PaperWM.spoon
+          cp init.lua PaperWM.spoon
+
+      - name: Create zip
+        run: zip -r -q Spoons/PaperWM.spoon.zip PaperWM.spoon
+
+      - name: Commit and push
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: '["Spoons/PaperWM.spoon.zip --force"]'
+          message: "Bundle into zip"
+          push: origin release --set-upstream --force
+          new_branch: release
