@@ -42,6 +42,7 @@ local WindowFilter <const> = hs.window.filter
 local leftClick <const> = hs.eventtap.leftClick
 local partial <const> = hs.fnutils.partial
 local rectMidPoint <const> = hs.geometry.rectMidPoint
+local operatingSystemVersion <const> = hs.host.operatingSystemVersion
 
 local PaperWM = {}
 PaperWM.__index = PaperWM
@@ -389,10 +390,12 @@ function PaperWM:tileSpace(space)
 
     -- if focused window is in space, tile from that
     local focused_window = Window.focusedWindow()
-    local anchor_window = (focused_window and
-            (Spaces.windowSpaces(focused_window)[1] == space)) and
-        focused_window or
-        getFirstVisibleWindow(window_list[space], screen)
+    local anchor_window = nil
+    if focused_window and Spaces.windowSpaces(focused_window)[1] == space then
+        anchor_window = focused_window
+    else
+        anchor_window = getFirstVisibleWindow(window_list[space], screen)
+    end
 
     if not anchor_window then
         self.logger.e("no anchor window in space")
@@ -577,6 +580,7 @@ function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     end
 
     -- remove watcher
+    ui_watchers[remove_window:id()]:stop()
     ui_watchers[remove_window:id()] = nil
 
     -- update index table
@@ -1059,6 +1063,13 @@ function PaperWM:moveWindowToSpace(index, window)
         return
     end
 
+
+    local screen = Screen(Spaces.spaceDisplay(new_space))
+    if not screen then
+        self.logger.d("no screen for space")
+        return
+    end
+
     -- cache a copy of focused_window, don't switch focus when removing window
     local old_space = self:removeWindow(focused_window, true)
     if not old_space then
@@ -1066,13 +1077,60 @@ function PaperWM:moveWindowToSpace(index, window)
         return
     end
 
-    Spaces.moveWindowToSpace(focused_window, new_space)
-    self:addWindow(focused_window)
-    self:tileSpace(old_space)
-    self:tileSpace(new_space)
-    Spaces.gotoSpace(new_space)
+    -- Hopefully this ugly hack isn't around for long
+    -- https://github.com/Hammerspoon/hammerspoon/issues/3636
+    local version = operatingSystemVersion()
+    if version.major * 100 + version.minor >= 1405 then
+        local do_window_move = coroutine.wrap(function()
+            repeat
+                coroutine.yield(false) -- not done
+            until Spaces.activeSpaceOnScreen(screen:id()) == new_space
 
-    focusSpace(new_space, focused_window)
+            local window_frame = focused_window:frame()
+            local screen_frame = getCanvas(screen)
+
+            -- center window and fit to new screen
+            window_frame.w = math.min(window_frame.w, screen_frame.w)
+            window_frame.h = math.min(window_frame.h, screen_frame.h)
+            window_frame.x = screen_frame.x + (screen_frame.w // 2) -
+                (window_frame.w // 2)
+            window_frame.y = screen_frame.y + (screen_frame.h // 2) -
+                (window_frame.h // 2)
+
+            focused_window:setFrame(window_frame)
+
+            repeat
+                coroutine.yield(false) -- not done
+            until Spaces.windowSpaces(focused_window)[1] == new_space
+
+            -- add window and tile
+            self:addWindow(focused_window)
+            focused_window:focus()
+            self:tileSpace(old_space)
+            self:tileSpace(new_space)
+            return true -- done
+        end)
+
+        -- switch spaces, wait for space to be ready, move window, wait for window to be ready
+        Spaces.gotoSpace(new_space)
+        local start_time = Timer.secondsSinceEpoch()
+        Timer.doUntil(do_window_move, function(timer)
+                if Timer.secondsSinceEpoch() - start_time > 5 then
+                    self.logger.ef("moveWindowToSpace() timeout! new space %d curr space %d window space %d", new_space,
+                        Spaces.activeSpaceOnScreen(screen:id()), Spaces.windowSpaces(focused_window)[1])
+                    timer:stop()
+                end
+            end,
+            Window.animationDuration)
+    else -- MacOS < 14.5
+        Spaces.moveWindowToSpace(focused_window, new_space)
+        self:addWindow(focused_window)
+        self:tileSpace(old_space)
+        self:tileSpace(new_space)
+        Spaces.gotoSpace(new_space)
+
+        focusSpace(new_space, focused_window)
+    end
 end
 
 ---move and resize a window to the coordinates specified by the frame
