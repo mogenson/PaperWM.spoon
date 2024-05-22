@@ -19,6 +19,27 @@ Spaces".
 
 <img width="780" alt="Screen Shot 2022-01-07 at 14 10 11" src="https://user-images.githubusercontent.com/900731/148595715-1f7a3509-1289-4d10-b64d-86b84c076b43.png">
 
+### Install with [SpoonInstall](https://www.hammerspoon.org/Spoons/SpoonInstall.html)
+
+```lua
+hs.loadSpoon("SpoonInstall")
+
+spoon.SpoonInstall.repos.PaperWM = {
+    url = "https://github.com/mogenson/PaperWM.spoon",
+    desc = "PaperWM.spoon repository",
+    branch = "release",
+}
+
+spoon.SpoonInstall:andUse("PaperWM", {
+    repo = "PaperWM",
+    config = { screen_margin = 16, window_gap = 2 },
+    start = true,
+    hotkeys = {
+		< see below >
+    }
+})
+```
+
 ## Usage
 
 Add the following to your `~/.hammerspoon/init.lua`:

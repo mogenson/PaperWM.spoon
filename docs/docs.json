@@ -1,6 +1,6 @@
 [
   {
     "name": "PaperWM",
-    "desc": "A package to enable a PaperWM like window management style"
+    "desc": "Tiled scrollable window manager for MacOS. Inspired by PaperWM."
   }
 ]
