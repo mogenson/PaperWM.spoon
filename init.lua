@@ -40,9 +40,13 @@ local Watcher <const> = hs.uielement.watcher
 local Window <const> = hs.window
 local WindowFilter <const> = hs.window.filter
 local leftClick <const> = hs.eventtap.leftClick
+local leftMouseDown <const> = hs.eventtap.event.types.leftMouseDown
+local leftMouseDragged <const> = hs.eventtap.event.types.leftMouseDragged
+local leftMouseUp <const> = hs.eventtap.event.types.leftMouseUp
+local newMouseEvent <const> = hs.eventtap.event.newMouseEvent
+local operatingSystemVersion <const> = hs.host.operatingSystemVersion
 local partial <const> = hs.fnutils.partial
 local rectMidPoint <const> = hs.geometry.rectMidPoint
-local operatingSystemVersion <const> = hs.host.operatingSystemVersion
 
 local PaperWM = {}
 PaperWM.__index = PaperWM
@@ -271,25 +275,46 @@ local function focusSpace(space, window)
         return
     end
 
-    -- move cursor to center of screen
-    local point = rectMidPoint(screen:fullFrame())
-    Mouse.absolutePosition(point)
-
     -- focus provided window or first window on new space
     window = window or getFirstVisibleWindow(window_list[space], screen)
-    if window then
-        window:focus()
-        -- MacOS will sometimes switch to another window of the same applications on a different space
-        -- Setup a timer to check that the requested window stays focused
-        local function focusCheck()
-            if window ~= Window.focusedWindow() then
-                window:focus()
+
+    local do_space_focus = coroutine.wrap(function()
+        if window then
+            local function check_focus(win, n)
+                local focused = true
+                for i = 1, n do -- ensure that window focus does not change
+                    focused = focused and (Window.focusedWindow() == win)
+                    if not focused then return false end
+                    coroutine.yield(false) -- not done
+                end
+                return focused
             end
+            repeat
+                window:focus()
+                coroutine.yield(false) -- not done
+            until (Spaces.focusedSpace() == space) and check_focus(window, 3)
+        else
+            local point = screen:frame()
+            point.x = point.x + (point.w // 2)
+            point.y = point.y - 4
+            repeat
+                leftClick(point)       -- click on menubar
+                coroutine.yield(false) -- not done
+            until Spaces.focusedSpace() == space
         end
-        for i = 1, 3 do Timer.doAfter(i * Window.animationDuration, focusCheck) end
-    elseif Spaces.spaceType(space) == "user" then
-        leftClick(point) -- if there are no windows and the space is a user space then click
-    end
+
+        -- move cursor to center of screen
+        Mouse.absolutePosition(rectMidPoint(screen:frame()))
+        return true -- done
+    end)
+
+    local start_time = Timer.secondsSinceEpoch()
+    Timer.doUntil(do_space_focus, function(timer)
+        if Timer.secondsSinceEpoch() - start_time > 4 then
+            PaperWM.logger.ef("focusSpace() timeout! space %d focused space %d", space, Spaces.focusedSpace())
+            timer:stop()
+        end
+    end, Window.animationDuration)
 end
 
 ---start automatic window tiling
@@ -1081,41 +1106,43 @@ function PaperWM:moveWindowToSpace(index, window)
     -- https://github.com/Hammerspoon/hammerspoon/issues/3636
     local version = operatingSystemVersion()
     if version.major * 100 + version.minor >= 1405 then
-        local do_window_move = coroutine.wrap(function()
-            repeat
-                coroutine.yield(false) -- not done
-            until Spaces.activeSpaceOnScreen(screen:id()) == new_space
+        local start_point    = focused_window:frame()
+        start_point.x        = start_point.x + start_point.w // 2
+        start_point.y        = start_point.y + 4
 
-            local window_frame = focused_window:frame()
-            local screen_frame = getCanvas(screen)
+        local end_point      = screen:frame()
+        end_point.x          = end_point.x + end_point.w // 2
+        end_point.y          = end_point.y + self.window_gap + 4
 
-            -- center window and fit to new screen
-            window_frame.w = math.min(window_frame.w, screen_frame.w)
-            window_frame.h = math.min(window_frame.h, screen_frame.h)
-            window_frame.x = screen_frame.x + (screen_frame.w // 2) -
-                (window_frame.w // 2)
-            window_frame.y = screen_frame.y + (screen_frame.h // 2) -
-                (window_frame.h // 2)
+        local do_window_drag = coroutine.wrap(function()
+            -- drag window half way there
+            start_point.x = start_point.x + ((end_point.x - start_point.x) // 2)
+            start_point.y = start_point.y + ((end_point.y - start_point.y) // 2)
+            newMouseEvent(leftMouseDragged, start_point):post()
+            coroutine.yield(false) -- not done
 
-            focused_window:setFrame(window_frame)
+            -- finish drag and release
+            newMouseEvent(leftMouseUp, end_point):post()
 
+            -- wait until window registers as on the new space
             repeat
                 coroutine.yield(false) -- not done
             until Spaces.windowSpaces(focused_window)[1] == new_space
 
             -- add window and tile
             self:addWindow(focused_window)
-            focused_window:focus()
             self:tileSpace(old_space)
             self:tileSpace(new_space)
+            focusSpace(new_space, focused_window)
             return true -- done
         end)
 
-        -- switch spaces, wait for space to be ready, move window, wait for window to be ready
+        -- pick up window, switch spaces, wait for space to be ready, drag and drop window, wait for window to be ready
+        newMouseEvent(leftMouseDown, start_point):post()
         Spaces.gotoSpace(new_space)
         local start_time = Timer.secondsSinceEpoch()
-        Timer.doUntil(do_window_move, function(timer)
-                if Timer.secondsSinceEpoch() - start_time > 5 then
+        Timer.doUntil(do_window_drag, function(timer)
+                if Timer.secondsSinceEpoch() - start_time > 4 then
                     self.logger.ef("moveWindowToSpace() timeout! new space %d curr space %d window space %d", new_space,
                         Spaces.activeSpaceOnScreen(screen:id()), Spaces.windowSpaces(focused_window)[1])
                     timer:stop()
