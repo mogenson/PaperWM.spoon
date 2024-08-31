@@ -71,6 +71,9 @@ PaperWM:bindHotkeys({
     slurp_in = {{"alt", "cmd"}, "i"},
     barf_out = {{"alt", "cmd"}, "o"},
 
+    -- move the focused window into / out of the tiling layer
+    toggle_floating = {{"alt", "cmd", "shift"}, "escape"},
+
     -- switch to a new Mission Control space
     switch_space_l = {{"alt", "cmd"}, ","},
     switch_space_r = {{"alt", "cmd"}, "."},

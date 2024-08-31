@@ -71,6 +71,7 @@ PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
 PaperWM.default_hotkeys = {
     stop_events          = { { "alt", "cmd", "shift" }, "q" },
     refresh_windows      = { { "alt", "cmd", "shift" }, "r" },
+    toggle_floating      = { { "alt", "cmd", "shift" }, "escape" },
     focus_left           = { { "alt", "cmd" }, "left" },
     focus_right          = { { "alt", "cmd" }, "right" },
     focus_up             = { { "alt", "cmd" }, "up" },
@@ -142,10 +143,14 @@ local Direction <const> = {
     DESCENDING = 6
 }
 
+-- hs.settings key for persisting is_floating, stored as an array of window id
+local IsFloatingKey <const> = 'PaperWM_is_floating'
+
 -- array of windows sorted from left to right
 local window_list = {} -- 3D array of tiles in order of [space][x][y]
 local index_table = {} -- dictionary of {space, x, y} with window id for keys
 local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
+local is_floating = {} -- dictionary of boolean with window id for keys
 
 -- refresh window layout on screen change
 local screen_watcher = Screen.watcher.new(function() PaperWM:refreshWindows() end)
@@ -213,6 +218,15 @@ local function updateIndexTable(space, column)
     end
 end
 
+---save the is_floating list to settings
+local function persistFloatingList()
+    local persisted = {}
+    for k, _ in pairs(is_floating) do
+        table.insert(persisted, k)
+    end
+    hs.settings.set(IsFloatingKey, persisted)
+end
+
 local focused_window = nil ---@type Window|nil
 local pending_window = nil ---@type Window|nil
 
@@ -231,6 +245,16 @@ local function windowEventHandler(window, event, self)
     the window again later. Also schedule the windowFocused handler to run later
     after the window was added ]]
     --
+
+    if is_floating[window:id()] then
+        -- this event is only meaningful for floating windows
+        if event == "windowDestroyed" then
+            is_floating[window:id()] = nil
+            persistFloatingList()
+        end
+        -- no other events are meaningful for floating windows
+        return
+    end
 
     if event == "windowFocused" then
         if pending_window and window == pending_window then
@@ -330,6 +354,17 @@ function PaperWM:start()
     window_list = {}
     index_table = {}
     ui_watchers = {}
+    is_floating = {}
+
+    -- restore saved is_floating state, filtering for valid windows
+    local persisted = hs.settings.get(IsFloatingKey) or {}
+    for _, id in ipairs(persisted) do
+        local window = Window.get(id)
+        if window and self.window_filter:isWindowAllowed(window) then
+            is_floating[id] = true
+        end
+    end
+    persistFloatingList()
 
     -- populate window list, index table, ui_watchers, and set initial layout
     self:refreshWindows()
@@ -338,7 +373,7 @@ function PaperWM:start()
     self.window_filter:subscribe({
         WindowFilter.windowFocused, WindowFilter.windowVisible,
         WindowFilter.windowNotVisible, WindowFilter.windowFullscreened,
-        WindowFilter.windowUnfullscreened
+        WindowFilter.windowUnfullscreened, WindowFilter.windowDestroyed
     }, function(window, _, event) windowEventHandler(window, event, self) end)
 
     -- watch for external monitor plug / unplug
@@ -416,7 +451,7 @@ function PaperWM:tileSpace(space)
     -- if focused window is in space, tile from that
     local focused_window = Window.focusedWindow()
     local anchor_window = nil
-    if focused_window and Spaces.windowSpaces(focused_window)[1] == space then
+    if focused_window and not is_floating[focused_window:id()] and Spaces.windowSpaces(focused_window)[1] == space then
         anchor_window = focused_window
     else
         anchor_window = getFirstVisibleWindow(window_list[space], screen)
@@ -498,7 +533,9 @@ function PaperWM:refreshWindows()
     local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
         local index = index_table[window:id()]
-        if not index then
+        if is_floating[window:id()] then
+            -- ignore floating windows
+        elseif not index then
             -- add window
             local space = self:addWindow(window)
             if space then retile_spaces[space] = true end
@@ -1186,10 +1223,38 @@ function PaperWM:moveWindow(window, frame)
     end)
 end
 
+---add or remove focused window from the floating layer and retile the space
+function PaperWM:toggleFloating()
+    local window = Window.focusedWindow()
+    if not window then
+        self.logger.d("focused window not found")
+        return
+    end
+
+    local id = window:id()
+    if is_floating[id] then
+        is_floating[id] = nil
+    else
+        is_floating[id] = true
+    end
+    persistFloatingList()
+
+    local space = nil
+    if is_floating[id] then
+        space = self:removeWindow(window, true)
+    else
+        space = self:addWindow(window)
+    end
+    if space then
+        self:tileSpace(space)
+    end
+end
+
 ---supported window movement actions
 PaperWM.actions = {
     stop_events = partial(PaperWM.stop, PaperWM),
     refresh_windows = partial(PaperWM.refreshWindows, PaperWM),
+    toggle_floating = partial(PaperWM.toggleFloating, PaperWM),
     focus_left = partial(PaperWM.focusWindow, PaperWM, Direction.LEFT),
     focus_right = partial(PaperWM.focusWindow, PaperWM, Direction.RIGHT),
     focus_up = partial(PaperWM.focusWindow, PaperWM, Direction.UP),
