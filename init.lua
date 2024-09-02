@@ -390,6 +390,11 @@ function PaperWM:stop()
     for _, watcher in pairs(ui_watchers) do watcher:stop() end
     screen_watcher:stop()
 
+    -- fit all windows within the bounds of the screen
+    for _, window in ipairs(self.window_filter:getWindows()) do
+        window:setFrameInScreenBounds()
+    end
+
     return self
 end
 
