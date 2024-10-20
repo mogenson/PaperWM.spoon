@@ -704,6 +704,15 @@ function PaperWM:focusWindow(direction, focused_index)
 
     -- focus new window, windowFocused event will be emited immediately
     new_focused_window:focus()
+
+    -- try to prevent MacOS from stealing focus away to another window
+    Timer.doAfter(Window.animationDuration, function()
+        if Window.focusedWindow() ~= new_focused_window then
+            self.logger.df("refocusing window %s", new_focused_window)
+            new_focused_window:focus()
+        end
+    end)
+
     return new_focused_window
 end
 
