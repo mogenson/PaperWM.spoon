@@ -564,7 +564,11 @@ function PaperWM:addWindow(add_window)
     -- A new tab for a window will have tabCount equal to the total number of tabs
     -- All existing tabs in a window will have their tabCount reset to 0
     -- We can't query whether an exiting hs.window is a tab or not after creation
-    if add_window:tabCount() > 0 then
+    local apple <const> = "com.apple"
+    if add_window:tabCount() > 0 and add_window:application():bundleID():sub(1, #apple) == apple then
+        -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
+        -- show up as separate windows. Third party apps like Microsoft Office
+        -- use tabs that are all contained within one window and tile fine.
         hs.notify.show("PaperWM", "Windows with tabs are not supported!",
             "See https://github.com/mogenson/PaperWM.spoon/issues/39")
         return
