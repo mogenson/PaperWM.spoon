@@ -13,11 +13,11 @@ https://user-images.githubusercontent.com/900731/147793584-f937811a-20aa-4282-ba
 
 1. Clone to Hammerspoon Spoons directory: `git clone https://github.com/mogenson/PaperWM.spoon ~/.hammerspoon/Spoons/PaperWM.spoon`.
 
-2. Open `System Preferences` -> `Mission Control`. Uncheck "Automatically
-rearrange Spaces based on most recent use" and check "Displays have separate
-Spaces".
+2. Open `System Preferences` -> `Desktop and Dock`. Scroll to the bottom to "Mission
+Control", then uncheck "Automatically rearrange Spaces based on most recent use" and
+check "Displays have separate Spaces".
 
-<img width="780" alt="Screen Shot 2022-01-07 at 14 10 11" src="https://user-images.githubusercontent.com/900731/148595715-1f7a3509-1289-4d10-b64d-86b84c076b43.png">
+<img width="780" alt="Screenshot of macOS settings" src="https://github.com/user-attachments/assets/b0842c44-2a3b-43fc-85eb-66729cd7f8db">
 
 ### Install with [SpoonInstall](https://www.hammerspoon.org/Spoons/SpoonInstall.html)
 
