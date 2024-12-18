@@ -15,7 +15,7 @@ jobs:
         run: |
           mkdir Spoons
           mkdir PaperWM.spoon
-          cp init.lua PaperWM.spoon
+          cp *.lua PaperWM.spoon
 
       - name: Create zip
         run: zip -r -q Spoons/PaperWM.spoon.zip PaperWM.spoon
