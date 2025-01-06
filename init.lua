@@ -41,6 +41,7 @@ local WindowFilter <const> = hs.window.filter
 local partial <const> = hs.fnutils.partial
 
 local MissionControl = dofile(hs.spoons.resourcePath("mission_control.lua"))
+local Swipe = dofile(hs.spoons.resourcePath("swipe.lua"))
 
 local PaperWM = {}
 PaperWM.__index = PaperWM
@@ -121,6 +122,12 @@ PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
 -- size of the on-screen margin to place off-screen windows
 PaperWM.screen_margin = 1
 
+-- number of fingers to detect a horizontal swipe, set to 0 to disable
+PaperWM.swipe_fingers = 0
+
+-- increase this number to make windows move futher when swiping
+PaperWM.swipe_gain = 1
+
 -- logger
 PaperWM.logger = hs.logger.new(PaperWM.name)
 
@@ -145,20 +152,36 @@ local window_list = {} -- 3D array of tiles in order of [space][x][y]
 local index_table = {} -- dictionary of {space, x, y} with window id for keys
 local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
 local is_floating = {} -- dictionary of boolean with window id for keys
+local x_positions = {} -- dictionary of horizontal positions with [space][window] for keys
 
 -- refresh window layout on screen change
 local screen_watcher = Screen.watcher.new(function() PaperWM:refreshWindows() end)
 
----return the leftmost window that's completely on the screen
----@param columns Window[] a column of windows
----@param screen Frame the coordinates of the screen
+---return the first window that's completely on the screen
+---@param space Space space to lookup windows
+---@param screen_frame Frame the coordinates of the screen
+---@pram direction Direction|nil either LEFT or RIGHT
 ---@return Window|nil
-local function getFirstVisibleWindow(columns, screen)
-    local x = screen:frame().x
-    for _, windows in ipairs(columns or {}) do
+local function getFirstVisibleWindow(space, screen_frame, direction)
+    direction = direction or Direction.LEFT
+    local distance = math.huge
+    local closest = nil
+
+    for _, windows in ipairs(window_list[space] or {}) do
         local window = windows[1] -- take first window in column
-        if window:frame().x >= x then return window end
+        local d = (function()
+            if direction == Direction.LEFT then
+                return window:frame().x - screen_frame.x
+            elseif direction == Direction.RIGHT then
+                return screen_frame.x2 - window:frame().x2
+            end
+        end)() or math.huge
+        if d >= 0 and d < distance then
+            distance = d
+            closest = window
+        end
     end
+    return closest
 end
 
 ---get a column of windows for a space from the window_list
@@ -199,6 +222,19 @@ local function updateIndexTable(space, column)
     end
 end
 
+---update the virtual x position for a table of windows on the specified space
+---@param space Space
+---@param windows Window[]
+local function updateVirtualPositions(space, windows, x)
+    if PaperWM.swipe_fingers == 0 then return end
+    if not x_positions[space] then
+        x_positions[space] = {}
+    end
+    for _, window in ipairs(windows) do
+        x_positions[space][window] = x
+    end
+end
+
 ---save the is_floating list to settings
 local function persistFloatingList()
     local persisted = {}
@@ -208,7 +244,7 @@ local function persistFloatingList()
     hs.settings.set(IsFloatingKey, persisted)
 end
 
-local focused_window = nil ---@type Window|nil
+local prev_focused_window = nil ---@type Window|nil
 local pending_window = nil ---@type Window|nil
 
 ---callback for window events
@@ -216,7 +252,8 @@ local pending_window = nil ---@type Window|nil
 ---@param event string name of the event
 ---@param self PaperWM
 local function windowEventHandler(window, event, self)
-    self.logger.df("%s for [%s] id: %d", event, window, window and window:id() or -1)
+    self.logger.df("%s for [%s] id: %d", event, window,
+        window and window:id() or -1)
     local space = nil
 
     --[[ When a new window is created, We first get a windowVisible event but
@@ -246,7 +283,7 @@ local function windowEventHandler(window, event, self)
                 end)
             return
         end
-        focused_window = window
+        prev_focused_window = window -- for addWindow()
         space = Spaces.windowSpaces(window)[1]
     elseif event == "windowVisible" or event == "windowUnfullscreened" then
         space = self:addWindow(window)
@@ -271,6 +308,124 @@ local function windowEventHandler(window, event, self)
     if space then self:tileSpace(space) end
 end
 
+---generate callback fucntion for touchpad swipe gesture event
+---@param self PaperWM
+local function swipeHandler(self)
+    -- saved upvalues between callback function calls
+    local space, screen_frame = nil, nil
+
+    ---callback for touchpad swipe gesture event
+    ---@param id number unique id across callbacks for the same swipe
+    ---@param type number one of Swipe.BEGIN, Swipe.MOVED, Swipe.END
+    ---@param dx number change in horizonal position since last callback: between 0 and 1
+    ---@param dy number change in vertical position since last callback: between 0 and 1
+    return function(id, type, dx, dy)
+        if type == Swipe.BEGIN then
+            self.logger.df("new swipe: %d", id)
+
+            -- use focused window for space to scroll windows
+            local focused_window = Window.focusedWindow()
+            if not focused_window then
+                self.logger.d("focused window not found")
+                return
+            end
+
+            -- get focused window index
+            local focused_index = index_table[focused_window:id()]
+            if not focused_index then
+                self.logger.e("focused index not found")
+                return
+            end
+
+            local screen = Screen(Spaces.spaceDisplay(focused_index.space))
+            if not screen then
+                self.logger.e("no screen for space")
+                return
+            end
+
+            -- cache upvalues
+            screen_frame = screen:frame()
+            space        = focused_index.space
+
+            -- stop all window moved watchers
+            for window, _ in pairs(x_positions[space] or {}) do
+                if not window then break end
+                local watcher = ui_watchers[window:id()]
+                if watcher then
+                    watcher:stop()
+                end
+            end
+        elseif type == Swipe.END then
+            self.logger.df("swipe end: %d", id)
+
+            if not space or not screen_frame then
+                return -- no cached upvalues
+            end
+
+            -- restart all window moved watchers
+            for window, _ in pairs(x_positions[space] or {}) do
+                if not window then break end
+                local watcher = ui_watchers[window:id()]
+                if watcher then
+                    watcher:start({ Watcher.windowMoved, Watcher.windowResized })
+                end
+            end
+
+            -- ensure a focused window is on screen
+            local focused_window = Window.focusedWindow()
+            if focused_window then
+                local frame = focused_window:frame()
+                local visible_window = (function()
+                    if frame.x < screen_frame.x then
+                        return getFirstVisibleWindow(space, screen_frame,
+                            Direction.LEFT)
+                    elseif frame.x2 > screen_frame.x2 then
+                        return getFirstVisibleWindow(space, screen_frame,
+                            Direction.RIGHT)
+                    end
+                end)()
+                if visible_window then
+                    visible_window:focus()
+                else
+                    self:tileSpace(space)
+                end
+            else
+                self.logger.e("no focused window at end of swipe")
+            end
+
+            -- clear cached upvalues
+            space, screen_frame = nil, nil
+        elseif type == Swipe.MOVED then
+            if not space or not screen_frame then
+                return -- no cached upvalues
+            end
+
+            if math.abs(dy) >= math.abs(dx) then
+                return -- only handle horizontal swipes
+            end
+
+            dx = math.floor(self.swipe_gain * dx * screen_frame.w)
+
+
+            local left_margin  = screen_frame.x + self.screen_margin
+            local right_margin = screen_frame.x2 - self.screen_margin
+
+            for window, x in pairs(x_positions[space] or {}) do
+                if not window then break end
+                x = x + dx
+                local frame = window:frame()
+                if dx > 0 then -- scroll right
+                    frame.x = math.min(x, right_margin)
+                else           -- scroll left
+                    frame.x = math.max(x, left_margin - frame.w)
+                end
+                window:setTopLeft(frame.x, frame.y) -- avoid the animationDuration
+                x_positions[space][window] = x      -- update virtual position
+            end
+        end
+    end
+end
+
 ---start automatic window tiling
 ---@return PaperWM
 function PaperWM:start()
@@ -285,6 +440,7 @@ function PaperWM:start()
     index_table = {}
     ui_watchers = {}
     is_floating = {}
+    x_positions = {}
 
     -- restore saved is_floating state, filtering for valid windows
     local persisted = hs.settings.get(IsFloatingKey) or {}
@@ -309,6 +465,11 @@ function PaperWM:start()
     -- watch for external monitor plug / unplug
     screen_watcher:start()
 
+    -- recognize horizontal touchpad swipe gestures
+    if self.swipe_fingers > 1 then
+        Swipe:start(self.swipe_fingers, swipeHandler(self))
+    end
+
     return self
 end
 
@@ -324,6 +485,9 @@ function PaperWM:stop()
     for _, window in ipairs(self.window_filter:getWindows()) do
         window:setFrameInScreenBounds()
     end
+
+    -- stop listening for touchpad swipes
+    Swipe:stop()
 
     return self
 end
@@ -385,12 +549,13 @@ function PaperWM:tileSpace(space)
 
     -- if focused window is in space, tile from that
     local focused_window = Window.focusedWindow()
-    local anchor_window = nil
-    if focused_window and not is_floating[focused_window:id()] and Spaces.windowSpaces(focused_window)[1] == space then
-        anchor_window = focused_window
-    else
-        anchor_window = getFirstVisibleWindow(window_list[space], screen)
-    end
+    local anchor_window = (function()
+        if focused_window and not is_floating[focused_window:id()] and Spaces.windowSpaces(focused_window)[1] == space then
+            return focused_window
+        else
+            return getFirstVisibleWindow(space, screen:frame())
+        end
+    end)()
 
     if not anchor_window then
         self.logger.e("no anchor window in space")
@@ -442,21 +607,34 @@ function PaperWM:tileSpace(space)
         self:tileColumn(column, bounds, h, anchor_frame.w, anchor_window:id(),
             anchor_frame.h)
     end
+    updateVirtualPositions(space, column, anchor_frame.x)
 
     -- tile windows from anchor right
-    local x = math.min(anchor_frame.x2 + self.window_gap, right_margin)
+    local x = anchor_frame.x2 + self.window_gap
     for col = anchor_index.col + 1, #(window_list[space] or {}) do
-        local bounds = { x = x, x2 = nil, y = canvas.y, y2 = canvas.y2 }
-        local column_width = self:tileColumn(getColumn(space, col), bounds)
-        x = math.min(x + column_width + self.window_gap, right_margin)
+        local bounds = {
+            x = math.min(x, right_margin),
+            x2 = nil,
+            y = canvas.y,
+            y2 =
+                canvas.y2
+        }
+        local column = getColumn(space, col)
+        local width = self:tileColumn(column, bounds)
+        updateVirtualPositions(space, column, x)
+        x = x + width + self.window_gap
     end
 
     -- tile windows from anchor left
+    local x = anchor_frame.x
     local x2 = math.max(anchor_frame.x - self.window_gap, left_margin)
     for col = anchor_index.col - 1, 1, -1 do
         local bounds = { x = nil, x2 = x2, y = canvas.y, y2 = canvas.y2 }
-        local column_width = self:tileColumn(getColumn(space, col), bounds)
-        x2 = math.max(x2 - column_width - self.window_gap, left_margin)
+        local column = getColumn(space, col)
+        local width = self:tileColumn(column, bounds)
+        x = x - width - self.window_gap
+        updateVirtualPositions(space, column, x)
+        x2 = math.max(x2 - width - self.window_gap, left_margin)
     end
 end
 
@@ -521,10 +699,11 @@ function PaperWM:addWindow(add_window)
     -- focused_window from previous window focused event will not be add_window
     -- hs.window.focusedWindow() will return add_window
     -- new window focused event for add_window has not happened yet
-    if focused_window and
-        ((index_table[focused_window:id()] or {}).space == space) and
-        (focused_window:id() ~= add_window:id()) then
-        add_column = index_table[focused_window:id()].col + 1 -- insert to the right
+    if prev_focused_window and
+        ((index_table[prev_focused_window:id()] or {}).space == space) and
+        (prev_focused_window:id() ~= add_window:id()) then
+        add_column = index_table[prev_focused_window:id()].col +
+            1 -- insert to the right
     else
         local x = add_window:frame().center.x
         for col, windows in ipairs(window_list[space]) do
@@ -584,6 +763,9 @@ function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     ui_watchers[remove_window:id()]:stop()
     ui_watchers[remove_window:id()] = nil
 
+    -- clear window position
+    (x_positions[remove_index.space] or {})[remove_window] = nil
+
     -- update index table
     index_table[remove_window:id()] = nil
     updateIndexTable(remove_index.space, remove_index.col)
@@ -591,6 +773,7 @@ function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     -- remove if space is empty
     if #window_list[remove_index.space] == 0 then
         window_list[remove_index.space] = nil
+        x_positions[remove_index.space] = nil
     end
 
     return remove_index.space -- return space for removed window
@@ -618,7 +801,7 @@ function PaperWM:focusWindow(direction, focused_index)
     end
 
     -- get new focused window
-    local new_focused_window
+    local new_focused_window = nil
     if direction == Direction.LEFT or direction == Direction.RIGHT then
         -- walk down column, looking for match in neighbor column
         for row = focused_index.row, 1, -1 do
@@ -835,10 +1018,11 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
 
     local function findNewSize(area_size, frame_size, cycle_direction)
         local sizes = {}
-        local new_size
+        local new_size = nil
         if cycle_direction == Direction.ASCENDING then
             for index, ratio in ipairs(self.window_ratios) do
-                sizes[index] = ratio * (area_size + self.window_gap) - self.window_gap
+                sizes[index] = ratio * (area_size + self.window_gap) -
+                    self.window_gap
             end
 
             -- find new size
@@ -851,7 +1035,8 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
             end
         elseif cycle_direction == Direction.DESCENDING then
             for index, ratio in ipairs(self.window_ratios) do
-                sizes[index] = ratio * (area_size + self.window_gap) - self.window_gap
+                sizes[index] = ratio * (area_size + self.window_gap) -
+                    self.window_gap
             end
 
             -- find new size, starting from the end
@@ -863,8 +1048,8 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
                 end
             end
         else
-            self.logger.e("cycle_direction must be either Direction.ASCENDING or Direction.DESCENDING")
-            return
+            self.logger.e(
+                "cycle_direction must be either Direction.ASCENDING or Direction.DESCENDING")
         end
 
         return new_size
@@ -879,11 +1064,14 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
         focused_frame.w = new_width
     elseif direction == Direction.HEIGHT then
         local new_height = findNewSize(canvas.h, focused_frame.h, cycle_direction)
-        focused_frame.y = math.max(canvas.y, focused_frame.y + ((focused_frame.h - new_height) // 2))
+        focused_frame.y = math.max(canvas.y,
+            focused_frame.y + ((focused_frame.h - new_height) // 2))
         focused_frame.h = new_height
-        focused_frame.y = focused_frame.y - math.max(0, focused_frame.y2 - canvas.y2)
+        focused_frame.y = focused_frame.y -
+            math.max(0, focused_frame.y2 - canvas.y2)
     else
-        self.logger.e("direction must be either Direction.WIDTH or Direction.HEIGHT")
+        self.logger.e(
+            "direction must be either Direction.WIDTH or Direction.HEIGHT")
         return
     end
 
@@ -1022,7 +1210,7 @@ function PaperWM:switchToSpace(index)
     end
 
     local screen = Screen(Spaces.spaceDisplay(space))
-    local window = getFirstVisibleWindow(window_list[space], screen)
+    local window = getFirstVisibleWindow(space, screen:frame())
     Spaces.gotoSpace(space)
     MissionControl:focusSpace(space, window)
 end
@@ -1157,12 +1345,13 @@ function PaperWM:toggleFloating()
     end
     persistFloatingList()
 
-    local space = nil
-    if is_floating[id] then
-        space = self:removeWindow(window, true)
-    else
-        space = self:addWindow(window)
-    end
+    local space = (function()
+        if is_floating[id] then
+            return self:removeWindow(window, true)
+        else
+            return self:addWindow(window)
+        end
+    end)()
     if space then
         self:tileSpace(space)
     end
