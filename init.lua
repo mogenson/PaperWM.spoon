@@ -786,25 +786,39 @@ function PaperWM:centerWindow()
     self:tileSpace(space)
 end
 
----set the focused window to the width of the screen
----don't change the height
-function PaperWM:setWindowFullWidth()
-    -- get current focused window
-    local focused_window = Window.focusedWindow()
-    if not focused_window then
-        self.logger.d("focused window not found")
-        return
+---set the focused window to the width of the screen and cache the original width
+---restore the original window size if called again, don't change the height
+function PaperWM:toggleWindowFullWidth()
+    local width_cache = {}
+    return function(self)
+        -- get current focused window
+        local focused_window = Window.focusedWindow()
+        if not focused_window then
+            self.logger.d("focused window not found")
+            return
+        end
+
+        local canvas = getCanvas(focused_window:screen())
+        local focused_frame = focused_window:frame()
+        local id = focused_window:id()
+
+        local width = width_cache[id]
+        if width then
+            -- restore window width
+            focused_frame.x = canvas.x + ((canvas.w - width) / 2)
+            focused_frame.w = width
+            width_cache[id] = nil
+        else
+            -- set window to fullscreen width
+            width_cache[id] = focused_frame.w
+            focused_frame.x, focused_frame.w = canvas.x, canvas.w
+        end
+
+        -- update layout
+        self:moveWindow(focused_window, focused_frame)
+        local space = Spaces.windowSpaces(focused_window)[1]
+        self:tileSpace(space)
     end
-
-    -- fullscreen window width
-    local canvas = getCanvas(focused_window:screen())
-    local focused_frame = focused_window:frame()
-    focused_frame.x, focused_frame.w = canvas.x, canvas.w
-    self:moveWindow(focused_window, focused_frame)
-
-    -- update layout
-    local space = Spaces.windowSpaces(focused_window)[1]
-    self:tileSpace(space)
 end
 
 ---resize the width or height of the window, keeping the other dimension the
@@ -1168,7 +1182,7 @@ PaperWM.actions = {
     swap_up = partial(PaperWM.swapWindows, PaperWM, Direction.UP),
     swap_down = partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
     center_window = partial(PaperWM.centerWindow, PaperWM),
-    full_width = partial(PaperWM.setWindowFullWidth, PaperWM),
+    full_width = partial(PaperWM:toggleWindowFullWidth(), PaperWM),
     cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
     cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.ASCENDING),
     reverse_cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.DESCENDING),
