@@ -172,7 +172,7 @@ Arrange screens vertically to prevent windows from bleeding into other screens.
 
 ## Add-ons
 
-The following s compliment PaperWM.spoon nicely.
+The following spoons compliment PaperWM.spoon nicely.
 
 - [ActiveSpace.spoon](https://github.com/mogenson/ActiveSpace.Spoon) Show active and layout of Mission Control spaces in the menu bar.
 - [Swipe.spoon](https://github.com/mogenson/Swipe.spoon) Perform actions when trackpad swipe gestures are recognized. Here's an example config to change PaperWM.spoon focused window:
