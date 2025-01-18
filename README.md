@@ -142,6 +142,20 @@ through. For example:
 PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
 ```
 
+### Smooth Scrolling
+
+https://github.com/user-attachments/assets/6f1c4659-0ca8-4ba1-a181-8c1c6987e8ef
+
+PaperWM.spoon can scroll windows left or right by swiping fingers horizontally across the trackpad. Set the number of fingers (eg. 2, 3, or 4) and, optionally, a gain to adjust the sensitivity:
+
+```lua
+-- number of fingers to detect a horizontal swipe, set to 0 to disable (the default)
+PaperWM.swipe_fingers = 0
+
+-- increase this number to make windows move farther when swiping
+PaperWM.swipe_gain = 1.0
+```
+
 ## Limitations
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would
@@ -158,7 +172,7 @@ Arrange screens vertically to prevent windows from bleeding into other screens.
 
 ## Add-ons
 
-The following Spoons compliment PaperWM.spoon nicely.
+The following spoons compliment PaperWM.spoon nicely.
 
 - [ActiveSpace.spoon](https://github.com/mogenson/ActiveSpace.Spoon) Show active and layout of Mission Control spaces in the menu bar.
 - [Swipe.spoon](https://github.com/mogenson/Swipe.spoon) Perform actions when trackpad swipe gestures are recognized. Here's an example config to change PaperWM.spoon focused window:
