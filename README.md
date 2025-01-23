@@ -156,6 +156,8 @@ PaperWM.swipe_fingers = 0
 PaperWM.swipe_gain = 1.0
 ```
 
+Inspired by [ScrollDesktop.spoon](https://github.com/jocap/ScrollDesktop.spoon)
+
 ## Limitations
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would
