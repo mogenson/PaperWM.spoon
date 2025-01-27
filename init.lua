@@ -564,8 +564,13 @@ function PaperWM:tileSpace(space)
 
     local anchor_index = index_table[anchor_window:id()]
     if not anchor_index then
-        self.logger.e("anchor index not found")
-        return -- bail
+        self.logger.df("adding window: %s", anchor_window:title())
+        self:addWindow(anchor_window)
+        anchor_index = index_table[anchor_window:id()]
+        if not anchor_index then
+            self.logger.e("anchor index not found")
+            return -- bail
+        end
     end
 
     -- get some global coordinates
