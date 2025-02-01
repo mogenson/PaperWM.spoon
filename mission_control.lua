@@ -220,7 +220,8 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     repeat
         log.vf("looking for window with title: %s", title)
         for _, window in ipairs(windows) do
-            if window.AXTitle:find(title, 1, true) then
+            local ax_title = window:attributeValue("AXTitle")
+            if ax_title and ax_title:find(title, 1, true) then
                 start_position = Geometry(window.AXFrame).center
             end
         end
