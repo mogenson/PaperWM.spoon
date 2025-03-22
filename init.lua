@@ -7,8 +7,16 @@
 --- `PaperWM:start()` will begin automatically tiling new and existing windows.
 --- `PaperWM:stop()` will release control over windows.
 ---
---- Set `PaperWM.window_gap` to the number of pixels to space between windows and
---- the top and bottom screen edges.
+--- Set window gaps using `PaperWM.window_gap`:
+--- - As a single number: same gap for all sides
+--- - As a table with specific sides: `{top=8, bottom=8, left=8, right=8}`
+--- 
+--- For example:
+--- ```
+--- PaperWM.window_gap = 10  -- 10px gap on all sides
+--- -- or
+--- PaperWM.window_gap = {top=10, bottom=8, left=12, right=12}
+--- ```
 ---
 --- Overwrite `PaperWM.window_filter` to ignore specific applications. For example:
 ---
@@ -113,8 +121,8 @@ PaperWM.window_filter = WindowFilter.new():setOverrideFilter({
     allowRoles = "AXStandardWindow"
 })
 
--- number of pixels between windows
-PaperWM.window_gap = 8
+-- window gaps: can be set as a single number or a table with top, bottom, left, right values
+PaperWM.window_gap = {top=8, bottom=8, left=8, right=8}
 
 -- ratios to use when cycling widths and heights, golden ratio by default
 PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
@@ -199,15 +207,36 @@ local function getWindow(space, col, row)
     return (getColumn(space, col) or {})[row]
 end
 
+---get the gap value for the specified side
+---@param side string "top", "bottom", "left", or "right"
+---@return number gap size in pixels
+local function getGap(side)
+    local gap = PaperWM.window_gap
+    if type(gap) == "number" then
+        return gap -- backward compatibility with single number
+    elseif type(gap) == "table" then
+        return gap[side] or 8 -- default to 8 if missing
+    else
+        return 8 -- fallback default
+    end
+end
+
 ---get the tileable bounds for a screen
 ---@param screen Screen
 ---@return Frame
 local function getCanvas(screen)
     local screen_frame = screen:frame()
-    return Rect(screen_frame.x + PaperWM.window_gap,
-        screen_frame.y + PaperWM.window_gap,
-        screen_frame.w - (2 * PaperWM.window_gap),
-        screen_frame.h - (2 * PaperWM.window_gap))
+    local left_gap = getGap("left")
+    local right_gap = getGap("right")
+    local top_gap = getGap("top")
+    local bottom_gap = getGap("bottom")
+    
+    return Rect(
+        screen_frame.x + left_gap,
+        screen_frame.y + top_gap,
+        screen_frame.w - (left_gap + right_gap),
+        screen_frame.h - (top_gap + bottom_gap)
+    )
 end
 
 ---update the column number in window_list to be ascending from provided column up
@@ -502,6 +531,8 @@ end
 ---@return number width of tiled column
 function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
     local last_window, frame
+    local bottom_gap = getGap("bottom")
+    
     for _, window in ipairs(windows) do
         frame = window:frame()
         w = w or frame.w -- take given width or width of first window
@@ -521,7 +552,7 @@ function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
         frame.w = w
         frame.y2 = math.min(frame.y2, bounds.y2) -- don't overflow bottom of bounds
         self:moveWindow(window, frame)
-        bounds.y = math.min(frame.y2 + self.window_gap, bounds.y2)
+        bounds.y = math.min(frame.y2 + bottom_gap, bounds.y2)
         last_window = window
     end
     -- expand last window height to bottom
@@ -596,8 +627,9 @@ function PaperWM:tileSpace(space)
         self:moveWindow(anchor_window, anchor_frame)
     else
         local n = #column - 1 -- number of other windows in column
+        local bottom_gap = getGap("bottom")
         local h =
-            math.max(0, canvas.h - anchor_frame.h - (n * self.window_gap)) // n
+            math.max(0, canvas.h - anchor_frame.h - (n * bottom_gap)) // n
         local bounds = {
             x = anchor_frame.x,
             x2 = nil,
@@ -609,32 +641,34 @@ function PaperWM:tileSpace(space)
     end
     updateVirtualPositions(space, column, anchor_frame.x)
 
+    local right_gap = getGap("right")
+    local left_gap = getGap("left")
+    
     -- tile windows from anchor right
-    local x = anchor_frame.x2 + self.window_gap
+    local x = anchor_frame.x2 + right_gap
     for col = anchor_index.col + 1, #(window_list[space] or {}) do
         local bounds = {
             x = math.min(x, right_margin),
             x2 = nil,
             y = canvas.y,
-            y2 =
-                canvas.y2
+            y2 = canvas.y2
         }
         local column = getColumn(space, col)
         local width = self:tileColumn(column, bounds)
         updateVirtualPositions(space, column, x)
-        x = x + width + self.window_gap
+        x = x + width + right_gap
     end
 
     -- tile windows from anchor left
     local x = anchor_frame.x
-    local x2 = math.max(anchor_frame.x - self.window_gap, left_margin)
+    local x2 = math.max(anchor_frame.x - left_gap, left_margin)
     for col = anchor_index.col - 1, 1, -1 do
         local bounds = { x = nil, x2 = x2, y = canvas.y, y2 = canvas.y2 }
         local column = getColumn(space, col)
         local width = self:tileColumn(column, bounds)
-        x = x - width - self.window_gap
+        x = x - width - left_gap
         updateVirtualPositions(space, column, x)
-        x2 = math.max(x2 - width - self.window_gap, left_margin)
+        x2 = math.max(x2 - width - left_gap, left_margin)
     end
 end
 
@@ -886,12 +920,14 @@ function PaperWM:swapWindows(direction)
         -- swap frames
         local focused_frame = focused_window:frame()
         local target_frame = target_column[1]:frame()
+        local right_gap = getGap("right")
+        local left_gap = getGap("left")
         if direction == Direction.LEFT then
             focused_frame.x = target_frame.x
-            target_frame.x = focused_frame.x2 + self.window_gap
+            target_frame.x = focused_frame.x2 + right_gap
         else -- Direction.RIGHT
             target_frame.x = focused_frame.x
-            focused_frame.x = target_frame.x2 + self.window_gap
+            focused_frame.x = target_frame.x2 + right_gap
         end
         for _, window in ipairs(target_column) do
             local frame = window:frame()
@@ -930,12 +966,13 @@ function PaperWM:swapWindows(direction)
         -- swap frames
         local focused_frame = focused_window:frame()
         local target_frame = target_window:frame()
+        local bottom_gap = getGap("bottom")
         if direction == Direction.UP then
             focused_frame.y = target_frame.y
-            target_frame.y = focused_frame.y2 + self.window_gap
+            target_frame.y = focused_frame.y2 + bottom_gap
         else -- Direction.DOWN
             target_frame.y = focused_frame.y
-            focused_frame.y = target_frame.y2 + self.window_gap
+            focused_frame.y = target_frame.y2 + bottom_gap
         end
         self:moveWindow(focused_window, focused_frame)
         self:moveWindow(target_window, target_frame)
@@ -1016,13 +1053,21 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
         return
     end
 
-    local function findNewSize(area_size, frame_size, cycle_direction)
+    local function findNewSize(area_size, frame_size, cycle_direction, dimension)
+        local gap
+        if dimension == Direction.WIDTH then
+            -- For width, use the average of left and right gaps
+            gap = (getGap("left") + getGap("right")) / 2
+        else
+            -- For height, use the average of top and bottom gaps
+            gap = (getGap("top") + getGap("bottom")) / 2
+        end
+        
         local sizes = {}
         local new_size = nil
         if cycle_direction == Direction.ASCENDING then
             for index, ratio in ipairs(self.window_ratios) do
-                sizes[index] = ratio * (area_size + self.window_gap) -
-                    self.window_gap
+                sizes[index] = ratio * (area_size + gap) - gap
             end
 
             -- find new size
@@ -1035,8 +1080,7 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
             end
         elseif cycle_direction == Direction.DESCENDING then
             for index, ratio in ipairs(self.window_ratios) do
-                sizes[index] = ratio * (area_size + self.window_gap) -
-                    self.window_gap
+                sizes[index] = ratio * (area_size + gap) - gap
             end
 
             -- find new size, starting from the end
@@ -1059,11 +1103,11 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
     local focused_frame = focused_window:frame()
 
     if direction == Direction.WIDTH then
-        local new_width = findNewSize(canvas.w, focused_frame.w, cycle_direction)
+        local new_width = findNewSize(canvas.w, focused_frame.w, cycle_direction, Direction.WIDTH)
         focused_frame.x = focused_frame.x + ((focused_frame.w - new_width) // 2)
         focused_frame.w = new_width
     elseif direction == Direction.HEIGHT then
-        local new_height = findNewSize(canvas.h, focused_frame.h, cycle_direction)
+        local new_height = findNewSize(canvas.h, focused_frame.h, cycle_direction, Direction.HEIGHT)
         focused_frame.y = math.max(canvas.y,
             focused_frame.y + ((focused_frame.h - new_height) // 2))
         focused_frame.h = new_height
@@ -1133,13 +1177,14 @@ function PaperWM:slurpWindow()
 
     -- adjust window frames
     local canvas = getCanvas(focused_window:screen())
+    local bottom_gap = getGap("bottom")
     local bounds = {
         x = column[1]:frame().x,
         x2 = nil,
         y = canvas.y,
         y2 = canvas.y2
     }
-    local h = math.max(0, canvas.h - ((num_windows - 1) * self.window_gap)) //
+    local h = math.max(0, canvas.h - ((num_windows - 1) * bottom_gap)) //
         num_windows
     self:tileColumn(column, bounds, h)
 
@@ -1187,11 +1232,14 @@ function PaperWM:barfWindow()
     local num_windows = #column
     local canvas = getCanvas(focused_window:screen())
     local focused_frame = focused_window:frame()
+    local bottom_gap = getGap("bottom")
+    local right_gap = getGap("right")
+    
     local bounds = { x = focused_frame.x, x2 = nil, y = canvas.y, y2 = canvas.y2 }
-    local h = math.max(0, canvas.h - ((num_windows - 1) * self.window_gap)) //
+    local h = math.max(0, canvas.h - ((num_windows - 1) * bottom_gap)) //
         num_windows
     focused_frame.y = canvas.y
-    focused_frame.x = focused_frame.x2 + self.window_gap
+    focused_frame.x = focused_frame.x2 + right_gap
     focused_frame.h = canvas.h
     self:moveWindow(focused_window, focused_frame)
     self:tileColumn(column, bounds, h)
