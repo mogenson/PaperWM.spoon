@@ -653,8 +653,8 @@ function PaperWM:refreshWindows()
             local space = self:addWindow(window)
             if space then retile_spaces[space] = true end
         elseif index.space ~= Spaces.windowSpaces(window)[1] then
-            -- move to window list in new space
-            self:removeWindow(window)
+            -- move to window list in new space, don't focus nearby window
+            self:removeWindow(window, true)
             local space = self:addWindow(window)
             if space then retile_spaces[space] = true end
         end
@@ -744,12 +744,9 @@ function PaperWM:removeWindow(remove_window, skip_new_window_focus)
     end
 
     if not skip_new_window_focus then -- find nearby window to focus
-        local focused_window = Window.focusedWindow()
-        if focused_window and remove_window:id() == focused_window:id() then
-            for _, direction in ipairs({
-                Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
-            }) do if self:focusWindow(direction, remove_index) then break end end
-        end
+        for _, direction in ipairs({
+            Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT
+        }) do if self:focusWindow(direction, remove_index) then break end end
     end
 
     -- remove window
