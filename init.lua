@@ -10,7 +10,7 @@
 --- Set window gaps using `PaperWM.window_gap`:
 --- - As a single number: same gap for all sides
 --- - As a table with specific sides: `{top=8, bottom=8, left=8, right=8}`
---- 
+---
 --- For example:
 --- ```
 --- PaperWM.window_gap = 10  -- 10px gap on all sides
@@ -122,7 +122,12 @@ PaperWM.window_filter = WindowFilter.new():setOverrideFilter({
 })
 
 -- window gaps: can be set as a single number or a table with top, bottom, left, right values
-PaperWM.window_gap = {top=8, bottom=8, left=8, right=8}
+PaperWM.window_gap = {
+    top = 8,
+    bottom = 8,
+    left = 8,
+    right = 8,
+}
 
 -- ratios to use when cycling widths and heights, golden ratio by default
 PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
@@ -230,7 +235,7 @@ local function getCanvas(screen)
     local right_gap = getGap("right")
     local top_gap = getGap("top")
     local bottom_gap = getGap("bottom")
-    
+
     return Rect(
         screen_frame.x + left_gap,
         screen_frame.y + top_gap,
@@ -532,7 +537,7 @@ end
 function PaperWM:tileColumn(windows, bounds, h, w, id, h4id)
     local last_window, frame
     local bottom_gap = getGap("bottom")
-    
+
     for _, window in ipairs(windows) do
         frame = window:frame()
         w = w or frame.w -- take given width or width of first window
@@ -643,7 +648,7 @@ function PaperWM:tileSpace(space)
 
     local right_gap = getGap("right")
     local left_gap = getGap("left")
-    
+
     -- tile windows from anchor right
     local x = anchor_frame.x2 + right_gap
     for col = anchor_index.col + 1, #(window_list[space] or {}) do
@@ -1062,7 +1067,7 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
             -- For height, use the average of top and bottom gaps
             gap = (getGap("top") + getGap("bottom")) / 2
         end
-        
+
         local sizes = {}
         local new_size = nil
         if cycle_direction == Direction.ASCENDING then
@@ -1234,7 +1239,7 @@ function PaperWM:barfWindow()
     local focused_frame = focused_window:frame()
     local bottom_gap = getGap("bottom")
     local right_gap = getGap("right")
-    
+
     local bounds = { x = focused_frame.x, x2 = nil, y = canvas.y, y2 = canvas.y2 }
     local h = math.max(0, canvas.h - ((num_windows - 1) * bottom_gap)) //
         num_windows
