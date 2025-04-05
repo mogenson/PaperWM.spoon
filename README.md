@@ -124,8 +124,16 @@ hs.hotkey.bind({"ctrl", "alt", "cmd", "shift"}, "l", PaperWM.actions.swap_right)
 `PaperWM:start()` will begin automatically tiling new and existing windows. `PaperWM:stop()` will
 release control over windows.
 
-Set `PaperWM.window_gap` to the number of pixels to space between windows and
-the top and bottom screen edges.
+Set `PaperWM.window_gap` to the number of pixels between windows and screen edges.
+This can be a single number for all sides, or a table specifying
+`top`, `bottom`, `left`, and `right` gaps individually.
+
+For example:
+```lua
+PaperWM.window_gap = 10  -- 10px gap on all sides
+-- or
+PaperWM.window_gap  =  { top = 10, bottom = 8, left = 12, right = 12 } -- Specific gaps per side
+```
 
 Configure one or many `PaperWM.window_filter:rejectApp("appName")` to ignore specific applications. For example:
 
