@@ -722,6 +722,12 @@ function PaperWM:addWindow(add_window)
         return
     end
 
+    -- ignore windows that have a zoom button, but are not maximizable
+    if not add_window:isMaximizable() then
+        self.logger.d("ignoring non-maximizable window")
+        return
+    end
+
     -- check if window is already in window list
     if index_table[add_window:id()] then return end
 
