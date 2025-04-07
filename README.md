@@ -135,11 +135,11 @@ PaperWM.window_gap = 10  -- 10px gap on all sides
 PaperWM.window_gap  =  { top = 10, bottom = 8, left = 12, right = 12 } -- Specific gaps per side
 ```
 
-Configure one or many `PaperWM.window_filter:rejectApp("appName")` to ignore specific applications. For example:
+Configure the `PaperWM.window_filter` to set which apps and screens are managed. For example:
 
 ```lua
-PaperWM.window_filter:rejectApp("iStat Menus Status")
-PaperWM.window_filter:rejectApp("Finder")
+PaperWM.window_filter:rejectApp("iStat Menus Status") -- ignore a specific app
+PaperWM.window_filter:setScreens({"Built%-in Retina Display"}) -- list of screens to tile (escape string match characters)
 PaperWM:start() -- restart for new window filter to take effect
 ```
 
