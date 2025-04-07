@@ -176,7 +176,7 @@ It's difficult to detect when a window is dragged from one space or screen to
 another. Use the `move_window_N` commands to move windows between spaces and
 screens.
 
-Arrange screens vertically to prevent windows from bleeding into other screens.
+Arrange screens vertically to prevent windows from bleeding into other screens. Use [WarpMouse.spoon](https://github.com/mogenson/WarpMouse.spoon) to simulate side-by-side screens.
 
 <img width="780" alt="Screen Shot 2022-01-07 at 14 18 27" src="https://user-images.githubusercontent.com/900731/148595785-546f9086-9add-4731-8477-233b202378f4.png">
 
@@ -184,7 +184,8 @@ Arrange screens vertically to prevent windows from bleeding into other screens.
 
 The following spoons compliment PaperWM.spoon nicely.
 
-- [ActiveSpace.spoon](https://github.com/mogenson/ActiveSpace.Spoon) Show active and layout of Mission Control spaces in the menu bar.
+- [ActiveSpace.spoon](https://github.com/mogenson/ActiveSpace.spoon) Show active and layout of Mission Control spaces in the menu bar.
+- [WarpMouse.spoon](https://github.com/mogenson/WarpMouse.spoon) Move mouse cursor between screen edges to simulate side-by-side screens.
 - [Swipe.spoon](https://github.com/mogenson/Swipe.spoon) Perform actions when trackpad swipe gestures are recognized. Here's an example config to change PaperWM.spoon focused window:
 ```lua
 -- focus adjacent window with 3 finger swipe
