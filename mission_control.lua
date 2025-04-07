@@ -21,8 +21,7 @@ MissionControl.author     = "Michael Mogenson"
 MissionControl.homepage   = "https://github.com/mogenson/PaperWM.spoon"
 MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
-local log                 = hs.logger.new(MissionControl.name)
-log.level                 = 5
+MissionControl.log        = hs.logger.new(MissionControl.name)
 
 ---blocking wait
 ---@param seconds number
@@ -60,10 +59,14 @@ end
 ---@param start_position table
 ---@param end_position table
 local function mouseDrag(start_position, end_position)
+    ---@diagnostic disable-next-line: undefined-global
+    if _WarpMouseEventTap then _WarpMouseEventTap:stop() end
     mouseMove(start_position)
     mouseDown(start_position)
     Event.newMouseEvent(EventTypes.leftMouseDragged, end_position):post()
     mouseUp(end_position)
+    ---@diagnostic disable-next-line: undefined-global
+    if _WarpMouseEventTap then _WarpMouseEventTap:start() end
 end
 
 ---find mission control AXGroup from Dock app
@@ -202,7 +205,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
         return false, "can't find space_id in spaces"
     end
 
-    log.vf("moving window %s to space %d", title, space_index)
+    self.log.vf("moving window %s to space %d", title, space_index)
 
     -- open mission control and move mouse to expand spaces list
     Spaces.openMissionControl()
@@ -218,7 +221,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     -- find position of window with matching title
     local start_position
     repeat
-        log.vf("looking for window with title: %s", title)
+        self.log.vf("looking for window with title: %s", title)
         for _, window in ipairs(windows) do
             local ax_title = window:attributeValue("AXTitle")
             if ax_title and ax_title:find(title, 1, true) then
@@ -250,7 +253,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
 
     -- get position of space
     local end_position = Geometry(space.AXFrame).center
-    log.vf("draging window from %s to %s", start_position, end_position)
+    self.log.vf("draging window from %s to %s", start_position, end_position)
 
     -- drag window to space then click on space to switch
     wait(hs.spaces.MCwaitTime)

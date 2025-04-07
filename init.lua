@@ -143,6 +143,7 @@ PaperWM.swipe_gain = 1
 
 -- logger
 PaperWM.logger = hs.logger.new(PaperWM.name)
+MissionControl.log = PaperWM.logger
 
 -- constants
 ---@enum Direction
