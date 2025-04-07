@@ -46,7 +46,7 @@ local Timer <const> = hs.timer
 local Watcher <const> = hs.uielement.watcher
 local Window <const> = hs.window
 local WindowFilter <const> = hs.window.filter
-local partial <const> = hs.fnutils.partial
+local Fnutils <const> = hs.fnutils
 
 local MissionControl = dofile(hs.spoons.resourcePath("mission_control.lua"))
 local Swipe = dofile(hs.spoons.resourcePath("swipe.lua"))
@@ -219,11 +219,11 @@ end
 local function getGap(side)
     local gap = PaperWM.window_gap
     if type(gap) == "number" then
-        return gap -- backward compatibility with single number
+        return gap            -- backward compatibility with single number
     elseif type(gap) == "table" then
         return gap[side] or 8 -- default to 8 if missing
     else
-        return 8 -- fallback default
+        return 8              -- fallback default
     end
 end
 
@@ -1305,12 +1305,6 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
-    local focused_index = index_table[focused_window:id()]
-    if not focused_index then
-        self.logger.e("focused index not found")
-        return
-    end
-
     local new_space = MissionControl:getSpaceID(index)
     if not new_space then
         self.logger.d("space not found")
@@ -1327,19 +1321,28 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
+    local old_screen = focused_window:screen()
+    if not old_screen then
+        self.logger.d("no screen for window")
+        return
+    end
 
-    local screen = Screen(Spaces.spaceDisplay(new_space))
-    if not screen then
+    local new_screen = Screen(Spaces.spaceDisplay(new_space))
+    if not new_screen then
         self.logger.d("no screen for space")
         return
     end
 
-    -- cache a copy of focused_window, don't switch focus when removing window
-    local old_space = self:removeWindow(focused_window, true)
-    if not old_space then
-        self.logger.e("can't remove focused window")
-        return
-    end
+    -- get list of screens allowed by the window filter as hs.screen objects
+    local allowed_screens = self.window_filter:getFilters().override.allowScreens or Screen.allScreens()
+    allowed_screens = Fnutils.imap(allowed_screens, function(screen) return Screen.find(screen) end)
+
+    -- get the old space from the window list or by querying removed window
+    local old_space = (function(allowed)
+        if allowed then
+            return self:removeWindow(focused_window, true) -- don't switch focus
+        end
+    end)(Fnutils.contains(allowed_screens, old_screen))
 
     local ret, err = MissionControl:moveWindowToSpace(focused_window, new_space)
     if not ret or err then
@@ -1347,11 +1350,15 @@ function PaperWM:moveWindowToSpace(index)
         return
     end
 
-    self:addWindow(focused_window)
-    self:tileSpace(old_space)
-    self:tileSpace(new_space)
+    if old_space then
+        self:tileSpace(old_space)
+    end
 
-    MissionControl:focusSpace(new_space, focused_window)
+    if Fnutils.contains(allowed_screens, new_screen) then
+        self:addWindow(focused_window)
+        self:tileSpace(new_space)
+        MissionControl:focusSpace(new_space, focused_window)
+    end
 end
 
 ---move and resize a window to the coordinates specified by the frame
@@ -1410,45 +1417,45 @@ end
 
 ---supported window movement actions
 PaperWM.actions = {
-    stop_events = partial(PaperWM.stop, PaperWM),
-    refresh_windows = partial(PaperWM.refreshWindows, PaperWM),
-    toggle_floating = partial(PaperWM.toggleFloating, PaperWM),
-    focus_left = partial(PaperWM.focusWindow, PaperWM, Direction.LEFT),
-    focus_right = partial(PaperWM.focusWindow, PaperWM, Direction.RIGHT),
-    focus_up = partial(PaperWM.focusWindow, PaperWM, Direction.UP),
-    focus_down = partial(PaperWM.focusWindow, PaperWM, Direction.DOWN),
-    swap_left = partial(PaperWM.swapWindows, PaperWM, Direction.LEFT),
-    swap_right = partial(PaperWM.swapWindows, PaperWM, Direction.RIGHT),
-    swap_up = partial(PaperWM.swapWindows, PaperWM, Direction.UP),
-    swap_down = partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
-    center_window = partial(PaperWM.centerWindow, PaperWM),
-    full_width = partial(PaperWM:toggleWindowFullWidth(), PaperWM),
-    cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
-    cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.ASCENDING),
-    reverse_cycle_width = partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.DESCENDING),
-    reverse_cycle_height = partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.DESCENDING),
-    slurp_in = partial(PaperWM.slurpWindow, PaperWM),
-    barf_out = partial(PaperWM.barfWindow, PaperWM),
-    switch_space_l = partial(PaperWM.incrementSpace, PaperWM, Direction.LEFT),
-    switch_space_r = partial(PaperWM.incrementSpace, PaperWM, Direction.RIGHT),
-    switch_space_1 = partial(PaperWM.switchToSpace, PaperWM, 1),
-    switch_space_2 = partial(PaperWM.switchToSpace, PaperWM, 2),
-    switch_space_3 = partial(PaperWM.switchToSpace, PaperWM, 3),
-    switch_space_4 = partial(PaperWM.switchToSpace, PaperWM, 4),
-    switch_space_5 = partial(PaperWM.switchToSpace, PaperWM, 5),
-    switch_space_6 = partial(PaperWM.switchToSpace, PaperWM, 6),
-    switch_space_7 = partial(PaperWM.switchToSpace, PaperWM, 7),
-    switch_space_8 = partial(PaperWM.switchToSpace, PaperWM, 8),
-    switch_space_9 = partial(PaperWM.switchToSpace, PaperWM, 9),
-    move_window_1 = partial(PaperWM.moveWindowToSpace, PaperWM, 1),
-    move_window_2 = partial(PaperWM.moveWindowToSpace, PaperWM, 2),
-    move_window_3 = partial(PaperWM.moveWindowToSpace, PaperWM, 3),
-    move_window_4 = partial(PaperWM.moveWindowToSpace, PaperWM, 4),
-    move_window_5 = partial(PaperWM.moveWindowToSpace, PaperWM, 5),
-    move_window_6 = partial(PaperWM.moveWindowToSpace, PaperWM, 6),
-    move_window_7 = partial(PaperWM.moveWindowToSpace, PaperWM, 7),
-    move_window_8 = partial(PaperWM.moveWindowToSpace, PaperWM, 8),
-    move_window_9 = partial(PaperWM.moveWindowToSpace, PaperWM, 9)
+    stop_events = Fnutils.partial(PaperWM.stop, PaperWM),
+    refresh_windows = Fnutils.partial(PaperWM.refreshWindows, PaperWM),
+    toggle_floating = Fnutils.partial(PaperWM.toggleFloating, PaperWM),
+    focus_left = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.LEFT),
+    focus_right = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.RIGHT),
+    focus_up = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.UP),
+    focus_down = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.DOWN),
+    swap_left = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.LEFT),
+    swap_right = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.RIGHT),
+    swap_up = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.UP),
+    swap_down = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
+    center_window = Fnutils.partial(PaperWM.centerWindow, PaperWM),
+    full_width = Fnutils.partial(PaperWM:toggleWindowFullWidth(), PaperWM),
+    cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
+    cycle_height = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.ASCENDING),
+    reverse_cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.DESCENDING),
+    reverse_cycle_height = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.DESCENDING),
+    slurp_in = Fnutils.partial(PaperWM.slurpWindow, PaperWM),
+    barf_out = Fnutils.partial(PaperWM.barfWindow, PaperWM),
+    switch_space_l = Fnutils.partial(PaperWM.incrementSpace, PaperWM, Direction.LEFT),
+    switch_space_r = Fnutils.partial(PaperWM.incrementSpace, PaperWM, Direction.RIGHT),
+    switch_space_1 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 1),
+    switch_space_2 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 2),
+    switch_space_3 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 3),
+    switch_space_4 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 4),
+    switch_space_5 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 5),
+    switch_space_6 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 6),
+    switch_space_7 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 7),
+    switch_space_8 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 8),
+    switch_space_9 = Fnutils.partial(PaperWM.switchToSpace, PaperWM, 9),
+    move_window_1 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 1),
+    move_window_2 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 2),
+    move_window_3 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 3),
+    move_window_4 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 4),
+    move_window_5 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 5),
+    move_window_6 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 6),
+    move_window_7 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 7),
+    move_window_8 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 8),
+    move_window_9 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 9)
 }
 
 ---bind userdefined hotkeys to PaperWM actions

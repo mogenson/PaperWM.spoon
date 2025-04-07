@@ -291,7 +291,7 @@ function MissionControl:focusSpace(space_id, window)
         else
             local point = screen:frame()
             point.x = point.x + (point.w // 2)
-            point.y = point.y - 4
+            point.y = point.y - 1
             repeat
                 mouseClick(point)      -- click on menubar
                 coroutine.yield(false) -- not done
@@ -305,7 +305,7 @@ function MissionControl:focusSpace(space_id, window)
 
     local start_time = Timer.secondsSinceEpoch()
     Timer.doUntil(do_space_focus, function(timer)
-        if Timer.secondsSinceEpoch() - start_time > 4 then timer:stop() end
+        if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
     end, Window.animationDuration)
 end
 
