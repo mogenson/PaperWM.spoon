@@ -105,8 +105,8 @@ function layout_engine.tileSpace(space)
     
     local anchor_window = (function()
         if focused_window and 
-           not is_floating[focused_window:id()] and 
-           Spaces.windowSpaces(focused_window)[1] == space then
+            not is_floating[focused_window:id()] and 
+            Spaces.windowSpaces(focused_window)[1] == space then
             return focused_window
         else
             return utils.getFirstVisibleWindow(space, screen:frame())

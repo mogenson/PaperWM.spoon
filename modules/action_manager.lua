@@ -17,7 +17,7 @@ local deps = {}
 function action_manager.init(paperWM, dependencies)
     PaperWM = paperWM
     deps = dependencies
-    
+
     return action_manager
 end
 
@@ -28,31 +28,35 @@ function action_manager.getActions()
         stop_events = Fnutils.partial(PaperWM.stop, PaperWM),
         refresh_windows = Fnutils.partial(deps.window_manager.refreshWindows),
         toggle_floating = Fnutils.partial(deps.window_manager.toggleFloating),
-        
+
         -- Window navigation
         focus_left = Fnutils.partial(action_manager.focusWindow, PaperWM.Direction.LEFT),
         focus_right = Fnutils.partial(action_manager.focusWindow, PaperWM.Direction.RIGHT),
         focus_up = Fnutils.partial(action_manager.focusWindow, PaperWM.Direction.UP),
         focus_down = Fnutils.partial(action_manager.focusWindow, PaperWM.Direction.DOWN),
-        
+
         -- Window swapping
         swap_left = Fnutils.partial(action_manager.swapWindows, PaperWM.Direction.LEFT),
         swap_right = Fnutils.partial(action_manager.swapWindows, PaperWM.Direction.RIGHT),
         swap_up = Fnutils.partial(action_manager.swapWindows, PaperWM.Direction.UP),
         swap_down = Fnutils.partial(action_manager.swapWindows, PaperWM.Direction.DOWN),
-        
+
         -- Window positioning and sizing
         center_window = Fnutils.partial(action_manager.centerWindow),
         full_width = Fnutils.partial(action_manager.toggleWindowFullWidth()),
-        cycle_width = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.WIDTH, PaperWM.Direction.ASCENDING),
-        cycle_height = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.HEIGHT, PaperWM.Direction.ASCENDING),
-        reverse_cycle_width = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.WIDTH, PaperWM.Direction.DESCENDING),
-        reverse_cycle_height = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.HEIGHT, PaperWM.Direction.DESCENDING),
-        
+        cycle_width = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.WIDTH,
+            PaperWM.Direction.ASCENDING),
+        cycle_height = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.HEIGHT,
+            PaperWM.Direction.ASCENDING),
+        reverse_cycle_width = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.WIDTH,
+            PaperWM.Direction.DESCENDING),
+        reverse_cycle_height = Fnutils.partial(action_manager.cycleWindowSize, PaperWM.Direction.HEIGHT,
+            PaperWM.Direction.DESCENDING),
+
         -- Window organization
         slurp_in = Fnutils.partial(action_manager.slurpWindow),
         barf_out = Fnutils.partial(action_manager.barfWindow),
-        
+
         -- Space navigation
         switch_space_l = Fnutils.partial(deps.space_manager.incrementSpace, PaperWM.Direction.LEFT),
         switch_space_r = Fnutils.partial(deps.space_manager.incrementSpace, PaperWM.Direction.RIGHT),
@@ -65,7 +69,7 @@ function action_manager.getActions()
         switch_space_7 = Fnutils.partial(deps.space_manager.switchToSpace, 7),
         switch_space_8 = Fnutils.partial(deps.space_manager.switchToSpace, 8),
         switch_space_9 = Fnutils.partial(deps.space_manager.switchToSpace, 9),
-        
+
         -- Window to space movement
         move_window_1 = Fnutils.partial(deps.space_manager.moveWindowToSpace, 1),
         move_window_2 = Fnutils.partial(deps.space_manager.moveWindowToSpace, 2),
@@ -103,7 +107,7 @@ function action_manager.focusWindow(direction, focused_index)
 
     -- Find window to focus based on direction
     local new_focused_window = nil
-    
+
     if direction == PaperWM.Direction.LEFT or direction == PaperWM.Direction.RIGHT then
         -- For left/right, walk down column looking for a match in adjacent column
         for row = focused_index.row, 1, -1 do
@@ -152,7 +156,7 @@ function action_manager.swapWindows(direction)
     local index_table = deps.window_manager.getIndexTable()
     local window_list = deps.window_manager.getWindowList()
     local focused_index = index_table[focused_window:id()]
-    
+
     if not focused_index then
         PaperWM.logger.e("focused index not found")
         return
@@ -170,7 +174,7 @@ function action_manager.swapWindows(direction)
 
         -- Get focused column
         local focused_column = deps.window_manager.getColumn(focused_index.space, focused_index.col)
-        
+
         -- Swap columns in window_list (the data structure)
         window_list[focused_index.space][target_index.col] = focused_column
         window_list[focused_index.space][focused_index.col] = target_column
@@ -195,7 +199,7 @@ function action_manager.swapWindows(direction)
         local focused_frame = focused_window:frame()
         local target_frame = target_column[1]:frame()
         local right_gap = deps.utils.getGap("right")
-        
+
         if direction == PaperWM.Direction.LEFT then
             focused_frame.x = target_frame.x
             target_frame.x = focused_frame.x2 + right_gap
@@ -203,7 +207,7 @@ function action_manager.swapWindows(direction)
             target_frame.x = focused_frame.x
             focused_frame.x = target_frame.x2 + right_gap
         end
-        
+
         -- Move all windows in both columns
         for _, window in ipairs(target_column) do
             local frame = window:frame()
@@ -215,8 +219,8 @@ function action_manager.swapWindows(direction)
             frame.x = focused_frame.x
             deps.window_manager.moveWindow(window, frame)
         end
-    
-    -- Handle vertical swapping (swaps individual windows)
+
+        -- Handle vertical swapping (swaps individual windows)
     elseif direction == PaperWM.Direction.UP or direction == PaperWM.Direction.DOWN then
         -- Find target window
         local target_index = {
@@ -224,10 +228,10 @@ function action_manager.swapWindows(direction)
             col = focused_index.col,
             row = focused_index.row + (direction // 2)
         }
-        
+
         local target_window = deps.window_manager.getWindow(target_index.space, target_index.col,
             target_index.row)
-            
+
         if not target_window then
             PaperWM.logger.d("target window not found")
             return
@@ -245,7 +249,7 @@ function action_manager.swapWindows(direction)
         local focused_frame = focused_window:frame()
         local target_frame = target_window:frame()
         local bottom_gap = deps.utils.getGap("bottom")
-        
+
         if direction == PaperWM.Direction.UP then
             focused_frame.y = target_frame.y
             target_frame.y = focused_frame.y2 + bottom_gap
@@ -253,7 +257,7 @@ function action_manager.swapWindows(direction)
             target_frame.y = focused_frame.y
             focused_frame.y = target_frame.y2 + bottom_gap
         end
-        
+
         -- Move both windows
         deps.window_manager.moveWindow(focused_window, focused_frame)
         deps.window_manager.moveWindow(target_window, target_frame)
@@ -292,7 +296,7 @@ end
 function action_manager.toggleWindowFullWidth()
     -- Cache for storing original widths
     local width_cache = {}
-    
+
     -- Return a function that uses the closure to maintain state
     return function()
         -- Get focused window
@@ -323,7 +327,7 @@ function action_manager.toggleWindowFullWidth()
 
         -- Apply changes
         deps.window_manager.moveWindow(focused_window, focused_frame)
-        
+
         -- Update layout
         local space = Spaces.windowSpaces(focused_window)[1]
         deps.layout_engine.tileSpace(space)
@@ -357,7 +361,7 @@ function action_manager.cycleWindowSize(direction, cycle_direction)
         -- Calculate all possible sizes based on ratios
         local sizes = {}
         local new_size = nil
-        
+
         -- Apply the ratios to calculate absolute pixel dimensions
         for index, ratio in ipairs(PaperWM.window_ratios) do
             sizes[index] = ratio * (area_size + gap) - gap
@@ -367,22 +371,22 @@ function action_manager.cycleWindowSize(direction, cycle_direction)
         if cycle_direction == PaperWM.Direction.ASCENDING then
             -- Default to smallest size if we don't find a larger one
             new_size = sizes[1]
-            
+
             -- Find first size that's noticeably larger than current
             for _, size in ipairs(sizes) do
-                if size > frame_size + 10 then  -- 10px threshold to avoid imperceptible changes
+                if size > frame_size + 10 then -- 10px threshold to avoid imperceptible changes
                     new_size = size
                     break
                 end
             end
-        -- In DESCENDING mode, find the next smaller size
+            -- In DESCENDING mode, find the next smaller size
         elseif cycle_direction == PaperWM.Direction.DESCENDING then
             -- Default to largest size if we don't find a smaller one
             new_size = sizes[#sizes]
-            
+
             -- Find first size that's noticeably smaller than current
             for i = #sizes, 1, -1 do
-                if sizes[i] < frame_size - 10 then  -- 10px threshold
+                if sizes[i] < frame_size - 10 then -- 10px threshold
                     new_size = sizes[i]
                     break
                 end
@@ -405,7 +409,7 @@ function action_manager.cycleWindowSize(direction, cycle_direction)
         -- Center window horizontally while changing width
         focused_frame.x = focused_frame.x + ((focused_frame.w - new_width) // 2)
         focused_frame.w = new_width
-    -- Handle height cycling
+        -- Handle height cycling
     elseif direction == PaperWM.Direction.HEIGHT then
         local new_height = findNewSize(canvas.h, focused_frame.h, cycle_direction, PaperWM.Direction.HEIGHT)
         -- Center window vertically while changing height (with bounds checking)
@@ -459,7 +463,7 @@ function action_manager.slurpWindow()
     -- Update data structures: Remove window from source column
     table.remove(window_list[focused_index.space][focused_index.col],
         focused_index.row)
-    
+
     -- If column is now empty, remove the column entirely
     if #window_list[focused_index.space][focused_index.col] == 0 then
         table.remove(window_list[focused_index.space], focused_index.col)
@@ -475,7 +479,7 @@ function action_manager.slurpWindow()
         col = focused_index.col - 1,
         row = num_windows
     }
-    
+
     -- Update other window indices that may have shifted
     deps.window_manager.updateIndexTable(focused_index.space, focused_index.col)
 
@@ -513,7 +517,7 @@ function action_manager.barfWindow()
     -- Update data structures: remove window and create new column
     table.remove(column, focused_index.row)
     table.insert(window_list[focused_index.space], focused_index.col + 1,
-        { focused_window })  -- Insert new column with single window
+        { focused_window }) -- Insert new column with single window
 
     -- Update window position tracking
     deps.window_manager.updateIndexTable(focused_index.space, focused_index.col)
