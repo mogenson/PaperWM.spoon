@@ -69,6 +69,13 @@
 ---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
 
+package.cpath = package.cpath .. ";/Users/phischi/.vscode/extensions/tangzx.emmylua-0.9.18-darwin-arm64/debugger/emmy/mac/arm64/emmy_core.dylib"
+local dbg = require("emmy_core")
+dbg.tcpListen("localhost", 9966)
+-- stupid workaround to undefined global hs
+_hs = hs
+hs = _hs
+
 -- Self-determine the spoon's path for reliable module loading
 local obj = {}
 obj.__index = obj
@@ -120,6 +127,7 @@ PaperWM.IsFloatingKey = config.IsFloatingKey
 
 -- Set up logger
 PaperWM.logger = hs.logger.new(PaperWM.name)
+PaperWM.logger.setLogLevel("debug")
 MissionControl.log = PaperWM.logger
 
 -- Initialize core module components immediately
@@ -144,6 +152,7 @@ function PaperWM:start()
     
     -- Start swipe handler if enabled
     if self.swipe_fingers > 1 then
+        self.logger.d("starting swipe handler")
         Swipe:start(self.swipe_fingers, window_manager.swipeHandler())
     end
     
