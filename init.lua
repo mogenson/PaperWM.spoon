@@ -1038,6 +1038,80 @@ function PaperWM:swapWindows(direction)
     self:tileSpace(focused_index.space)
 end
 
+function PaperWM:swapColumns(direction)
+    -- use focused window as source window
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        self.logger.e("focused window not found")
+        return
+    end
+
+    -- get focused window index
+    local focused_index = index_table[focused_window:id()]
+    if not focused_index then
+        self.logger.e("focused index not found")
+        return
+    end
+
+    local focused_column = getColumn(focused_index.space, focused_index.col)
+    if not focused_column then
+        self.logger.e("focused column not found")
+        return
+    end
+
+    local adjacent_column_index = focused_index.col + direction
+    local adjacent_column = getColumn(focused_index.space, adjacent_column_index)
+    if not adjacent_column then return end
+
+    -- swap column in window list
+    window_list[focused_index.space][adjacent_column_index] = focused_column
+    window_list[focused_index.space][focused_index.col] = adjacent_column
+
+    local focused_frame = focused_window:frame()
+    local adjacent_window = adjacent_column[1]
+    if not adjacent_window then
+        self.logger.e("adjacent window not found")
+        return
+    end
+
+    local adjacent_frame = adjacent_window:frame()
+    local focused_x = focused_frame.x
+    local adjacent_x = adjacent_frame.x
+
+    -- update index table
+    for row, window in ipairs(adjacent_column) do
+        local index = index_table[window:id()]
+        if index then
+            index_table[window:id()]["col"] = focused_index.col
+        else
+            self.logger.e("index_table missing window " .. window:id())
+        end
+    end
+
+    for row, window in ipairs(focused_column) do
+        local index = index_table[window:id()]
+        if index then
+            index_table[window:id()]["col"] = adjacent_column_index
+        else
+            self.logger.e("index_table missing window " .. window:id())
+        end
+    end
+
+    -- update window positions
+    for row, window in ipairs(adjacent_column) do
+        local frame = window:frame()
+        self:moveWindow(window, Rect(focused_x, frame.y, frame.w, frame.h))
+    end
+
+    for row, window in ipairs(focused_column) do
+        local frame = window:frame()
+        self:moveWindow(window, Rect(adjacent_x, frame.y, frame.w, frame.h))
+    end
+
+    -- update layout
+    self:tileSpace(focused_index.space)
+end
+
 ---move the focused window to the center of the screen, horizontally
 ---don't resize the window or change it's vertical position
 function PaperWM:centerWindow()
@@ -1483,6 +1557,8 @@ PaperWM.actions = {
     swap_right = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.RIGHT),
     swap_up = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.UP),
     swap_down = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
+    swap_column_left = Fnutils.partial(PaperWM.swapColumns, PaperWM, Direction.LEFT),
+    swap_column_right = Fnutils.partial(PaperWM.swapColumns, PaperWM, Direction.RIGHT),
     center_window = Fnutils.partial(PaperWM.centerWindow, PaperWM),
     full_width = Fnutils.partial(PaperWM:toggleWindowFullWidth(), PaperWM),
     cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
