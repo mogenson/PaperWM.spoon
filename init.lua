@@ -1257,6 +1257,40 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
     self:tileSpace(space)
 end
 
+function PaperWM:increaseWindowSize(direction, scale)
+    -- get current focused window
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        self.logger.d("focused window not found")
+        return
+    end
+
+    local canvas = getCanvas(focused_window:screen())
+    local focused_frame = focused_window:frame()
+
+    if direction == Direction.WIDTH then
+        local diff = canvas.w * 0.1 * scale
+        local new_size = math.max(diff, math.min(canvas.w, focused_frame.w + diff))
+
+        focused_frame.w = new_size
+        focused_frame.x = focused_frame.x + ((focused_frame.w - new_size) // 2)
+    elseif direction == Direction.HEIGHT then
+        local diff = canvas.h * 0.1 * scale
+        local new_size = math.max(diff, math.min(canvas.h, focused_frame.h + diff))
+
+        focused_frame.h = new_size
+        focused_frame.y = focused_frame.y -
+            math.max(0, focused_frame.y2 - canvas.y2)
+    end
+
+    -- apply new size
+    self:moveWindow(focused_window, focused_frame)
+
+    -- update layout
+    local space = Spaces.windowSpaces(focused_window)[1]
+    self:tileSpace(space)
+end
+
 ---take the current focused window and move it into the bottom of
 ---the column to the left
 function PaperWM:slurpWindow()
@@ -1561,6 +1595,10 @@ PaperWM.actions = {
     swap_column_right = Fnutils.partial(PaperWM.swapColumns, PaperWM, Direction.RIGHT),
     center_window = Fnutils.partial(PaperWM.centerWindow, PaperWM),
     full_width = Fnutils.partial(PaperWM:toggleWindowFullWidth(), PaperWM),
+    increase_width = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.WIDTH, 1),
+    decrease_width = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.WIDTH, -1),
+    increase_height = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.HEIGHT, 1),
+    decrease_height = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.HEIGHT, -1),
     cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
     cycle_height = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.ASCENDING),
     reverse_cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.DESCENDING),
