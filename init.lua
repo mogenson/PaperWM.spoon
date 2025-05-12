@@ -876,6 +876,53 @@ function PaperWM:focusWindow(direction, focused_index)
     return new_focused_window
 end
 
+local function findWindowDiff(diff)
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        PaperWM.logger.i("current focused window not found")
+        return
+    end
+
+    -- get focused window index
+    local focused_index = index_table[focused_window:id()]
+
+    if not focused_index then
+        PaperWM.logger.i("focused index not found (diff=" .. diff .. ", window=" .. focused_window:title() .. ")")
+        return
+    end
+
+    -- get new focused window
+    local found_window
+
+    local focused_column = getColumn(focused_index.space, focused_index.col)
+    local new_row_index = focused_index.row + diff
+
+    -- first try above/below in same row
+    local found_window = getWindow(focused_index.space, focused_index.col, focused_index.row + diff)
+
+    if not found_window then
+        -- get the bottom row in the previous column, or the first row in the next column
+        local adjacent_column = getColumn(focused_index.space, focused_index.col + diff)
+        if adjacent_column then
+            local col_idx = 1
+            if diff < 0 then col_idx = #adjacent_column end
+            found_window = adjacent_column[col_idx]
+        end
+    end
+
+    if not found_window then
+        PaperWM.logger.i("new focused window not found (diff=" .. diff .. ", current=" .. focused_window:title() .. ")")
+        return
+    end
+    return found_window
+end
+
+function PaperWM:focusWindowDiff(diff)
+    local new_focused_window = findWindowDiff(diff)
+    if not new_focused_window then return end
+    new_focused_window:focus()
+end
+
 ---swap the focused window with a window next to it
 ---if swapping horizontally and the adjacent window is in a column, swap the
 ---entire column. if swapping vertically and the focused window is in a column,
@@ -1430,6 +1477,8 @@ PaperWM.actions = {
     focus_right = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.RIGHT),
     focus_up = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.UP),
     focus_down = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.DOWN),
+    focus_prev = Fnutils.partial(PaperWM.focusWindowDiff, PaperWM, -1),
+    focus_next = Fnutils.partial(PaperWM.focusWindowDiff, PaperWM, 1),
     swap_left = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.LEFT),
     swap_right = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.RIGHT),
     swap_up = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.UP),
