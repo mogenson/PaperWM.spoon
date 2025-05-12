@@ -923,6 +923,26 @@ function PaperWM:focusWindowDiff(diff)
     new_focused_window:focus()
 end
 
+
+function PaperWM:focusWindowAt(new_index)
+    local screen = Screen.mainScreen()
+    local space = Spaces.activeSpaces()[screen:getUUID()]
+    local columns = window_list[space]
+    if not columns then return end
+
+    local index = 1
+    for col_idx = 1, #columns do
+        column = columns[col_idx]
+        for row_idx = 1, #column do
+            if index == new_index then
+                column[row_idx]:focus()
+                return
+            end
+            index = index + 1
+        end
+    end
+end
+
 ---swap the focused window with a window next to it
 ---if swapping horizontally and the adjacent window is in a column, swap the
 ---entire column. if swapping vertically and the focused window is in a column,
@@ -1624,7 +1644,16 @@ PaperWM.actions = {
     move_window_6 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 6),
     move_window_7 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 7),
     move_window_8 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 8),
-    move_window_9 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 9)
+    move_window_9 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 9),
+    focus_window_1 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 1),
+    focus_window_2 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 2),
+    focus_window_3 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 3),
+    focus_window_4 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 4),
+    focus_window_5 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 5),
+    focus_window_6 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 6),
+    focus_window_7 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 7),
+    focus_window_8 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 8),
+    focus_window_9 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 9)
 }
 
 ---bind userdefined hotkeys to PaperWM actions
