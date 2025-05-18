@@ -152,10 +152,12 @@ local Direction <const> = {
     RIGHT = 1,
     UP = -2,
     DOWN = 2,
-    WIDTH = 3,
-    HEIGHT = 4,
-    ASCENDING = 5,
-    DESCENDING = 6
+    NEXT = 3,
+    PREVIOUS = -3,
+    WIDTH = 4,
+    HEIGHT = 5,
+    ASCENDING = 6,
+    DESCENDING = 7
 }
 
 -- hs.settings key for persisting is_floating, stored as an array of window id
@@ -855,6 +857,23 @@ function PaperWM:focusWindow(direction, focused_index)
     elseif direction == Direction.UP or direction == Direction.DOWN then
         new_focused_window = getWindow(focused_index.space, focused_index.col,
             focused_index.row + (direction // 2))
+    elseif direction == Direction.NEXT or direction == Direction.PREVIOUS then
+        local diff = direction // Direction.NEXT -- convert to 1/-1
+        local focused_column = getColumn(focused_index.space, focused_index.col)
+        local new_row_index = focused_index.row + diff
+
+        -- first try above/below in same row
+        new_focused_window = getWindow(focused_index.space, focused_index.col, focused_index.row + diff)
+
+        if not new_focused_window then
+            -- get the bottom row in the previous column, or the first row in the next column
+            local adjacent_column = getColumn(focused_index.space, focused_index.col + diff)
+            if adjacent_column then
+                local col_idx = 1
+                if diff < 0 then col_idx = #adjacent_column end
+                new_focused_window = adjacent_column[col_idx]
+            end
+        end
     end
 
     if not new_focused_window then
@@ -874,6 +893,25 @@ function PaperWM:focusWindow(direction, focused_index)
     end)
 
     return new_focused_window
+end
+
+function PaperWM:focusWindowAt(new_index)
+    local screen = Screen.mainScreen()
+    local space = Spaces.activeSpaces()[screen:getUUID()]
+    local columns = window_list[space]
+    if not columns then return end
+
+    local index = 1
+    for col_idx = 1, #columns do
+        column = columns[col_idx]
+        for row_idx = 1, #column do
+            if index == new_index then
+                column[row_idx]:focus()
+                return
+            end
+            index = index + 1
+        end
+    end
 end
 
 ---swap the focused window with a window next to it
@@ -985,6 +1023,80 @@ function PaperWM:swapWindows(direction)
         end
         self:moveWindow(focused_window, focused_frame)
         self:moveWindow(target_window, target_frame)
+    end
+
+    -- update layout
+    self:tileSpace(focused_index.space)
+end
+
+function PaperWM:swapColumns(direction)
+    -- use focused window as source window
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        self.logger.e("focused window not found")
+        return
+    end
+
+    -- get focused window index
+    local focused_index = index_table[focused_window:id()]
+    if not focused_index then
+        self.logger.e("focused index not found")
+        return
+    end
+
+    local focused_column = getColumn(focused_index.space, focused_index.col)
+    if not focused_column then
+        self.logger.e("focused column not found")
+        return
+    end
+
+    local adjacent_column_index = focused_index.col + direction
+    local adjacent_column = getColumn(focused_index.space, adjacent_column_index)
+    if not adjacent_column then return end
+
+    -- swap column in window list
+    window_list[focused_index.space][adjacent_column_index] = focused_column
+    window_list[focused_index.space][focused_index.col] = adjacent_column
+
+    local focused_frame = focused_window:frame()
+    local adjacent_window = adjacent_column[1]
+    if not adjacent_window then
+        self.logger.e("adjacent window not found")
+        return
+    end
+
+    local adjacent_frame = adjacent_window:frame()
+    local focused_x = focused_frame.x
+    local adjacent_x = adjacent_frame.x
+
+    -- update index table
+    for row, window in ipairs(adjacent_column) do
+        local index = index_table[window:id()]
+        if index then
+            index_table[window:id()]["col"] = focused_index.col
+        else
+            self.logger.e("index_table missing window " .. window:id())
+        end
+    end
+
+    for row, window in ipairs(focused_column) do
+        local index = index_table[window:id()]
+        if index then
+            index_table[window:id()]["col"] = adjacent_column_index
+        else
+            self.logger.e("index_table missing window " .. window:id())
+        end
+    end
+
+    -- update window positions
+    for row, window in ipairs(adjacent_column) do
+        local frame = window:frame()
+        self:moveWindow(window, Rect(focused_x, frame.y, frame.w, frame.h))
+    end
+
+    for row, window in ipairs(focused_column) do
+        local frame = window:frame()
+        self:moveWindow(window, Rect(adjacent_x, frame.y, frame.w, frame.h))
     end
 
     -- update layout
@@ -1126,6 +1238,40 @@ function PaperWM:cycleWindowSize(direction, cycle_direction)
         self.logger.e(
             "direction must be either Direction.WIDTH or Direction.HEIGHT")
         return
+    end
+
+    -- apply new size
+    self:moveWindow(focused_window, focused_frame)
+
+    -- update layout
+    local space = Spaces.windowSpaces(focused_window)[1]
+    self:tileSpace(space)
+end
+
+function PaperWM:increaseWindowSize(direction, scale)
+    -- get current focused window
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        self.logger.d("focused window not found")
+        return
+    end
+
+    local canvas = getCanvas(focused_window:screen())
+    local focused_frame = focused_window:frame()
+
+    if direction == Direction.WIDTH then
+        local diff = canvas.w * 0.1 * scale
+        local new_size = math.max(diff, math.min(canvas.w, focused_frame.w + diff))
+
+        focused_frame.w = new_size
+        focused_frame.x = focused_frame.x + ((focused_frame.w - new_size) // 2)
+    elseif direction == Direction.HEIGHT then
+        local diff = canvas.h * 0.1 * scale
+        local new_size = math.max(diff, math.min(canvas.h, focused_frame.h + diff))
+
+        focused_frame.h = new_size
+        focused_frame.y = focused_frame.y -
+            math.max(0, focused_frame.y2 - canvas.y2)
     end
 
     -- apply new size
@@ -1430,12 +1576,20 @@ PaperWM.actions = {
     focus_right = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.RIGHT),
     focus_up = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.UP),
     focus_down = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.DOWN),
+    focus_prev = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.PREVIOUS),
+    focus_next = Fnutils.partial(PaperWM.focusWindow, PaperWM, Direction.NEXT),
     swap_left = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.LEFT),
     swap_right = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.RIGHT),
     swap_up = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.UP),
     swap_down = Fnutils.partial(PaperWM.swapWindows, PaperWM, Direction.DOWN),
+    swap_column_left = Fnutils.partial(PaperWM.swapColumns, PaperWM, Direction.LEFT),
+    swap_column_right = Fnutils.partial(PaperWM.swapColumns, PaperWM, Direction.RIGHT),
     center_window = Fnutils.partial(PaperWM.centerWindow, PaperWM),
     full_width = Fnutils.partial(PaperWM:toggleWindowFullWidth(), PaperWM),
+    increase_width = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.WIDTH, 1),
+    decrease_width = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.WIDTH, -1),
+    increase_height = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.HEIGHT, 1),
+    decrease_height = Fnutils.partial(PaperWM.increaseWindowSize, PaperWM, Direction.HEIGHT, -1),
     cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.ASCENDING),
     cycle_height = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.HEIGHT, Direction.ASCENDING),
     reverse_cycle_width = Fnutils.partial(PaperWM.cycleWindowSize, PaperWM, Direction.WIDTH, Direction.DESCENDING),
@@ -1461,7 +1615,16 @@ PaperWM.actions = {
     move_window_6 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 6),
     move_window_7 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 7),
     move_window_8 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 8),
-    move_window_9 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 9)
+    move_window_9 = Fnutils.partial(PaperWM.moveWindowToSpace, PaperWM, 9),
+    focus_window_1 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 1),
+    focus_window_2 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 2),
+    focus_window_3 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 3),
+    focus_window_4 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 4),
+    focus_window_5 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 5),
+    focus_window_6 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 6),
+    focus_window_7 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 7),
+    focus_window_8 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 8),
+    focus_window_9 = Fnutils.partial(PaperWM.focusWindowAt, PaperWM, 9)
 }
 
 ---bind userdefined hotkeys to PaperWM actions
