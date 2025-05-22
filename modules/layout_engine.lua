@@ -17,7 +17,7 @@ function layout_engine.init(paperWM, windowManager)
     PaperWM = paperWM
     window_manager = windowManager
     utils = require("modules.utils")
-    
+
     return layout_engine
 end
 
@@ -37,17 +37,17 @@ function layout_engine.tileColumn(windows, bounds, h, w, id, h4id)
     -- Position each window in the column
     for _, window in ipairs(windows) do
         frame = window:frame()
-        
+
         -- Use specified width or use current width
-        w = w or frame.w 
-        
+        w = w or frame.w
+
         -- Set horizontal position based on bounds
         if bounds.x then
             frame.x = bounds.x
         elseif bounds.x2 then
             frame.x = bounds.x2 - w
         end
-        
+
         -- Set height based on parameters
         if h then
             if id and h4id and window:id() == id then
@@ -56,26 +56,26 @@ function layout_engine.tileColumn(windows, bounds, h, w, id, h4id)
                 frame.h = h    -- Use standard height for other windows
             end
         end
-        
+
         -- Position and size the window
         frame.y = bounds.y
         frame.w = w
         frame.y2 = math.min(frame.y2, bounds.y2) -- Prevent overflow
-        
+
         -- Apply the changes
         window_manager.moveWindow(window, frame)
-        
+
         -- Update bounds for next window
         bounds.y = math.min(frame.y2 + bottom_gap, bounds.y2)
         last_window = window
     end
-    
+
     -- Expand the last window to fill remaining space
     if frame.y2 ~= bounds.y2 then
         frame.y2 = bounds.y2
         window_manager.moveWindow(last_window, frame)
     end
-    
+
     return w -- Return the column width
 end
 
@@ -102,10 +102,10 @@ function layout_engine.tileSpace(space)
     local window_list = window_manager.getWindowList()
     local is_floating = window_manager.getIsFloating()
     local index_table = window_manager.getIndexTable()
-    
+
     local anchor_window = (function()
-        if focused_window and 
-            not is_floating[focused_window:id()] and 
+        if focused_window and
+            not is_floating[focused_window:id()] and
             Spaces.windowSpaces(focused_window)[1] == space then
             return focused_window
         else
@@ -169,7 +169,7 @@ function layout_engine.tileSpace(space)
         layout_engine.tileColumn(column, bounds, h, anchor_frame.w, anchor_window:id(),
             anchor_frame.h)
     end
-    
+
     -- Update virtual positions for swipe gestures
     window_manager.updateVirtualPositions(space, column, anchor_frame.x)
 

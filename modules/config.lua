@@ -5,7 +5,7 @@ local config = {}
 -- Direction constants used throughout the system
 -- These values encode direction information for various operations:
 -- - LEFT/RIGHT: Horizontal movement (-1/+1)
--- - UP/DOWN: Vertical movement (-2/+2) 
+-- - UP/DOWN: Vertical movement (-2/+2)
 -- - WIDTH/HEIGHT: Dimension to adjust (3/4)
 -- - ASCENDING/DESCENDING: Direction of size cycling (5/6)
 config.Direction = {
@@ -44,7 +44,7 @@ config.window_gap = {
 }
 
 -- Golden ratio values for cycling window sizes
--- These ratios (approximately 1/4, 1/3, and 2/3 of screen) provide 
+-- These ratios (approximately 1/4, 1/3, and 2/3 of screen) provide
 -- aesthetically pleasing window proportions when cycling sizes
 config.window_ratios = { 0.23607, 0.38195, 0.61804 }
 
@@ -68,19 +68,19 @@ config.default_hotkeys = {
     stop_events          = { { "alt", "cmd", "shift" }, "q" },
     refresh_windows      = { { "alt", "cmd", "shift" }, "r" },
     toggle_floating      = { { "alt", "cmd", "shift" }, "escape" },
-    
+
     -- Focus navigation actions
     focus_left           = { { "alt", "cmd" }, "left" },
     focus_right          = { { "alt", "cmd" }, "right" },
     focus_up             = { { "alt", "cmd" }, "up" },
     focus_down           = { { "alt", "cmd" }, "down" },
-    
+
     -- Window swapping actions
     swap_left            = { { "alt", "cmd", "shift" }, "left" },
     swap_right           = { { "alt", "cmd", "shift" }, "right" },
     swap_up              = { { "alt", "cmd", "shift" }, "up" },
     swap_down            = { { "alt", "cmd", "shift" }, "down" },
-    
+
     -- Window positioning and sizing actions
     center_window        = { { "alt", "cmd" }, "c" },
     full_width           = { { "alt", "cmd" }, "f" },
@@ -88,11 +88,11 @@ config.default_hotkeys = {
     cycle_height         = { { "alt", "cmd", "shift" }, "r" },
     reverse_cycle_width  = { { "ctrl", "alt", "cmd" }, "r" },
     reverse_cycle_height = { { "ctrl", "alt", "cmd", "shift" }, "r" },
-    
+
     -- Column manipulation actions
     slurp_in             = { { "alt", "cmd" }, "i" },
     barf_out             = { { "alt", "cmd" }, "o" },
-    
+
     -- Space navigation actions
     switch_space_l       = { { "alt", "cmd" }, "," },
     switch_space_r       = { { "alt", "cmd" }, "." },
@@ -105,7 +105,7 @@ config.default_hotkeys = {
     switch_space_7       = { { "alt", "cmd" }, "7" },
     switch_space_8       = { { "alt", "cmd" }, "8" },
     switch_space_9       = { { "alt", "cmd" }, "9" },
-    
+
     -- Window to space movement actions
     move_window_1        = { { "alt", "cmd", "shift" }, "1" },
     move_window_2        = { { "alt", "cmd", "shift" }, "2" },

@@ -20,27 +20,27 @@ local utils
 
 -- 3D array of windows organized by [space][column][row]
 -- This is the primary data structure that represents the tiled layout
-local window_list = {} 
+local window_list = {}
 
 -- Maps window IDs to their position in the window_list
 -- Enables O(1) lookup of a window's position in the grid
-local index_table = {} 
+local index_table = {}
 
 -- Maps window IDs to their UI event watchers
 -- Allows watching for window moved/resize events
-local ui_watchers = {} 
+local ui_watchers = {}
 
 -- Tracks which windows are in floating mode (not tiled)
 -- Windows in this list are excluded from tiling operations
-local is_floating = {} 
+local is_floating = {}
 
 -- Tracks virtual x-positions for windows during swipe operations
 -- Enables smooth scrolling of windows, even beyond screen edges
-local x_positions = {} 
+local x_positions = {}
 
 -- Window state tracking for event handling
 -- Used to handle complex event sequences when windows are created or focused
-local prev_focused_window = nil 
+local prev_focused_window = nil
 local pending_window = nil
 
 -- Screen change watcher
@@ -53,17 +53,17 @@ function window_manager.init(paperWM, missionControl)
     utils = require("modules.utils")
     utils.init(PaperWM)
     utils.setWindowList(window_list)
-    
+
     -- Initialize screen watcher
     if screen_watcher then
         screen_watcher:stop()
     end
     screen_watcher = Screen.watcher.new(function() window_manager.refreshWindows() end)
     screen_watcher:start()
-    
+
     -- Restore floating window state from settings
     window_manager.initializeFloatingWindows()
-    
+
     return window_manager
 end
 
@@ -71,7 +71,7 @@ end
 function window_manager.stop()
     -- Stop event watchers
     for _, watcher in pairs(ui_watchers) do watcher:stop() end
-    
+
     -- Stop screen watcher
     if screen_watcher then
         screen_watcher:stop()
@@ -83,8 +83,8 @@ end
 ---@param space Space
 ---@param col number
 ---@return Window[]
-function window_manager.getColumn(space, col) 
-    return (window_list[space] or {})[col] 
+function window_manager.getColumn(space, col)
+    return (window_list[space] or {})[col]
 end
 
 ---Get a specific window by its grid coordinates
@@ -116,12 +116,12 @@ end
 function window_manager.updateVirtualPositions(space, windows, x)
     -- Skip if swipe gestures are disabled
     if PaperWM.swipe_fingers == 0 then return end
-    
+
     -- Initialize space tracking table if needed
     if not x_positions[space] then
         x_positions[space] = {}
     end
-    
+
     -- Update virtual position for each window
     for _, window in ipairs(windows) do
         x_positions[space][window] = x
@@ -174,10 +174,10 @@ function window_manager.moveWindow(window, frame)
 
     -- Stop watcher to prevent reacting to our own window changes
     watcher:stop()
-    
+
     -- Move window
     window:setFrame(frame)
-    
+
     -- Re-enable watcher after animation completes
     Timer.doAfter(Window.animationDuration + padding, function()
         watcher:start({ Watcher.windowMoved, Watcher.windowResized })
@@ -198,7 +198,8 @@ function window_manager.addWindow(add_window)
 
     -- Ignore non-maximizable windows
     if not add_window:isMaximizable() then
-        PaperWM.logger.d("ignoring non-maximizable window")
+        -- TODO: Attention: this is called repeatedly without apparent trigger
+        -- PaperWM.logger.d("ignoring non-maximizable window")
         return
     end
 
@@ -211,7 +212,7 @@ function window_manager.addWindow(add_window)
         PaperWM.logger.e("add window does not have a space")
         return
     end
-    
+
     -- Initialize space in window_list if needed
     if not window_list[space] then window_list[space] = {} end
 
@@ -245,7 +246,7 @@ function window_manager.addWindow(add_window)
     local watcher = add_window:newWatcher(function(window, event)
         event_handler.windowEventHandler(window, event)
     end)
-    
+
     -- Start watching for move/resize events
     watcher:start({ Watcher.windowMoved, Watcher.windowResized })
     ui_watchers[add_window:id()] = watcher
@@ -270,19 +271,19 @@ function window_manager.removeWindow(remove_window, skip_new_window_focus)
         -- Try focusing in this order: down, up, left, right
         local action_manager = require("modules.action_manager")
         for _, direction in ipairs({
-            PaperWM.Direction.DOWN, PaperWM.Direction.UP, 
+            PaperWM.Direction.DOWN, PaperWM.Direction.UP,
             PaperWM.Direction.LEFT, PaperWM.Direction.RIGHT
-        }) do 
-            if action_manager.focusWindow(direction, remove_index) then 
-                break 
-            end 
+        }) do
+            if action_manager.focusWindow(direction, remove_index) then
+                break
+            end
         end
     end
 
     -- Remove window from column
     table.remove(window_list[remove_index.space][remove_index.col],
         remove_index.row)
-        
+
     -- Remove the column if it's now empty
     if #window_list[remove_index.space][remove_index.col] == 0 then
         table.remove(window_list[remove_index.space], remove_index.col)
@@ -316,21 +317,22 @@ function window_manager.refreshWindows()
 
     -- Track which spaces need to be re-tiled
     local retile_spaces = {}
-    
+
     -- Process each window
     for _, window in ipairs(all_windows) do
         local index = index_table[window:id()]
-        
+
         -- Skip floating windows
         if is_floating[window:id()] then
             -- ignore floating windows
-        
-        -- Add new windows
+
+            -- Add new windows
         elseif not index then
+            PaperWM.logger.df("adding new window: %s", window)
             local space = window_manager.addWindow(window)
             if space then retile_spaces[space] = true end
-        
-        -- Handle windows that moved between spaces
+
+            -- Handle windows that moved between spaces
         elseif index.space ~= Spaces.windowSpaces(window)[1] then
             -- move to window list in new space, don't focus nearby window
             window_manager.removeWindow(window, true)
@@ -341,8 +343,8 @@ function window_manager.refreshWindows()
 
     -- Re-tile all affected spaces
     local layout_engine = require("modules.layout_engine")
-    for space, _ in pairs(retile_spaces) do 
-        layout_engine.tileSpace(space) 
+    for space, _ in pairs(retile_spaces) do
+        layout_engine.tileSpace(space)
     end
 end
 
@@ -362,19 +364,19 @@ function window_manager.toggleFloating()
     else
         is_floating[id] = true
     end
-    
+
     -- Save floating list to persistent storage
     window_manager.persistFloatingList()
 
     -- Update window tracking based on new state
     local space = (function()
         if is_floating[id] then
-            return window_manager.removeWindow(window, true)  -- If now floating, remove from tiling
+            return window_manager.removeWindow(window, true) -- If now floating, remove from tiling
         else
-            return window_manager.addWindow(window)  -- If now tiled, add to tiling
+            return window_manager.addWindow(window)          -- If now tiled, add to tiling
         end
     end)()
-    
+
     -- Update layout
     local layout_engine = require("modules.layout_engine")
     if space then
@@ -388,14 +390,14 @@ function window_manager.swipeHandler()
     -- Upvalues preserved between callback invocations
     local space, screen_frame = nil, nil
 
+    local Swipe = dofile(hs.spoons.resourcePath("../external/swipe.lua"))
+
     ---Callback function for touchpad swipe gestures
     ---@param id number unique id across callbacks for the same swipe
     ---@param type number one of Swipe.BEGIN, Swipe.MOVED, Swipe.END
     ---@param dx number change in horizonal position since last callback: between 0 and 1
     ---@param dy number change in vertical position since last callback: between 0 and 1
     return function(id, type, dx, dy)
-        local Swipe = dofile(hs.spoons.resourcePath("external/swipe.lua"))
-        
         -- Handle swipe start
         if type == Swipe.BEGIN then
             PaperWM.logger.df("new swipe: %d", id)
@@ -433,8 +435,8 @@ function window_manager.swipeHandler()
                     watcher:stop()
                 end
             end
-        
-        -- Handle swipe end
+
+            -- Handle swipe end
         elseif type == Swipe.END then
             PaperWM.logger.df("swipe end: %d", id)
 
@@ -461,13 +463,13 @@ function window_manager.swipeHandler()
                     if frame.x < screen_frame.x then
                         return utils.getFirstVisibleWindow(space, screen_frame,
                             PaperWM.Direction.LEFT)
-                    -- If window is off the right edge, focus rightmost visible window
+                        -- If window is off the right edge, focus rightmost visible window
                     elseif frame.x2 > screen_frame.x2 then
                         return utils.getFirstVisibleWindow(space, screen_frame,
                             PaperWM.Direction.RIGHT)
                     end
                 end)()
-                
+
                 -- Focus a visible window or retile the space
                 local layout_engine = require("modules.layout_engine")
                 if visible_window then
@@ -481,8 +483,8 @@ function window_manager.swipeHandler()
 
             -- Clear cached state
             space, screen_frame = nil, nil
-        
-        -- Handle swipe movement
+
+            -- Handle swipe movement
         elseif type == Swipe.MOVED then
             -- Skip if we don't have the necessary state
             if not space or not screen_frame then
@@ -495,7 +497,7 @@ function window_manager.swipeHandler()
             end
 
             -- Scale the movement by screen width and gain factor
-            dx = math.floor(PaperWM.swipe_gain * dx * screen_frame.w)
+            dx                 = math.floor(PaperWM.swipe_gain * dx * screen_frame.w)
 
             -- Calculate screen edge margins
             local left_margin  = screen_frame.x + PaperWM.screen_margin
@@ -504,20 +506,20 @@ function window_manager.swipeHandler()
             -- Update position of all windows in the space
             for window, x in pairs(x_positions[space] or {}) do
                 if not window then break end
-                
+
                 -- Update virtual position
                 x = x + dx
-                
+
                 local frame = window:frame()
                 if dx > 0 then -- scrolling right
                     frame.x = math.min(x, right_margin)
                 else           -- scrolling left
                     frame.x = math.max(x, left_margin - frame.w)
                 end
-                
+
                 -- Update window position immediately (bypass animation)
                 window:setTopLeft(frame.x, frame.y)
-                
+
                 -- Save virtual position for next movement
                 x_positions[space][window] = x
             end

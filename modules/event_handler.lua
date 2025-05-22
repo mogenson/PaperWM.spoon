@@ -16,17 +16,17 @@ local window_manager
 function event_handler.init(paperWM, windowManager)
     PaperWM = paperWM
     window_manager = windowManager
-    
+
     -- Set up event subscriptions for window management
     PaperWM.window_filter:subscribe({
-        Window.filter.windowFocused, 
+        Window.filter.windowFocused,
         Window.filter.windowVisible,
-        Window.filter.windowNotVisible, 
+        Window.filter.windowNotVisible,
         Window.filter.windowFullscreened,
-        Window.filter.windowUnfullscreened, 
+        Window.filter.windowUnfullscreened,
         Window.filter.windowDestroyed
     }, function(window, _, event) event_handler.windowEventHandler(window, event) end)
-    
+
     return event_handler
 end
 
@@ -61,7 +61,7 @@ function event_handler.windowEventHandler(window, event)
     if event == "windowFocused" then
         -- If this is a pending window, schedule the event to run later
         local pending_window = window_manager.getPendingWindow()
-        
+
         if pending_window and window == pending_window then
             Timer.doAfter(Window.animationDuration,
                 function()
@@ -70,15 +70,15 @@ function event_handler.windowEventHandler(window, event)
                 end)
             return
         end
-        
+
         -- Track the window for future addWindow calls
         window_manager.setPrevFocusedWindow(window)
         space = Spaces.windowSpaces(window)[1]
-    
-    -- Handle window creation events
+
+        -- Handle window creation events
     elseif event == "windowVisible" or event == "windowUnfullscreened" then
         space = window_manager.addWindow(window)
-        
+
         -- Handle pending window logic
         if pending_window and window == pending_window then
             window_manager.setPendingWindow(nil) -- tried to add window for the second time
@@ -91,22 +91,22 @@ function event_handler.windowEventHandler(window, event)
                 end)
             return
         end
-    
-    -- Handle window removal events    
+
+        -- Handle window removal events
     elseif event == "windowNotVisible" then
         space = window_manager.removeWindow(window)
-    
-    -- Handle fullscreen toggling
+
+        -- Handle fullscreen toggling
     elseif event == "windowFullscreened" then
         space = window_manager.removeWindow(window, true) -- don't focus new window if fullscreened
-    
-    -- Handle window movement/resize events
+
+        -- Handle window movement/resize events
     elseif event == "AXWindowMoved" or event == "AXWindowResized" then
         space = Spaces.windowSpaces(window)[1]
     end
 
     -- Retile the space if necessary
-    if space then 
+    if space then
         local layout_engine = require("modules.layout_engine")
         layout_engine.tileSpace(space)
     end

@@ -78,7 +78,7 @@ function utils.getFirstVisibleWindow(space, screen_frame, direction)
                 return screen_frame.x2 - window:frame().x2
             end
         end)() or math.huge
-        
+
         -- Keep track of the closest visible window
         if d >= 0 and d < distance then
             distance = d

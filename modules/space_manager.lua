@@ -21,7 +21,7 @@ function space_manager.init(paperWM, missionControl, windowManager, layoutEngine
     window_manager = windowManager
     layout_engine = layoutEngine
     utils = require("modules.utils")
-    
+
     return space_manager
 end
 
@@ -37,10 +37,10 @@ function space_manager.switchToSpace(index)
 
     -- Get the screen associated with this space
     local screen = Screen(Spaces.spaceDisplay(space))
-    
+
     -- Find a window to focus on the target space
     local window = utils.getFirstVisibleWindow(space, screen:frame())
-    
+
     -- Switch to space and focus a window there
     Spaces.gotoSpace(space)
     MissionControl:focusSpace(space, window)
@@ -54,17 +54,17 @@ function space_manager.incrementSpace(direction)
         PaperWM.logger.d("move is invalid, left and right only")
         return
     end
-    
+
     -- Find current space and build a linear representation of all spaces
     local curr_space_id = Spaces.focusedSpace()
     local layout = Spaces.allSpaces()
     local curr_space_idx = -1
     local num_spaces = 0
-    
+
     -- Build flattened list of spaces across all screens
     for _, screen in ipairs(Screen.allScreens()) do
         local screen_uuid = screen:getUUID()
-        
+
         -- Try to find current space index
         if curr_space_idx < 0 then
             for idx, space_id in ipairs(layout[screen_uuid]) do
@@ -74,7 +74,7 @@ function space_manager.incrementSpace(direction)
                 end
             end
         end
-        
+
         -- Count total spaces
         num_spaces = num_spaces + #layout[screen_uuid]
     end
