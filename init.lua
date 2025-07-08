@@ -135,7 +135,7 @@ PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
 -- size of the on-screen margin to place off-screen windows
 PaperWM.screen_margin = 1
 
--- screen edge margins: can be set as a table with top, bottom, left, right values
+-- additional padding around the screen edges
 PaperWM.screen_edge_margins = { top = 0, right = 0, bottom = 0, left = 0 }
 
 -- number of fingers to detect a horizontal swipe, set to 0 to disable

@@ -161,11 +161,8 @@ PaperWM.window_gap = 10  -- 10px gap on all sides
 PaperWM.window_gap  =  { top = 10, bottom = 8, left = 12, right = 12 } -- Specific gaps per side
 ```
 
-Set `PaperWM.screen_edge_margins` to define additional margins around the screen edges, independent of `PaperWM.window_gap`.
-This can be a single number for all sides, or a table specifying
-`top`, `right`, `bottom`, and `left` margins individually.
+Set `PaperWM.screen_edge_margins` to define additional margins around the screen edges. For example:
 
-For example:
 ```lua
 PaperWM.screen_edge_margins = 0 -- 0px margin on all sides (default)
 -- or
