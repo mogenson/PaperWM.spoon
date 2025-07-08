@@ -1121,7 +1121,9 @@ function PaperWM:centerWindow()
     local screen_frame = focused_window:screen():frame()
 
     -- center window
-    focused_frame.x = screen_frame.x + (screen_frame.w // 2) -
+    local screen_x = screen_frame.x + self.screen_edge_margins.left
+    local screen_w = screen_frame.w - self.screen_edge_margins.left - self.screen_edge_margins.right
+    focused_frame.x = screen_x + (screen_w // 2) -
         (focused_frame.w // 2)
     self:moveWindow(focused_window, focused_frame)
 
