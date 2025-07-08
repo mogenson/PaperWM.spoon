@@ -135,6 +135,9 @@ PaperWM.window_ratios = { 0.23607, 0.38195, 0.61804 }
 -- size of the on-screen margin to place off-screen windows
 PaperWM.screen_margin = 1
 
+-- additional padding around the screen edges
+PaperWM.screen_edge_margins = { top = 0, right = 0, bottom = 0, left = 0 }
+
 -- number of fingers to detect a horizontal swipe, set to 0 to disable
 PaperWM.swipe_fingers = 0
 
@@ -234,10 +237,10 @@ end
 ---@return Frame
 local function getCanvas(screen)
     local screen_frame = screen:frame()
-    local left_gap = getGap("left")
-    local right_gap = getGap("right")
-    local top_gap = getGap("top")
-    local bottom_gap = getGap("bottom")
+    local left_gap = getGap("left") + (PaperWM.screen_edge_margins.left or 0)
+    local right_gap = getGap("right") + (PaperWM.screen_edge_margins.right or 0)
+    local top_gap = getGap("top") + (PaperWM.screen_edge_margins.top or 0)
+    local bottom_gap = getGap("bottom") + (PaperWM.screen_edge_margins.bottom or 0)
 
     return Rect(
         screen_frame.x + left_gap,
@@ -1118,7 +1121,9 @@ function PaperWM:centerWindow()
     local screen_frame = focused_window:screen():frame()
 
     -- center window
-    focused_frame.x = screen_frame.x + (screen_frame.w // 2) -
+    local screen_x = screen_frame.x + self.screen_edge_margins.left
+    local screen_w = screen_frame.w - self.screen_edge_margins.left - self.screen_edge_margins.right
+    focused_frame.x = screen_x + (screen_w // 2) -
         (focused_frame.w // 2)
     self:moveWindow(focused_window, focused_frame)
 
