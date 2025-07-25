@@ -1,13 +1,32 @@
 {
   "diagnostics":
   {
-    "globals": ["hs"],
+    "globals": [ "hs" ],
+    "disable": [ "undefined-field" ],
     "neededFileStatus": { "codestyle-check": "Any" },
   },
   "runtime.version": "Lua 5.4",
   "format.defaultConfig":
   {
     "indent_style": "space",
-    "indent_size": 4,
+    "indent_size": "4",
+    "quote_style": "double",
+    "call_arg_parentheses": "always",
+    "continuation_indent": "4",
+    "max_line_length": "120",
+    "trailing_table_separator": "smart",
+    "space_around_table_field_list": "true",
+    "space_before_attribute": "true"
   },
+  "nameStyle.config":
+  {
+    "local_name_style": "snake_case",
+    "function_param_name_style": "snake_case",
+    "function_name_style": "camel_case",
+    "local_function_name_style": "snake_case",
+    "table_field_name_style": "snake_case",
+    "global_variable_name_style": "upper_snake_case",
+    "module_name_style": "pascal_case",
+    "const_variable_name_style": "upper_snake_case"
+    }
 }
