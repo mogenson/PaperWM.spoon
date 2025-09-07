@@ -533,7 +533,6 @@ end
 ---exchange two columns of windows
 ---@param direction Direction Direction.LEFT or Direction.RIGHT
 function Windows.swapColumns(direction)
-    print("typeof direction ", type(direction), " value ", hs.inspect(direction))
     -- use focused window as source window
     local focused_window = Window.focusedWindow()
     if not focused_window then

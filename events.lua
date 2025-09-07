@@ -16,14 +16,30 @@ function Events.init(paperwm)
 end
 
 ---refresh window layout on screen change
-local screen_watcher = Screen.watcher.new(function() Events.PaperWM.windows.refreshWindows() end)
+local screen_watcher = Screen.watcher.new((function()
+    local pending_timer = nil
+    return function()
+        if not pending_timer then
+            pending_timer = Timer.doAfter(Window.animationDuration, function()
+                pending_timer = nil
+                Events.PaperWM.logger.d("refreshing window layout on screen change")
+                Events.PaperWM.windows.refreshWindows()
+            end)
+        end
+    end
+end)())
 
 ---callback for window events
 ---@param window Window
 ---@param event string name of the event
 ---@param self PaperWM
 function Events.windowEventHandler(window, event, self)
-    self.logger.df("%s for [%s] id: %d", event, window, window:id() or -1)
+    if not window["id"] then
+        self.logger.ef("no id method for window %s in windowEventHandler", window)
+        return
+    end
+
+    self.logger.df("%s for [%s] id: %d", event, window:title(), window:id())
     local space = nil
 
     --[[ When a new window is created, We first get a windowVisible event but
