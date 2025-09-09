@@ -44,8 +44,9 @@ function Space.tileSpace(space)
 
     local anchor_index = Space.PaperWM.state.index_table[anchor_window:id()]
     if not anchor_index then
-        Space.PaperWM.logger.e("anchor index not found")
-        return -- bail
+        Space.PaperWM.logger.e("anchor index not found, refreshing windows")
+        Space.PaperWM.windows.refreshWindows() -- try refreshing the windows
+        return                                 -- bail
     end
 
     -- get some global coordinates
