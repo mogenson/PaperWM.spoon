@@ -212,6 +212,35 @@ function Events.swipeHandler(self)
     end
 end
 
+function Events.mouseHandler(self)
+    local window = nil
+    return function(event)
+        local type = event:getType()
+        local cursor = hs.geometry.new(event:location())
+        if type == hs.eventtap.event.types.leftMouseDown and event:getFlags():containExactly(self.lift_window) then
+            -- get window from cursor location, set window to floating, tile
+            window = hs.fnutils.find(self.window_filter:getWindows(hs.window.filter.sortByFocused), function(win)
+                return cursor:inside(win:frame())
+            end)
+            if window then self.windows.toggleFloating(window) end
+            print("MIKE drag start window: ", window)
+        elseif window and type == hs.eventtap.event.types.leftMouseDragged then
+            -- move floating window
+            local dx = event:getProperty(hs.eventtap.event.properties.mouseEventDeltaX)
+            local dy = event:getProperty(hs.eventtap.event.properties.mouseEventDeltaY)
+            local frame = window:frame()
+            frame.x = frame.x + dx
+            frame.y = frame.y + dy
+            window:setFrame(frame, 0)
+        elseif window and type == hs.eventtap.event.types.leftMouseUp then
+            -- set window to not floating, tile
+            print("MIKE drag stop window: ", window)
+            self.windows.toggleFloating(window)
+            window = nil
+        end
+    end
+end
+
 ---start monitoring for window events
 function Events.start()
     -- listen for window events
@@ -228,6 +257,13 @@ function Events.start()
     if Events.PaperWM.swipe_fingers > 1 then
         Events.Swipe:start(Events.PaperWM.swipe_fingers, Events.swipeHandler(Events.PaperWM))
     end
+
+    if Events.PaperWM.lift_window then
+        Events.mouse_drag_watcher = hs.eventtap.new(
+            { hs.eventtap.event.types.leftMouseDown,
+                hs.eventtap.event.types.leftMouseDragged,
+                hs.eventtap.event.types.leftMouseUp }, Events.mouseHandler(Events.PaperWM)):start()
+    end
 end
 
 ---stop monitoring for window events
@@ -239,6 +275,8 @@ function Events.stop()
 
     -- stop listening for touchpad swipes
     Events.Swipe:stop()
+
+    if Events.mouse_drag_watcher then Events.mouse_drag_watcher:stop() end
 end
 
 return Events
