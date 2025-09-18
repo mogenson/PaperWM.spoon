@@ -203,6 +203,24 @@ PaperWM.swipe_gain = 1.0
 
 Inspired by [ScrollDesktop.spoon](https://github.com/jocap/ScrollDesktop.spoon)
 
+### Mouse Dragging
+
+https://github.com/user-attachments/assets/61a0afda-93e6-41b3-963c-7681a4bbe7c7
+
+Click and drag a window with the mouse while holding the `PaperWM.drag_window`
+hotkey to slide and reposition all the windows on a space.
+
+Click on a window with the `PaperWM.lift_window` hotkey held to lift it up, drag
+to move the window, and release the mouse to drop it in a new tiled location.
+
+```lua
+-- set to a table of modifier keys to enable window dragging, default is nil
+PaperWM.drag_window = { "alt", "cmd" }`
+
+-- set to a table of modifier keys to enable window lifting, default is nil
+PaperWM.lift_window = { "alt", "cmd", "shift" }
+```
+
 ## Limitations
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would
