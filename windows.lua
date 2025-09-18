@@ -255,8 +255,10 @@ function Windows.addWindow(add_window)
         local x = add_window:frame().center.x
         for col, windows in ipairs(Windows.PaperWM.state.window_list[space]) do
             if x < windows[1]:frame().center.x then
-                add_column = col
-                break
+                add_column = col     -- insert left of window
+                break                -- add_window will take this window's column
+            else                     -- everything after insert column will be pushed right
+                add_column = col + 1 -- insert right of window
             end
         end
     end
