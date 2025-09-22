@@ -253,6 +253,7 @@ Swipe:start(3, function(direction, distance, id)
     end
 end)
 ```
+- [FocusMode.spoon](https://github.com/selimacerbas/FocusMode.spoon) Helps you stay in flow by dimming everything except what you’re working on.
 
 ## Contributing
 
