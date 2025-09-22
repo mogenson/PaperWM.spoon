@@ -212,6 +212,7 @@ hotkey to slide and reposition all the windows on a space.
 
 Click on a window with the `PaperWM.lift_window` hotkey held to lift it up, drag
 to move the window, and release the mouse to drop it in a new tiled location.
+This is useful for moving a window to a new screen.
 
 ```lua
 -- set to a table of modifier keys to enable window dragging, default is nil
