@@ -1,6 +1,7 @@
 local Screen <const> = hs.screen
-local HsSpaces <const> = hs.spaces
+local Spaces <const> = hs.spaces
 local Fnutils <const> = hs.fnutils
+local Window <const> = hs.window
 
 local Space = {}
 Space.__index = Space
@@ -15,22 +16,22 @@ end
 ---tile all column in a space by moving and resizing windows
 ---@param space Space
 function Space.tileSpace(space)
-    if not space or HsSpaces.spaceType(space) ~= "user" then
+    if not space or Spaces.spaceType(space) ~= "user" then
         Space.PaperWM.logger.e("current space invalid")
         return
     end
 
     -- find screen for space
-    local screen = Screen(HsSpaces.spaceDisplay(space))
+    local screen = Screen(Spaces.spaceDisplay(space))
     if not screen then
         Space.PaperWM.logger.e("no screen for space")
         return
     end
 
     -- if focused window is in space, tile from that
-    local focused_window = hs.window.focusedWindow()
+    local focused_window = Window.focusedWindow()
     local anchor_window = (function()
-        if focused_window and not Space.PaperWM.state.is_floating[focused_window:id()] and HsSpaces.windowSpaces(focused_window)[1] == space then
+        if focused_window and not Space.PaperWM.state.is_floating[focused_window:id()] and Spaces.windowSpaces(focused_window)[1] == space then
             return focused_window
         else
             return Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
@@ -131,9 +132,9 @@ function Space.switchToSpace(index)
         return
     end
 
-    local screen = Screen(HsSpaces.spaceDisplay(space))
+    local screen = Screen(Spaces.spaceDisplay(space))
     local window = Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
-    HsSpaces.gotoSpace(space)
+    Spaces.gotoSpace(space)
     Space.MissionControl:focusSpace(space, window)
 end
 
@@ -144,8 +145,8 @@ function Space.incrementSpace(direction)
         Space.PaperWM.logger.d("move is invalid, left and right only")
         return
     end
-    local curr_space_id = HsSpaces.focusedSpace()
-    local layout = HsSpaces.allSpaces()
+    local curr_space_id = Spaces.focusedSpace()
+    local layout = Spaces.allSpaces()
     local curr_space_idx = -1
     local num_spaces = 0
     for _, screen in ipairs(Screen.allScreens()) do
@@ -170,7 +171,7 @@ end
 ---move focused window to a Mission Control space
 ---@param index number space index
 function Space.moveWindowToSpace(index)
-    local focused_window = hs.window.focusedWindow()
+    local focused_window = Window.focusedWindow()
     if not focused_window then
         Space.PaperWM.logger.d("focused window not found")
         return
@@ -182,12 +183,12 @@ function Space.moveWindowToSpace(index)
         return
     end
 
-    if new_space == HsSpaces.windowSpaces(focused_window)[1] then
+    if new_space == Spaces.windowSpaces(focused_window)[1] then
         Space.PaperWM.logger.d("window already on space")
         return
     end
 
-    if HsSpaces.spaceType(new_space) ~= "user" then
+    if Spaces.spaceType(new_space) ~= "user" then
         Space.PaperWM.logger.d("space is invalid")
         return
     end
@@ -198,7 +199,7 @@ function Space.moveWindowToSpace(index)
         return
     end
 
-    local new_screen = Screen(HsSpaces.spaceDisplay(new_space))
+    local new_screen = Screen(Spaces.spaceDisplay(new_space))
     if not new_screen then
         Space.PaperWM.logger.d("no screen for space")
         return

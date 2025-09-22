@@ -1,4 +1,12 @@
+local Fnutils <const> = hs.fnutils
+local Geometry <const> = hs.geometry
+local LeftMouseDown <const> = hs.eventtap.event.types.leftMouseDown
+local LeftMouseDragged <const> = hs.eventtap.event.types.leftMouseDragged
+local LeftMouseUp <const> = hs.eventtap.event.types.leftMouseUp
+local MouseEventDeltaX <const> = hs.eventtap.event.properties.mouseEventDeltaX
+local MouseEventDeltaY <const> = hs.eventtap.event.properties.mouseEventDeltaY
 local Screen <const> = hs.screen
+local SortByFocused <const> = hs.window.filter.sortByFocused
 local Spaces <const> = hs.spaces
 local Timer <const> = hs.timer
 local Watcher <const> = hs.uielement.watcher
@@ -94,11 +102,83 @@ function Events.windowEventHandler(window, event, self)
     if space then self.space.tileSpace(space) end
 end
 
----generate callback fucntion for touchpad swipe gesture event
+---coroutine to slide all windows in a space by dx
+---@param self PaperWM
+---@param space Space
+---@param screen_frame Frame
+local function slide_windows(self, space, screen_frame)
+    local left_margin  = screen_frame.x + self.screen_margin
+    local right_margin = screen_frame.x2 - self.screen_margin
+
+    -- stop window watchers
+    for window, _ in pairs(self.state.x_positions[space] or {}) do
+        if window then
+            local watcher = self.state.ui_watchers[window:id()]
+            if watcher then watcher:stop() end
+        end
+    end
+
+    while true do
+        local dx = coroutine.yield()
+        if not dx then break end
+
+        for window, x in pairs(self.state.x_positions[space] or {}) do
+            if window then
+                x = x + dx
+                local frame = window:frame()
+                if dx > 0 then -- scroll right
+                    frame.x = math.min(x, right_margin)
+                else           -- scroll left
+                    frame.x = math.max(x, left_margin - frame.w)
+                end
+                window:setTopLeft(frame.x, frame.y)       -- avoid the animationDuration
+                self.state.x_positions[space][window] = x -- update virtual position
+            end
+        end
+    end
+
+    -- start window watchers
+    for window, _ in pairs(self.state.x_positions[space] or {}) do
+        if window then
+            local watcher = self.state.ui_watchers[window:id()]
+            if watcher then
+                watcher:start({ Watcher.windowMoved, Watcher.windowResized })
+            end
+        end
+    end
+
+    -- ensure a focused window is on screen
+    local focused_window = Window.focusedWindow()
+    if focused_window then
+        local frame = focused_window:frame()
+        local visible_window = (function()
+            if frame.x < screen_frame.x then
+                return self.windows.getFirstVisibleWindow(space, screen_frame,
+                    self.windows.Direction.LEFT)
+            elseif frame.x2 > screen_frame.x2 then
+                return self.windows.getFirstVisibleWindow(space, screen_frame,
+                    self.windows.Direction.RIGHT)
+            end
+        end)()
+        if visible_window then
+            visible_window:focus()
+        else
+            self.space.tileSpace(space)
+        end
+    else
+        self.logger.e("no focused window at end of swipe")
+    end
+
+    while true do
+        self.logger.ef("resumed finished slide_windows coroutine with: %s", coroutine.yield())
+    end
+end
+
+---generate callback function for touchpad swipe gesture event
 ---@param self PaperWM
 function Events.swipeHandler(self)
     -- saved upvalues between callback function calls
-    local space, screen_frame = nil, nil
+    local swipe_coro, screen_frame = nil, nil
 
     ---callback for touchpad swipe gesture event
     ---@param id number unique id across callbacks for the same swipe
@@ -116,7 +196,6 @@ function Events.swipeHandler(self)
                 return
             end
 
-            -- get focused window index
             local focused_index = self.state.index_table[focused_window:id()]
             if not focused_index then
                 self.logger.e("focused index not found")
@@ -131,82 +210,87 @@ function Events.swipeHandler(self)
 
             -- cache upvalues
             screen_frame = screen:frame()
-            space        = focused_index.space
-
-            -- stop all window moved watchers
-            for window, _ in pairs(self.state.x_positions[space] or {}) do
-                if not window then break end
-                local watcher = self.state.ui_watchers[window:id()]
-                if watcher then
-                    watcher:stop()
-                end
-            end
-        elseif type == Events.Swipe.END then
+            swipe_coro = coroutine.wrap(slide_windows)
+            swipe_coro(self, focused_index.space, screen_frame)
+        elseif swipe_coro and type == Events.Swipe.END then
             self.logger.df("swipe end: %d", id)
-
-            if not space or not screen_frame then
-                return -- no cached upvalues
-            end
-
-            -- restart all window moved watchers
-            for window, _ in pairs(self.state.x_positions[space] or {}) do
-                if not window then break end
-                local watcher = self.state.ui_watchers[window:id()]
-                if watcher then
-                    watcher:start({ Watcher.windowMoved, Watcher.windowResized })
-                end
-            end
-
-            -- ensure a focused window is on screen
-            local focused_window = Window.focusedWindow()
-            if focused_window then
-                local frame = focused_window:frame()
-                local visible_window = (function()
-                    if frame.x < screen_frame.x then
-                        return self.windows.getFirstVisibleWindow(space, screen_frame,
-                            self.windows.Direction.LEFT)
-                    elseif frame.x2 > screen_frame.x2 then
-                        return self.windows.getFirstVisibleWindow(space, screen_frame,
-                            self.windows.Direction.RIGHT)
-                    end
-                end)()
-                if visible_window then
-                    visible_window:focus()
-                else
-                    self.space.tileSpace(space)
-                end
-            else
-                self.logger.e("no focused window at end of swipe")
-            end
-
-            -- clear cached upvalues
-            space, screen_frame = nil, nil
-        elseif type == Events.Swipe.MOVED then
-            if not space or not screen_frame then
-                return -- no cached upvalues
-            end
-
-            if math.abs(dy) >= math.abs(dx) then
-                return -- only handle horizontal swipes
-            end
-
+            swipe_coro(nil)
+            swipe_coro = nil
+        elseif swipe_coro and screen_frame and type == Events.Swipe.MOVED then
+            if math.abs(dy) >= math.abs(dx) then return end -- horizontal swipes only
             dx = math.floor(self.swipe_gain * dx * screen_frame.w)
+            swipe_coro(dx)
+        end
+    end
+end
 
+---generate callback function for mouse events
+---@param self PaperWM
+function Events.mouseHandler(self)
+    local lift_window, drag_coro = nil, nil
 
-            local left_margin  = screen_frame.x + self.screen_margin
-            local right_margin = screen_frame.x2 - self.screen_margin
+    ---find a Window under the mouse cursor
+    ---@param event userdata
+    ---@return Window|nil
+    local function windowUnderCursor(event)
+        local cursor = Geometry.new(event:location())
+        local screen = Fnutils.find(Screen.allScreens(), function(screen) return cursor:inside(screen:frame()) end)
+        if not screen then return end
+        local space = Spaces.activeSpaceOnScreen(screen)
+        if not space then return end
+        for window, _ in pairs(self.state.x_positions[space]) do if cursor:inside(window:frame()) then return window end end
+    end
 
-            for window, x in pairs(self.state.x_positions[space] or {}) do
-                if not window then break end
-                x = x + dx
-                local frame = window:frame()
-                if dx > 0 then -- scroll right
-                    frame.x = math.min(x, right_margin)
-                else           -- scroll left
-                    frame.x = math.max(x, left_margin - frame.w)
+    ---callback for mouse event
+    ---@param event userdata
+    return function(event)
+        local type = event:getType()
+        if type == LeftMouseDown then
+            local flags = event:getFlags()
+            if self.drag_window and flags:containExactly(self.drag_window) then
+                local drag_window = windowUnderCursor(event)
+                if drag_window then
+                    local index = self.state.index_table[drag_window:id()]
+                    if not index then
+                        self.logger.e("drag window index not found")
+                        return
+                    end
+
+                    local screen = Screen(Spaces.spaceDisplay(index.space))
+                    if not screen then
+                        self.logger.e("no screen for space")
+                        return
+                    end
+
+                    drag_coro = coroutine.wrap(slide_windows)
+                    drag_coro(self, index.space, screen:frame())
+                    self.logger.df("drag window start for: %s", drag_window)
                 end
-                window:setTopLeft(frame.x, frame.y)       -- avoid the animationDuration
-                self.state.x_positions[space][window] = x -- update virtual position
+            elseif self.lift_window and flags:containExactly(self.lift_window) then
+                -- get window from cursor location, set window to floating, tile
+                lift_window = windowUnderCursor(event)
+                if lift_window then self.windows.toggleFloating(lift_window) end
+                self.logger.df("lift window start for: %s", lift_window)
+            end
+        elseif type == LeftMouseDragged then
+            if drag_coro then
+                drag_coro(event:getProperty(MouseEventDeltaX))
+            elseif lift_window then
+                local frame = lift_window:frame()
+                frame.x = frame.x + event:getProperty(MouseEventDeltaX)
+                frame.y = frame.y + event:getProperty(MouseEventDeltaY)
+                lift_window:setFrame(frame, 0)
+            end
+        elseif type == LeftMouseUp then
+            if drag_coro then
+                self.logger.df("drag window stop")
+                drag_coro(nil)
+                drag_coro = nil
+            elseif lift_window then
+                -- set window to not floating, tile
+                self.logger.df("lift window stop")
+                self.windows.toggleFloating(lift_window)
+                lift_window = nil
             end
         end
     end
@@ -228,6 +312,12 @@ function Events.start()
     if Events.PaperWM.swipe_fingers > 1 then
         Events.Swipe:start(Events.PaperWM.swipe_fingers, Events.swipeHandler(Events.PaperWM))
     end
+
+    -- register a mouse event watcher if the drag window or lift window hotkeys are set
+    if Events.PaperWM.drag_window or Events.PaperWM.lift_window then
+        Events.mouse_watcher = hs.eventtap.new({ LeftMouseDown, LeftMouseDragged, LeftMouseUp },
+            Events.mouseHandler(Events.PaperWM)):start()
+    end
 end
 
 ---stop monitoring for window events
@@ -239,6 +329,9 @@ function Events.stop()
 
     -- stop listening for touchpad swipes
     Events.Swipe:stop()
+
+    -- stop listening for mouse events
+    if Events.mouse_watcher then Events.mouse_watcher:stop() end
 end
 
 return Events

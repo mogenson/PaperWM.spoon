@@ -936,8 +936,9 @@ function Windows.moveWindow(window, frame)
 end
 
 ---add or remove focused window from the floating layer and retile the space
-function Windows.toggleFloating()
-    local window = Window.focusedWindow()
+---@param window Window|nil optional window to float and focus
+function Windows.toggleFloating(window)
+    window = window or Window.focusedWindow()
     if not window then
         Windows.PaperWM.logger.d("focused window not found")
         return
@@ -959,6 +960,7 @@ function Windows.toggleFloating()
         end
     end)()
     if space then
+        window:focus()
         Windows.PaperWM:tileSpace(space)
     end
 end
