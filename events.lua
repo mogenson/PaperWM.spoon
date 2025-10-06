@@ -238,7 +238,9 @@ function Events.mouseHandler(self)
         if not screen then return end
         local space = Spaces.activeSpaceOnScreen(screen)
         if not space then return end
-        for window, _ in pairs(self.state.x_positions[space]) do if cursor:inside(window:frame()) then return window end end
+        for window, _ in pairs(self.state.x_positions[space] or {}) do
+            if cursor:inside(window:frame()) then return window end
+        end
     end
 
     ---callback for mouse event
