@@ -178,6 +178,14 @@ PaperWM.window_filter:setScreens({ "Built%-in Retina Display" })
 PaperWM:start()
 ```
 
+Set `PaperWM.center_mouse` to control whether the mouse cursor is centered on
+the screen after switching spaces. Default is `true`. Example:
+
+```lua
+-- disable mouse centering when switching spaces
+PaperWM.center_mouse = false
+```
+
 Set `PaperWM.window_ratios` to the ratios to cycle window widths and heights
 through. For example:
 

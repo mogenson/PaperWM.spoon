@@ -298,8 +298,10 @@ function MissionControl:focusSpace(space_id, window)
             until Spaces.focusedSpace() == space_id
         end
 
-        -- move cursor to center of screen
-        Mouse.absolutePosition(screen:frame().center)
+        -- move cursor to center of screen (if enabled in config)
+        if MissionControl.PaperWM and MissionControl.PaperWM.center_mouse then
+            Mouse.absolutePosition(screen:frame().center)
+        end
         return true -- done
     end)
 

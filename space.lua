@@ -11,6 +11,7 @@ Space.__index = Space
 function Space.init(paperwm)
     Space.PaperWM = paperwm
     Space.MissionControl = dofile(hs.spoons.resourcePath("mission_control.lua"))
+    Space.MissionControl.PaperWM = paperwm  -- Pass PaperWM reference for config access
 end
 
 ---tile all column in a space by moving and resizing windows
