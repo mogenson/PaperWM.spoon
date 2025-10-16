@@ -70,7 +70,7 @@ Config.swipe_fingers = 0 ---@type number
 ---increase this number to make windows move futher when swiping
 Config.swipe_gain = 1 ---@type number
 
----center mouse cursor on screen after switching spaces
-Config.center_mouse = true ---@type boolean
+---reposition mouse cursor after switching spaces
+Config.mouse_reposition = "center" ---@type "center" | "restore" | false
 
 return Config

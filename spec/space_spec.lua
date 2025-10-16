@@ -79,6 +79,9 @@ package.preload["space"] = function()
         mouse = {
             absolutePosition = function(_) end,
         },
+        host = {
+            operatingSystemVersion = function() return { major=26, minor=0, patch=0 } end
+        },
     }
 
     setmetatable(hs.screen, {

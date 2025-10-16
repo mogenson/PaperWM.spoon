@@ -1,5 +1,6 @@
 --- Utilities for moving windows and focusing spaces
 
+---@class MissionControl
 local MissionControl      = {}
 MissionControl.__index    = MissionControl
 
@@ -7,6 +8,7 @@ local Application <const> = hs.application
 local Axuielement <const> = hs.axuielement
 local Event <const>       = hs.eventtap.event
 local EventTypes <const>  = hs.eventtap.event.types
+local Host <const>        = hs.host
 local Geometry <const>    = hs.geometry
 local Mouse <const>       = hs.mouse
 local Screen <const>      = hs.screen
@@ -22,6 +24,8 @@ MissionControl.homepage   = "https://github.com/mogenson/PaperWM.spoon"
 MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
 MissionControl.log        = hs.logger.new(MissionControl.name)
+
+local os_version = Host.operatingSystemVersion()
 
 ---blocking wait
 ---@param seconds number
@@ -264,17 +268,45 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     return true
 end
 
+local function mouseRepositionPoint(self, screen)
+    local mode = self.PaperWM and self.PaperWM.mouse_reposition
+    return (mode == "restore" and Mouse.absolutePosition())
+        or (mode == "center" and screen:frame().center)
+        or nil
+end
+
+---@alias FocusSpaceFunc fun(self: MissionControl, space_id: number, window: any)
+
+---Switches focus to the specified space using direct window focusing.
+---@type FocusSpaceFunc
+local focus_space_window_only <const> = function(self, space_id, window)
+    local screen = Screen(Spaces.spaceDisplay(space_id))
+    if not screen then
+        return
+    end
+
+    if window then
+        window:focus()
+    end
+
+    local point = mouseRepositionPoint(self, screen)
+    if point then
+        Mouse.absolutePosition(point)
+    end
+end
+
 ---attempt to make specified space the active space and keep focus on space
----@param space_id number ID for space
----@param window Window|nil a window in the space
-function MissionControl:focusSpace(space_id, window)
+---utilizes bar clicking 'hack' to make space switching more stable (useful before macos 26)
+---refer to https://github.com/mogenson/PaperWM.spoon/pull/106#issuecomment-3403867318 for more info
+---@type FocusSpaceFunc
+local focus_space_bar_clicking <const> = function(self, space_id, window)
     local screen = Screen(Spaces.spaceDisplay(space_id))
     if not screen then
         return
     end
 
     local do_space_focus = coroutine.wrap(function()
-        local after_fns = {}
+        local mouse_point = mouseRepositionPoint(self, screen)
 
         if window then
             local function check_focus(win, n)
@@ -290,12 +322,6 @@ function MissionControl:focusSpace(space_id, window)
                 window:focus()
                 coroutine.yield(false) -- not done
             until (Spaces.focusedSpace() == space_id) and check_focus(window, 3)
-
-            if MissionControl.PaperWM and MissionControl.PaperWM.center_mouse then
-                table.insert(after_fns, function()
-                    Mouse.absolutePosition(screen:frame().center)
-                end)
-            end
         else
             local point = screen:frame()
             point.x = point.x + (point.w // 2)
@@ -304,12 +330,12 @@ function MissionControl:focusSpace(space_id, window)
                 mouseClick(point)      -- click on menubar
                 coroutine.yield(false) -- not done
             until Spaces.focusedSpace() == space_id
-            table.insert(after_fns, function()
-                Mouse.absolutePosition(screen:frame().center)
-            end)
+            mouse_point = mouse_point or screen:frame().center -- ensure repositioning with center as default
         end
 
-        for _, fn in ipairs(after_fns) do fn() end
+        if mouse_point then
+            Mouse.absolutePosition(mouse_point)
+        end
 
         return true -- done
     end)
@@ -319,5 +345,10 @@ function MissionControl:focusSpace(space_id, window)
         if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
     end, Window.animationDuration)
 end
+
+---Selects the appropriate space-focusing function based on the macOS version.
+-- For macOS 26 (`os_version["major"] >= 26`) and newer, it uses the simpler `focus_space_window_only` as no need for anything but focus the window.
+-- For older versions, it falls back to `focus_space_bar_clicking` which uses workarounds for stability.
+MissionControl.focusSpace = os_version.major >= 26 and focus_space_window_only or focus_space_bar_clicking
 
 return MissionControl
