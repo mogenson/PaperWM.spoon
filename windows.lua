@@ -119,12 +119,11 @@ end
 ---@param space Space
 ---@param windows Window[]
 function Windows.updateVirtualPositions(space, windows, x)
-    if Windows.PaperWM.swipe_fingers == 0 then return end
     if not Windows.PaperWM.state.x_positions[space] then
         Windows.PaperWM.state.x_positions[space] = {}
     end
     for _, window in ipairs(windows) do
-        Windows.PaperWM.state.x_positions[space][window] = x
+        Windows.PaperWM.state.x_positions[space][window:id()] = x
     end
 end
 
@@ -310,7 +309,7 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     Windows.PaperWM.state.ui_watchers[remove_window:id()] = nil
 
     -- clear window position
-    (Windows.PaperWM.state.x_positions[remove_index.space] or {})[remove_window] = nil
+    (Windows.PaperWM.state.x_positions[remove_index.space] or {})[remove_window:id()] = nil
 
     -- update index table
     Windows.PaperWM.state.index_table[remove_window:id()] = nil

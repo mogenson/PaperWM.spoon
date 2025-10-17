@@ -111,15 +111,18 @@ function Space.tileSpace(space)
     end
 
     -- tile windows from anchor left
-    local x = anchor_frame.x
-    local x2 = math.max(anchor_frame.x - left_gap, left_margin)
+    local x2 = anchor_frame.x - left_gap
     for col = anchor_index.col - 1, 1, -1 do
-        local bounds = { x = nil, x2 = x2, y = canvas.y, y2 = canvas.y2 }
+        local bounds = {
+            x = nil,
+            x2 = math.max(x2, left_margin),
+            y = canvas.y,
+            y2 = canvas.y2,
+        }
         local column = Space.PaperWM.windows.getColumn(space, col)
         local width = Space.PaperWM.windows.tileColumn(column, bounds)
-        x = x - width - left_gap
-        Space.PaperWM.windows.updateVirtualPositions(space, column, x)
-        x2 = math.max(x2 - width - left_gap, left_margin)
+        Space.PaperWM.windows.updateVirtualPositions(space, column, x2 - width)
+        x2 = x2 - width - left_gap
     end
 end
 

@@ -6,7 +6,6 @@ local LeftMouseUp <const> = hs.eventtap.event.types.leftMouseUp
 local MouseEventDeltaX <const> = hs.eventtap.event.properties.mouseEventDeltaX
 local MouseEventDeltaY <const> = hs.eventtap.event.properties.mouseEventDeltaY
 local Screen <const> = hs.screen
-local SortByFocused <const> = hs.window.filter.sortByFocused
 local Spaces <const> = hs.spaces
 local Timer <const> = hs.timer
 local Watcher <const> = hs.uielement.watcher
@@ -110,11 +109,16 @@ local function slide_windows(self, space, screen_frame)
     local left_margin  = screen_frame.x + self.screen_margin
     local right_margin = screen_frame.x2 - self.screen_margin
 
+    -- cache windows, frame, and virtual x positions because window lookup is expensive
     -- stop window watchers
-    for window, _ in pairs(self.state.x_positions[space] or {}) do
+    local windows      = {}
+    for id, x in pairs(self.state.x_positions[space] or {}) do
+        local window = Window(id)
         if window then
-            local watcher = self.state.ui_watchers[window:id()]
+            local watcher = self.state.ui_watchers[id]
             if watcher then watcher:stop() end
+            local frame = window:frame()
+            table.insert(windows, { window = window, frame = frame, x = x })
         end
     end
 
@@ -122,30 +126,21 @@ local function slide_windows(self, space, screen_frame)
         local dx = coroutine.yield()
         if not dx then break end
 
-        for window, x in pairs(self.state.x_positions[space] or {}) do
-            if window then
-                x = x + dx
-                local frame = window:frame()
-                if dx > 0 then -- scroll right
-                    frame.x = math.min(x, right_margin)
-                else           -- scroll left
-                    frame.x = math.max(x, left_margin - frame.w)
-                end
-                window:setTopLeft(frame.x, frame.y)       -- avoid the animationDuration
-                self.state.x_positions[space][window] = x -- update virtual position
+        if dx ~= 0 then
+            for _, item in ipairs(windows) do
+                item.x = item.x + dx                               -- scroll left or right
+                item.frame.x = dx > 0 and math.min(item.x, right_margin) or math.max(item.x, left_margin - item.frame.w)
+                item.window:setTopLeft(item.frame.x, item.frame.y) -- avoid the animationDuration
             end
         end
     end
 
     -- start window watchers
-    for window, _ in pairs(self.state.x_positions[space] or {}) do
-        if window then
-            local watcher = self.state.ui_watchers[window:id()]
-            if watcher then
-                watcher:start({ Watcher.windowMoved, Watcher.windowResized })
-            end
-        end
+    for _, item in ipairs(windows) do
+        local watcher = self.state.ui_watchers[item.window:id()]
+        if watcher then watcher:start({ Watcher.windowMoved, Watcher.windowResized }) end
     end
+    windows = nil -- force collection
 
     -- ensure a focused window is on screen
     local focused_window = Window.focusedWindow()
@@ -238,14 +233,17 @@ function Events.mouseHandler(self)
         if not screen then return end
         local space = Spaces.activeSpaceOnScreen(screen)
         if not space then return end
-        for window, _ in pairs(self.state.x_positions[space] or {}) do
-            if cursor:inside(window:frame()) then return window end
+        for id, _ in pairs(self.state.x_positions[space] or {}) do
+            local window = Window(id)
+            if window and cursor:inside(window:frame()) then return window end
         end
     end
 
     ---callback for mouse event
     ---@param event userdata
+    ---@return boolean delete or propagate event
     return function(event)
+        local delete_event = false
         local type = event:getType()
         if type == LeftMouseDown then
             local flags = event:getFlags()
@@ -255,46 +253,52 @@ function Events.mouseHandler(self)
                     local index = self.state.index_table[drag_window:id()]
                     if not index then
                         self.logger.e("drag window index not found")
-                        return
+                        return delete_event
                     end
-
                     local screen = Screen(Spaces.spaceDisplay(index.space))
                     if not screen then
                         self.logger.e("no screen for space")
-                        return
+                        return delete_event
                     end
-
                     drag_coro = coroutine.wrap(slide_windows)
                     drag_coro(self, index.space, screen:frame())
                     self.logger.df("drag window start for: %s", drag_window)
+                    delete_event = true
                 end
             elseif self.lift_window and flags:containExactly(self.lift_window) then
                 -- get window from cursor location, set window to floating, tile
                 lift_window = windowUnderCursor(event)
                 if lift_window then self.windows.toggleFloating(lift_window) end
                 self.logger.df("lift window start for: %s", lift_window)
+                delete_event = true
             end
         elseif type == LeftMouseDragged then
             if drag_coro then
                 drag_coro(event:getProperty(MouseEventDeltaX))
+                delete_event = true
             elseif lift_window then
                 local frame = lift_window:frame()
-                frame.x = frame.x + event:getProperty(MouseEventDeltaX)
-                frame.y = frame.y + event:getProperty(MouseEventDeltaY)
-                lift_window:setFrame(frame, 0)
+                lift_window:setTopLeft(
+                    frame.x + event:getProperty(MouseEventDeltaX),
+                    frame.y + event:getProperty(MouseEventDeltaY)
+                )
+                delete_event = true
             end
         elseif type == LeftMouseUp then
             if drag_coro then
                 self.logger.df("drag window stop")
                 drag_coro(nil)
                 drag_coro = nil
+                delete_event = true
             elseif lift_window then
                 -- set window to not floating, tile
                 self.logger.df("lift window stop")
                 self.windows.toggleFloating(lift_window)
                 lift_window = nil
+                delete_event = true
             end
         end
+        return delete_event
     end
 end
 
