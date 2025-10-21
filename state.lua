@@ -10,7 +10,7 @@ State.window_list = {} -- 3D array of tiles in order of [space][x][y]
 State.index_table = {} -- dictionary of {space, x, y} with window id for keys
 State.ui_watchers = {} -- dictionary of uielement watchers with window id for keys
 State.is_floating = {} -- dictionary of boolean with window id for keys
-State.x_positions = {} -- dictionary of horizontal positions with [space][window] for keys
+State.x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
 
 State.prev_focused_window = nil ---@type Window|nil
 State.pending_window = nil ---@type Window|nil
@@ -44,8 +44,8 @@ function State.dump()
     table.insert(output, "\nx_positions:")
     for space, positions in pairs(State.x_positions) do
         table.insert(output, string.format("  Space %s:", tostring(space)))
-        for window, x in pairs(positions) do
-            table.insert(output, string.format("    Window %s (%d): x=%d", window:title(), window:id(), x))
+        for id, x in pairs(positions) do
+            table.insert(output, string.format("    Window %s (%d): x=%d", hs.window(id):title(), id, x))
         end
     end
 
