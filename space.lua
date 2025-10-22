@@ -135,7 +135,6 @@ function Space.switchToSpace(index)
 
     local screen = Screen(Spaces.spaceDisplay(space))
     local window = Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
-    Spaces.gotoSpace(space)
     Space.MissionControl:focusSpace(space, window)
 end
 
