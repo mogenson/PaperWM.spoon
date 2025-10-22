@@ -277,10 +277,6 @@ function MissionControl:focusSpace(space_id, window)
         Spaces.gotoSpace(space_id)
     end
 
-    if MissionControl.PaperWM and MissionControl.PaperWM.center_mouse then
-        Mouse.absolutePosition(screen:frame().center)
-    end
-
     local do_window_focus = coroutine.wrap(function()
         if window then
             local function check_focus(win, n)
@@ -306,6 +302,10 @@ function MissionControl:focusSpace(space_id, window)
     Timer.doUntil(do_window_focus, function(timer)
         if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
     end, Window.animationDuration)
+
+    if MissionControl.PaperWM and MissionControl.PaperWM.center_mouse then
+        Mouse.absolutePosition(screen:frame().center)
+    end
 end
 
 return MissionControl
