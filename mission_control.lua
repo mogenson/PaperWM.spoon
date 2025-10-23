@@ -273,7 +273,11 @@ function MissionControl:focusSpace(space_id, window)
         return
     end
 
-    local do_space_focus = coroutine.wrap(function()
+    if Spaces.focusedSpace() ~= space_id then
+        Spaces.gotoSpace(space_id)
+    end
+
+    local do_window_focus = coroutine.wrap(function()
         if window then
             local function check_focus(win, n)
                 local focused = true
@@ -284,29 +288,24 @@ function MissionControl:focusSpace(space_id, window)
                 end
                 return focused
             end
+
             repeat
                 window:focus()
                 coroutine.yield(false) -- not done
-            until (Spaces.focusedSpace() == space_id) and check_focus(window, 3)
-        else
-            local point = screen:frame()
-            point.x = point.x + (point.w // 2)
-            point.y = point.y - 1
-            repeat
-                mouseClick(point)      -- click on menubar
-                coroutine.yield(false) -- not done
-            until Spaces.focusedSpace() == space_id
+            until check_focus(window, 3)
         end
 
-        -- move cursor to center of screen
-        Mouse.absolutePosition(screen:frame().center)
         return true -- done
     end)
 
     local start_time = Timer.secondsSinceEpoch()
-    Timer.doUntil(do_space_focus, function(timer)
+    Timer.doUntil(do_window_focus, function(timer)
         if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
     end, Window.animationDuration)
+
+    if MissionControl.PaperWM and MissionControl.PaperWM.center_mouse then
+        Mouse.absolutePosition(screen:frame().center)
+    end
 end
 
 return MissionControl
