@@ -57,11 +57,10 @@ function Events.windowEventHandler(window, event, self)
     after the window was added ]]
     --
 
-    if self.windows.isFloating(window) then
+    if self.floating.isFloating(window) then
         -- this event is only meaningful for floating windows
         if event == "windowDestroyed" then
-            self.state.is_floating[window:id()] = nil
-            self.windows.persistFloatingList()
+            self.floating.removeFloating(window)
         end
         -- no other events are meaningful for floating windows
         return
@@ -268,7 +267,7 @@ function Events.mouseHandler(self)
             elseif self.lift_window and flags:containExactly(self.lift_window) then
                 -- get window from cursor location, set window to floating, tile
                 lift_window = windowUnderCursor(event)
-                if lift_window then self.windows.toggleFloating(lift_window) end
+                if lift_window then self.floating.toggleFloating(lift_window) end
                 self.logger.df("lift window start for: %s", lift_window)
                 delete_event = true
             end
@@ -293,7 +292,7 @@ function Events.mouseHandler(self)
             elseif lift_window then
                 -- set window to not floating, tile
                 self.logger.df("lift window stop")
-                self.windows.toggleFloating(lift_window)
+                self.floating.toggleFloating(lift_window)
                 lift_window = nil
                 delete_event = true
             end

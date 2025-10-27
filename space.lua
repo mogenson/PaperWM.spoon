@@ -33,7 +33,7 @@ function Space.tileSpace(space)
     -- if focused window is in space, tile from that
     local focused_window = Window.focusedWindow()
     local anchor_window = (function()
-        if focused_window and not Space.PaperWM.windows.isFloating(focused_window) and Spaces.windowSpaces(focused_window)[1] == space then
+        if focused_window and not Space.PaperWM.floating.isFloating(focused_window) and Spaces.windowSpaces(focused_window)[1] == space then
             return focused_window
         else
             return Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
@@ -215,8 +215,8 @@ function Space.moveWindowToSpace(index)
 
     -- if window is on a managed space and is not floating, then toggling it to floating
     -- this will retile the current space before moving the window
-    if Fnutils.contains(allowed_screens, old_screen) and not Space.PaperWM.windows.isFloating(focused_window) then
-        Space.PaperWM.windows.toggleFloating(focused_window)
+    if Fnutils.contains(allowed_screens, old_screen) and not Space.PaperWM.floating.isFloating(focused_window) then
+        Space.PaperWM.floating.toggleFloating(focused_window)
     end
 
     local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space)
@@ -233,7 +233,7 @@ function Space.moveWindowToSpace(index)
             until Spaces.windowSpaces(focused_window)[1] == new_space
 
             -- now we can toggle it not floating, add the window, and tile new space
-            Space.PaperWM.windows.toggleFloating(focused_window)
+            Space.PaperWM.floating.toggleFloating(focused_window)
             Space.MissionControl:focusSpace(new_space, focused_window)
             return true -- done
         end)

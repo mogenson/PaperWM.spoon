@@ -72,12 +72,14 @@ PaperWM.windows = dofile(hs.spoons.resourcePath("windows.lua"))
 PaperWM.space = dofile(hs.spoons.resourcePath("space.lua"))
 PaperWM.events = dofile(hs.spoons.resourcePath("events.lua"))
 PaperWM.actions = dofile(hs.spoons.resourcePath("actions.lua"))
+PaperWM.floating = dofile(hs.spoons.resourcePath("floating.lua"))
 
 -- Initialize modules
 PaperWM.windows.init(PaperWM)
 PaperWM.space.init(PaperWM)
 PaperWM.events.init(PaperWM)
 PaperWM.actions.init(PaperWM)
+PaperWM.floating.init(PaperWM)
 
 -- Apply config
 for k, v in pairs(PaperWM.config) do
@@ -100,15 +102,8 @@ function PaperWM:start()
     self.state.is_floating = {}
     self.state.x_positions = {}
 
-    -- restore saved is_floating state, filtering for valid windows
-    local persisted = hs.settings.get(self.state.IsFloatingKey) or {}
-    for _, id in ipairs(persisted) do
-        local window = Window.get(id)
-        if window and self.window_filter:isWindowAllowed(window) then
-            self.state.is_floating[id] = true
-        end
-    end
-    self.windows.persistFloatingList()
+    -- restore floating windows
+    self.floating.restoreFloating()
 
     -- populate window list, index table, ui_watchers, and set initial layout
     self.windows.refreshWindows()

@@ -134,14 +134,7 @@ function Windows.updateVirtualPositions(space, windows, x)
     end
 end
 
----save the is_floating list to settings
-function Windows.persistFloatingList()
-    local persisted = {}
-    for k, _ in pairs(Windows.PaperWM.state.is_floating) do
-        table.insert(persisted, k)
-    end
-    hs.settings.set(Windows.PaperWM.state.IsFloatingKey, persisted)
-end
+
 
 ---tile a column of window by moving and resizing
 ---@param windows Window[] column of windows
@@ -193,7 +186,7 @@ function Windows.refreshWindows()
     local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
         local index = Windows.PaperWM.state.index_table[window:id()]
-        if Windows.PaperWM.state.is_floating[window:id()] then
+        if Windows.PaperWM.floating.isFloating(window) then
             -- ignore floating windows
         elseif not index then
             -- add window
@@ -943,37 +936,6 @@ function Windows.moveWindow(window, frame)
     end)
 end
 
----return true if window is floating, false if not or state cannot be determined
----@param window Window
----@return boolean
-function Windows.isFloating(window)
-    local id = window:id()
-    return Windows.PaperWM.state.is_floating[id] or false
-end
 
----add or remove focused window from the floating layer and retile the space
----@param window Window|nil optional window to float and focus
-function Windows.toggleFloating(window)
-    window = window or Window.focusedWindow()
-    if not window then
-        Windows.PaperWM.logger.d("focused window not found")
-        return
-    end
-
-    Windows.PaperWM.state.is_floating[window:id()] = (Windows.isFloating(window) == false) and true or nil
-    Windows.persistFloatingList()
-
-    local space = (function()
-        if Windows.isFloating(window) then
-            return Windows.removeWindow(window, true)
-        else
-            return Windows.addWindow(window)
-        end
-    end)()
-    if space then
-        window:focus()
-        Windows.PaperWM:tileSpace(space)
-    end
-end
 
 return Windows
