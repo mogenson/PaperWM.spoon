@@ -36,8 +36,10 @@ end
 ---@return Window|nil
 function Windows.getFirstVisibleWindow(space, screen_frame, direction)
     direction = direction or Direction.LEFT
-    local distance = math.huge
-    local closest = nil
+    local on_screen_distance = math.huge
+    local on_screen_closest = nil
+    local off_screen_distance = -math.huge
+    local off_screen_closest = nil
 
     for _, windows in ipairs(Windows.PaperWM.state.window_list[space] or {}) do
         local window = windows[1] -- take first window in column
@@ -48,12 +50,17 @@ function Windows.getFirstVisibleWindow(space, screen_frame, direction)
                 return screen_frame.x2 - window:frame().x2
             end
         end)() or math.huge
-        if d >= 0 and d < distance then
-            distance = d
-            closest = window
+        if d >= 0 and d < on_screen_distance then
+            on_screen_distance = d
+            on_screen_closest = window
+        end
+        if d < 0 and d > off_screen_distance then
+            off_screen_distance = d
+            off_screen_closest = window
         end
     end
-    return closest
+
+    return on_screen_closest or off_screen_closest
 end
 
 ---get a column of windows for a space from the window_list
@@ -936,6 +943,14 @@ function Windows.moveWindow(window, frame)
     end)
 end
 
+---return true if window is floating, false if not or state cannot be determined
+---@param window Window
+---@return boolean
+function Windows.isFloating(window)
+    local id = window:id()
+    return Windows.PaperWM.state.is_floating[id] or false
+end
+
 ---add or remove focused window from the floating layer and retile the space
 ---@param window Window|nil optional window to float and focus
 function Windows.toggleFloating(window)
@@ -945,16 +960,11 @@ function Windows.toggleFloating(window)
         return
     end
 
-    local id = window:id()
-    if Windows.PaperWM.state.is_floating[id] then
-        Windows.PaperWM.state.is_floating[id] = nil
-    else
-        Windows.PaperWM.state.is_floating[id] = true
-    end
+    Windows.PaperWM.state.is_floating[window:id()] = (Windows.isFloating(window) == false) and true or nil
     Windows.persistFloatingList()
 
     local space = (function()
-        if Windows.PaperWM.state.is_floating[id] then
+        if Windows.isFloating(window) then
             return Windows.removeWindow(window, true)
         else
             return Windows.addWindow(window)

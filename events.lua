@@ -57,7 +57,7 @@ function Events.windowEventHandler(window, event, self)
     after the window was added ]]
     --
 
-    if self.state.is_floating[window:id()] then
+    if self.windows.isFloating(window) then
         -- this event is only meaningful for floating windows
         if event == "windowDestroyed" then
             self.state.is_floating[window:id()] = nil
