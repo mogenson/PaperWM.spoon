@@ -166,11 +166,7 @@ describe("PaperWM.floating", function()
 
     before_each(function()
         -- Reset state before each test
-        State.window_list = {}
-        State.index_table = {}
-        State.ui_watchers = {}
-        State.is_floating = {}
-        State.x_positions = {}
+        State.init()
         Floating.init(mock_paperwm)
         Windows.init(mock_paperwm)
         Space.init(mock_paperwm)

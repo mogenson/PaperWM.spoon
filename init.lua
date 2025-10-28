@@ -96,11 +96,7 @@ function PaperWM:start()
     end
 
     -- clear state
-    self.state.window_list = {}
-    self.state.index_table = {}
-    self.state.ui_watchers = {}
-    self.state.is_floating = {}
-    self.state.x_positions = {}
+    self.state.init();
 
     -- restore floating windows
     self.floating.restoreFloating()

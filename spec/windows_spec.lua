@@ -110,11 +110,7 @@ describe("PaperWM.windows", function()
 
     before_each(function()
         -- Reset state before each test
-        State.window_list = {}
-        State.index_table = {}
-        State.ui_watchers = {}
-        State.is_floating = {}
-        State.x_positions = {}
+        State.init();
         Windows.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
     end)
