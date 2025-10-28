@@ -125,11 +125,9 @@ end
 ---@param space Space
 ---@param windows Window[]
 function Windows.updateVirtualPositions(space, windows, x)
-    if not Windows.PaperWM.state.x_positions[space] then
-        Windows.PaperWM.state.x_positions[space] = {}
-    end
+    local x_positions = Windows.PaperWM.state.xPositions(space)
     for _, window in ipairs(windows) do
-        Windows.PaperWM.state.x_positions[space][window:id()] = x
+        x_positions[window:id()] = x
     end
 end
 
@@ -297,10 +295,10 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     end
 
     -- remove watcher
-    Windows.PaperWM.state.uiWatcherDelete(remove_window:id());
+    Windows.PaperWM.state.uiWatcherDelete(remove_window:id())
 
     -- clear window position
-    (Windows.PaperWM.state.x_positions[remove_index.space] or {})[remove_window:id()] = nil
+    Windows.PaperWM.state.xPositions(remove_index.space)[remove_window:id()] = nil
 
     -- update index table
     Windows.PaperWM.state.index_table[remove_window:id()] = nil
@@ -309,7 +307,6 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     -- remove if space is empty
     if #Windows.PaperWM.state.window_list[remove_index.space] == 0 then
         Windows.PaperWM.state.window_list[remove_index.space] = nil
-        Windows.PaperWM.state.x_positions[remove_index.space] = nil
     end
 
     return remove_index.space -- return space for removed window

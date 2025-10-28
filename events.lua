@@ -110,7 +110,7 @@ local function slide_windows(self, space, screen_frame)
     -- cache windows, frame, and virtual x positions because window lookup is expensive
     -- stop window watchers
     local windows      = {}
-    for id, x in pairs(self.state.x_positions[space] or {}) do
+    for id, x in pairs(self.state.xPositions(space)) do
         local window = Window.get(id)
         if window then
             self.state.uiWatcherStop(id)
@@ -227,8 +227,8 @@ function Events.mouseHandler(self)
         if not screen then return end
         local space = Spaces.activeSpaceOnScreen(screen)
         if not space then return end
-        for id, _ in pairs(self.state.x_positions[space] or {}) do
-            local window = Window(id)
+        for id, _ in pairs(self.state.xPositions(space)) do
+            local window = Window.get(id)
             if window and cursor:inside(window:frame()) then return window end
         end
     end

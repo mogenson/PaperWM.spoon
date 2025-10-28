@@ -3,16 +3,15 @@ local Watcher <const> = hs.uielement.watcher
 local State = {}
 State.__index = State
 
----hs.settings key for persisting is_floating, stored as an array of window id
-local IsFloatingKey <const> = "PaperWM_is_floating"
-State.IsFloatingKey = IsFloatingKey
-
----array of windows sorted from left to right
+---private state
 State.window_list = {} -- 3D array of tiles in order of [space][x][y]
 State.index_table = {} -- dictionary of {space, x, y} with window id for keys
 local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
+local x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
+---public state
 State.is_floating = {} -- dictionary of boolean with window id for keys
-State.x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
+State.prev_focused_window = nil ---@type Window|nil
+State.pending_window = nil ---@type Window|nil
 
 ---initialize module with reference to PaperWM
 ---@param paperwm PaperWM
@@ -26,8 +25,10 @@ function State.clear()
     State.window_list = {}
     State.index_table = {}
     ui_watchers = {}
+    x_positions = {}
     State.is_floating = {}
-    State.x_positions = {}
+    State.prev_focused_window = nil
+    State.pending_window = nil
 end
 
 ---create and start a UI watcher for a new window
@@ -67,8 +68,19 @@ function State.uiWatcherStopAll()
     for _, watcher in pairs(ui_watchers) do watcher:stop() end
 end
 
-State.prev_focused_window = nil ---@type Window|nil
-State.pending_window = nil ---@type Window|nil
+---return a table that provides accessor methods to x_positions via a metatable
+---@param space Space
+function State.xPositions(space)
+    return setmetatable({}, {
+        __index = function(_, id) return (x_positions[space] or {})[id] end,
+        __newindex = function(_, id, x)
+            if not x_positions[space] then x_positions[space] = {} end
+            x_positions[space][id] = x
+            if not next(x_positions[space]) then x_positions[space] = nil end
+        end,
+        __pairs = function(_) return pairs(x_positions[space] or {}) end,
+    })
+end
 
 ---return internal state for debugging purposes
 function State.get()
@@ -76,8 +88,10 @@ function State.get()
         window_list = State.window_list,
         index_table = State.index_table,
         ui_watchers = ui_watchers,
+        x_positions = x_positions,
         is_floating = State.is_floating,
-        x_positions = State.x_positions,
+        prev_focused_window = State.prev_focused_window,
+        pending_window = State.pending_window,
     }
 end
 
@@ -108,7 +122,7 @@ function State.dump()
     end
 
     table.insert(output, "\nx_positions:")
-    for space, positions in pairs(State.x_positions) do
+    for space, positions in pairs(x_positions) do
         table.insert(output, string.format("  Space %s:", tostring(space)))
         for id, x in pairs(positions) do
             table.insert(output, string.format("    Window %s (%d): x=%d", hs.window(id):title(), id, x))

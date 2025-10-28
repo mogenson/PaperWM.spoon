@@ -180,8 +180,9 @@ describe("PaperWM.floating", function()
 
             Floating.toggleFloating(win)
 
-            assert.is_nil(State.window_list[1])
-            assert.is_true(State.is_floating[101])
+            local state = State.get()
+            assert.is_nil(state.window_list[1])
+            assert.is_true(state.is_floating[101])
         end)
     end)
 
