@@ -1,3 +1,5 @@
+local Watcher <const> = hs.uielement.watcher
+
 local State = {}
 State.__index = State
 
@@ -8,20 +10,75 @@ State.IsFloatingKey = IsFloatingKey
 ---array of windows sorted from left to right
 State.window_list = {} -- 3D array of tiles in order of [space][x][y]
 State.index_table = {} -- dictionary of {space, x, y} with window id for keys
-State.ui_watchers = {} -- dictionary of uielement watchers with window id for keys
+local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
 State.is_floating = {} -- dictionary of boolean with window id for keys
 State.x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
+
+---initialize module with reference to PaperWM
+---@param paperwm PaperWM
+function State.init(paperwm)
+    State.PaperWM = paperwm
+    State.clear()
+end
+
+---clear all internal state
+function State.clear()
+    State.window_list = {}
+    State.index_table = {}
+    ui_watchers = {}
+    State.is_floating = {}
+    State.x_positions = {}
+end
+
+---create and start a UI watcher for a new window
+---@param window Window
+function State.uiWatcherCreate(window)
+    local id = window:id()
+    ui_watchers[id] = window:newWatcher(
+        function(window, event, _, self)
+            State.PaperWM.events.windowEventHandler(window, event, self)
+        end, State.PaperWM)
+    State.uiWatcherStart(id)
+end
+
+---delete a UI watcher
+---@param id number Window ID
+function State.uiWatcherDelete(id)
+    State.uiWatcherStop(id)
+    ui_watchers[id] = nil
+end
+
+---start a UI watcher
+---@param id number Window ID
+function State.uiWatcherStart(id)
+    local watcher = ui_watchers[id]
+    if watcher then watcher:start({ Watcher.windowMoved, Watcher.windowResized }) end
+end
+
+---stop a UI watcher
+---@param id number Window ID
+function State.uiWatcherStop(id)
+    local watcher = ui_watchers[id]
+    if watcher then watcher:stop() end
+end
+
+---stop all UI watchers
+function State.uiWatcherStopAll()
+    for _, watcher in pairs(ui_watchers) do watcher:stop() end
+end
 
 State.prev_focused_window = nil ---@type Window|nil
 State.pending_window = nil ---@type Window|nil
 
----initialize all internal state to default values
-function State.init()
-    State.window_list = {}
-    State.index_table = {}
-    State.ui_watchers = {}
-    State.is_floating = {}
-    State.x_positions = {}
+---return internal state for debugging purposes
+function State.get()
+    return {
+        window_list = State.window_list,
+        index_table = State.index_table,
+        ui_watchers = ui_watchers,
+        is_floating = State.is_floating,
+        x_positions = State.x_positions,
+    }
 end
 
 ---pretty print the current state

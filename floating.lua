@@ -3,6 +3,8 @@ local Window <const> = hs.window
 local Floating = {}
 Floating.__index = Floating
 
+---initialize module with reference to PaperWM
+---@param paperwm PaperWM
 function Floating.init(paperwm)
     Floating.PaperWM = paperwm
 end

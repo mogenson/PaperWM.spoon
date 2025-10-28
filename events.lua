@@ -8,7 +8,6 @@ local MouseEventDeltaY <const> = hs.eventtap.event.properties.mouseEventDeltaY
 local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
 local Timer <const> = hs.timer
-local Watcher <const> = hs.uielement.watcher
 local Window <const> = hs.window
 local WindowFilter <const> = hs.window.filter
 
@@ -112,10 +111,9 @@ local function slide_windows(self, space, screen_frame)
     -- stop window watchers
     local windows      = {}
     for id, x in pairs(self.state.x_positions[space] or {}) do
-        local window = Window(id)
+        local window = Window.get(id)
         if window then
-            local watcher = self.state.ui_watchers[id]
-            if watcher then watcher:stop() end
+            self.state.uiWatcherStop(id)
             local frame = window:frame()
             table.insert(windows, { window = window, frame = frame, x = x })
         end
@@ -135,10 +133,7 @@ local function slide_windows(self, space, screen_frame)
     end
 
     -- start window watchers
-    for _, item in ipairs(windows) do
-        local watcher = self.state.ui_watchers[item.window:id()]
-        if watcher then watcher:start({ Watcher.windowMoved, Watcher.windowResized }) end
-    end
+    for _, item in ipairs(windows) do self.state.uiWatcherStart(item.window:id()) end
     windows = nil -- force collection
 
     -- ensure a focused window is on screen
@@ -329,7 +324,7 @@ end
 function Events.stop()
     -- stop events
     Events.PaperWM.window_filter:unsubscribeAll()
-    for _, watcher in pairs(Events.PaperWM.state.ui_watchers) do watcher:stop() end
+    Events.PaperWM.state.uiWatcherStopAll()
     screen_watcher:stop()
 
     -- stop listening for touchpad swipes

@@ -166,7 +166,7 @@ describe("PaperWM.floating", function()
 
     before_each(function()
         -- Reset state before each test
-        State.init()
+        State.init(mock_paperwm)
         Floating.init(mock_paperwm)
         Windows.init(mock_paperwm)
         Space.init(mock_paperwm)

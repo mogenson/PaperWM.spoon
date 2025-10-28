@@ -110,7 +110,7 @@ describe("PaperWM.windows", function()
 
     before_each(function()
         -- Reset state before each test
-        State.init();
+        State.init(mock_paperwm)
         Windows.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
     end)
@@ -120,14 +120,15 @@ describe("PaperWM.windows", function()
             local win = mock_window(101, "Test Window")
             local space = Windows.addWindow(win)
 
+            local state = Windows.PaperWM.state.get()
             assert.are.equal(1, space)
-            assert.are.equal(1, #State.window_list[space])
-            assert.are.equal(1, #State.window_list[space][1])
-            assert.are.equal(win, State.window_list[space][1][1])
-            assert.is_not_nil(State.index_table[101])
-            assert.are.equal(1, State.index_table[101].col)
-            assert.are.equal(1, State.index_table[101].row)
-            assert.is_not_nil(State.ui_watchers[101])
+            assert.are.equal(1, #state.window_list[space])
+            assert.are.equal(1, #state.window_list[space][1])
+            assert.are.equal(win, state.window_list[space][1][1])
+            assert.is_not_nil(state.index_table[101])
+            assert.are.equal(1, state.index_table[101].col)
+            assert.are.equal(1, state.index_table[101].row)
+            assert.is_not_nil(state.ui_watchers[101])
         end)
     end)
 
@@ -139,8 +140,9 @@ describe("PaperWM.windows", function()
             Windows.addWindow(win1)
             Windows.addWindow(win2)
 
-            assert.are.equal(win1, State.window_list[1][1][1])
-            assert.are.equal(win2, State.window_list[1][2][1])
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(win1, state.window_list[1][1][1])
+            assert.are.equal(win2, state.window_list[1][2][1])
         end)
     end)
 
@@ -151,10 +153,11 @@ describe("PaperWM.windows", function()
 
             local space = Windows.removeWindow(win, true)
 
+            local state = Windows.PaperWM.state.get()
             assert.are.equal(1, space)
-            assert.is_nil(State.window_list[space])
-            assert.is_nil(State.index_table[101])
-            assert.is_nil(State.ui_watchers[101])
+            assert.is_nil(state.window_list[space])
+            assert.is_nil(state.index_table[101])
+            assert.is_nil(state.ui_watchers[101])
         end)
     end)
 
@@ -168,8 +171,9 @@ describe("PaperWM.windows", function()
 
             Windows.swapWindows(Windows.Direction.RIGHT)
 
-            assert.are.equal(win2, State.window_list[1][1][1])
-            assert.are.equal(win1, State.window_list[1][2][1])
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(win2, state.window_list[1][1][1])
+            assert.are.equal(win1, state.window_list[1][2][1])
         end)
 
         it("should swap two windows vertically", function()
@@ -183,8 +187,9 @@ describe("PaperWM.windows", function()
 
             Windows.swapWindows(Windows.Direction.DOWN)
 
-            assert.are.equal(win2, State.window_list[1][1][1])
-            assert.are.equal(win1, State.window_list[1][1][2])
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(win2, state.window_list[1][1][1])
+            assert.are.equal(win1, state.window_list[1][1][2])
         end)
     end)
 
@@ -198,10 +203,11 @@ describe("PaperWM.windows", function()
 
             Windows.slurpWindow()
 
-            assert.are.equal(1, #State.window_list[1])    -- only one column left
-            assert.are.equal(2, #State.window_list[1][1]) -- with two windows
-            assert.are.equal(win1, State.window_list[1][1][1])
-            assert.are.equal(win2, State.window_list[1][1][2])
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(1, #state.window_list[1])    -- only one column left
+            assert.are.equal(2, #state.window_list[1][1]) -- with two windows
+            assert.are.equal(win1, state.window_list[1][1][1])
+            assert.are.equal(win2, state.window_list[1][1][2])
         end)
     end)
 
@@ -216,11 +222,12 @@ describe("PaperWM.windows", function()
 
             Windows.barfWindow()
 
-            assert.are.equal(2, #State.window_list[1])    -- two columns
-            assert.are.equal(1, #State.window_list[1][1]) -- one window in first column
-            assert.are.equal(1, #State.window_list[1][2]) -- one window in second column
-            assert.are.equal(win2, State.window_list[1][1][1])
-            assert.are.equal(win1, State.window_list[1][2][1])
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(2, #state.window_list[1])    -- two columns
+            assert.are.equal(1, #state.window_list[1][1]) -- one window in first column
+            assert.are.equal(1, #state.window_list[1][2]) -- one window in second column
+            assert.are.equal(win2, state.window_list[1][1][1])
+            assert.are.equal(win1, state.window_list[1][2][1])
         end)
     end)
 end)

@@ -79,6 +79,7 @@ PaperWM.windows.init(PaperWM)
 PaperWM.space.init(PaperWM)
 PaperWM.events.init(PaperWM)
 PaperWM.actions.init(PaperWM)
+PaperWM.state.init(PaperWM)
 PaperWM.floating.init(PaperWM)
 
 -- Apply config
@@ -96,7 +97,7 @@ function PaperWM:start()
     end
 
     -- clear state
-    self.state.init();
+    self.state.clear();
 
     -- restore floating windows
     self.floating.restoreFloating()

@@ -2,7 +2,6 @@ local Rect <const> = hs.geometry.rect
 local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
 local Timer <const> = hs.timer
-local Watcher <const> = hs.uielement.watcher
 local Window <const> = hs.window
 
 local Windows = {}
@@ -133,8 +132,6 @@ function Windows.updateVirtualPositions(space, windows, x)
         Windows.PaperWM.state.x_positions[space][window:id()] = x
     end
 end
-
-
 
 ---tile a column of window by moving and resizing
 ---@param windows Window[] column of windows
@@ -269,12 +266,7 @@ function Windows.addWindow(add_window)
     Windows.updateIndexTable(space, add_column)
 
     -- subscribe to window moved events
-    local watcher = add_window:newWatcher(
-        function(window, event, _, self)
-            Windows.PaperWM.events.windowEventHandler(window, event, self)
-        end, Windows.PaperWM)
-    watcher:start({ Watcher.windowMoved, Watcher.windowResized })
-    Windows.PaperWM.state.ui_watchers[add_window:id()] = watcher
+    Windows.PaperWM.state.uiWatcherCreate(add_window)
 
     return space
 end
@@ -305,8 +297,7 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     end
 
     -- remove watcher
-    Windows.PaperWM.state.ui_watchers[remove_window:id()]:stop()
-    Windows.PaperWM.state.ui_watchers[remove_window:id()] = nil
+    Windows.PaperWM.state.uiWatcherDelete(remove_window:id());
 
     -- clear window position
     (Windows.PaperWM.state.x_positions[remove_index.space] or {})[remove_window:id()] = nil
@@ -917,25 +908,18 @@ end
 function Windows.moveWindow(window, frame)
     -- greater than 0.017 hs.window animation step time
     local padding <const> = 0.02
-
-    local watcher = Windows.PaperWM.state.ui_watchers[window:id()]
-    if not watcher then
-        Windows.PaperWM.logger.e("window does not have ui watcher")
-        return
-    end
+    local id = window:id()
 
     if frame == window:frame() then
         Windows.PaperWM.logger.v("no change in window frame")
         return
     end
 
-    watcher:stop()
+    Windows.PaperWM.state.uiWatcherStop(id)
     window:setFrame(frame)
     Timer.doAfter(Window.animationDuration + padding, function()
-        watcher:start({ Watcher.windowMoved, Watcher.windowResized })
+        Windows.PaperWM.state.uiWatcherStart(id)
     end)
 end
-
-
 
 return Windows
