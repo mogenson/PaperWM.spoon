@@ -1,25 +1,20 @@
 ---@diagnostic disable
 
-package.preload["space"] = function()
+package.preload["floating"] = function()
     local function mock_screen()
         return {
-            frame = function() return { x = 0, y = 0, w = 1000, h = 800, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } } end,
             getUUID = function() return "mock_screen_uuid" end,
+            frame = function() return { x = 0, y = 0, w = 1000, h = 800 } end,
         }
     end
 
     _G.hs = {
         spaces = {
             windowSpaces = function(_) return { 1 } end,
+            focusedSpace = function() return 1 end,
+            activeSpaces = function() return { mock_screen_uuid = 1 } end,
             spaceType = function(_) return "user" end,
             spaceDisplay = function(_) return "mock_screen_uuid" end,
-            focusedSpace = function() return 1 end,
-            allSpaces = function() return { mock_screen_uuid = { 1, 2, 3 } } end,
-        },
-        screen = {
-            find = function(_) return mock_screen() end,
-            mainScreen = function() return mock_screen() end,
-            allScreens = function() return { mock_screen() } end,
         },
         uielement = {
             watcher = {
@@ -34,9 +29,6 @@ package.preload["space"] = function()
         geometry = {
             rect = function(x, y, w, h) return { x = x, y = y, w = w, h = h, x2 = x + w, y2 = y + h } end,
         },
-        spoons = {
-            resourcePath = function(file) return "./" .. file end,
-        },
         fnutils = {
             partial = function(func, ...)
                 local args = { ... }
@@ -50,16 +42,30 @@ package.preload["space"] = function()
                 end
             end,
         },
+        screen = {
+            mainScreen = function()
+                return {
+                    getUUID = function() return "mock_screen_uuid" end,
+                    frame = function() return { x = 0, y = 0, w = 1000, h = 800 } end,
+                }
+            end,
+        },
+        settings = {
+            set = function(_, _) end,
+            get = function(_) return {} end,
+        },
         logger = {
-            new = function(_)
+            new = function()
                 return {
                     d = function(...) end,
                     e = function(...) end,
                     v = function(...) end,
                     df = function(...) end,
-                    vf = function(...) end,
                 }
-            end,
+            end
+        },
+        spoons = {
+            resourcePath = function(file) return "./" .. file end,
         },
         eventtap = {
             event = {
@@ -72,15 +78,7 @@ package.preload["space"] = function()
                 newMouseEvent = function(_, _) return { post = function() end } end,
             },
         },
-        timer = {
-            secondsSinceEpoch = function() return 0 end,
-            doUntil = function(c, t, d) c() end,
-        },
-        mouse = {
-            absolutePosition = function(_) end,
-        },
     }
-
     setmetatable(hs.screen, {
         __call = function(_, uuid)
             if uuid == "mock_screen_uuid" then
@@ -90,11 +88,7 @@ package.preload["space"] = function()
         end,
     })
 
-    return dofile("space.lua")
-end
-
-package.preload["mission_control"] = function()
-    return dofile("mission_control.lua")
+    return dofile("floating.lua")
 end
 
 package.preload["windows"] = function()
@@ -105,22 +99,29 @@ package.preload["state"] = function()
     return dofile("state.lua")
 end
 
-package.preload["floating"] = function()
-    return dofile("floating.lua")
+package.preload["space"] = function()
+    return dofile("space.lua")
 end
 
-describe("PaperWM.space", function()
-    local Space = require("space")
+describe("PaperWM.floating", function()
+    local Floating = require("floating")
     local Windows = require("windows")
     local State = require("state")
-    local Floating = require("floating")
+    local Space = require("space")
+
+    local mock_screen = function()
+        return {
+            getUUID = function() return "mock_screen_uuid" end,
+            frame = function() return { x = 0, y = 0, w = 1000, h = 800 } end,
+        }
+    end
 
     -- Mock Hammerspoon objects and functions
     local mock_window = function(id, title, frame)
         frame = frame or { x = 0, y = 0, w = 100, h = 100 }
-        frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
         frame.x2 = frame.x + frame.w
         frame.y2 = frame.y + frame.h
+        frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
         return {
             id = function() return id end,
             title = function() return title end,
@@ -136,22 +137,29 @@ describe("PaperWM.space", function()
             end,
             focus = function() end,
             setFrame = function(new_frame) frame = new_frame end,
-            screen = function() return hs.screen.find() end,
+            screen = function() return mock_screen() end,
         }
     end
 
     local mock_paperwm = {
         state = State,
         windows = Windows,
+        space = Space,
         floating = Floating,
-        logger = {
-            d = function() end,
-            e = function() end,
-            v = function() end,
-            df = function() end,
+        events = {
+            windowEventHandler = function() end,
         },
-        screen_margin = 0,
-        window_gap = 8,
+        window_filter = {
+            getWindows = function() return {} end,
+        },
+        logger = {
+            d = function(...) end,
+            e = function(...) end,
+            v = function(...) end,
+            df = function(...) end,
+        },
+        tileSpace = Space.tileSpace,
+        window_gap = 8
     }
 
     local focused_window
@@ -159,47 +167,36 @@ describe("PaperWM.space", function()
     before_each(function()
         -- Reset state before each test
         State.init()
-        Windows.init(mock_paperwm)
         Floating.init(mock_paperwm)
+        Windows.init(mock_paperwm)
         Space.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
     end)
 
-    describe("tileSpace", function()
-        it("should tile a single window to fit in the screen", function()
-            local win = mock_window(101, "Test Window", { x = 0, y = 0, w = 100, h = 100 })
+    describe("toggleFloating", function()
+        it("should remove a window from the window_list when floating is toggled", function()
+            local win = mock_window(101, "Test Window")
             Windows.addWindow(win)
-            focused_window = win
 
-            Space.tileSpace(1)
+            Floating.toggleFloating(win)
 
-            local frame = win:frame()
-            assert.are.equal(8, frame.x)
-            assert.are.equal(8, frame.y)
-            assert.are.equal(100, frame.w)
-            assert.are.equal(800 - 2 * 8, frame.h)
+            assert.is_nil(State.window_list[1])
+            assert.is_true(State.is_floating[101])
         end)
+    end)
 
-        it("should tile two windows side-by-side", function()
-            local win1 = mock_window(101, "Window 1", { x = 0, y = 0, w = 100, h = 100 })
-            local win2 = mock_window(102, "Window 2", { x = 200, y = 0, w = 100, h = 100 })
-            Windows.addWindow(win1)
-            Windows.addWindow(win2)
-            focused_window = win1
+    describe("tileSpace with floating window", function()
+        it("should ignore a focused floating window", function()
+            local win = mock_window(101, "Test Window")
+            Windows.addWindow(win)
+
+            Floating.toggleFloating(win)
+
+            local initial_frame = win:frame()
 
             Space.tileSpace(1)
 
-            local frame1 = win1:frame()
-            assert.are.equal(8, frame1.x)
-            assert.are.equal(8, frame1.y)
-            assert.are.equal(100, frame1.w)
-            assert.are.equal(800 - 2 * 8, frame1.h)
-
-            local frame2 = win2:frame()
-            assert.are.equal(108, frame2.x)
-            assert.are.equal(8, frame2.y)
-            assert.are.equal(100, frame2.w)
-            assert.are.equal(800 - 8, frame2.y2) -- tileColumn sets y2
+            assert.are.same(initial_frame, win:frame())
         end)
     end)
 end)

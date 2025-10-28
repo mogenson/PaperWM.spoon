@@ -15,6 +15,15 @@ State.x_positions = {} -- dictionary of horizontal positions with [space][id] fo
 State.prev_focused_window = nil ---@type Window|nil
 State.pending_window = nil ---@type Window|nil
 
+---initialize all internal state to default values
+function State.init()
+    State.window_list = {}
+    State.index_table = {}
+    State.ui_watchers = {}
+    State.is_floating = {}
+    State.x_positions = {}
+end
+
 ---pretty print the current state
 function State.dump()
     local output = { "--- PaperWM State ---" }

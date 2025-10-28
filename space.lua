@@ -2,6 +2,7 @@ local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
 local Fnutils <const> = hs.fnutils
 local Window <const> = hs.window
+local Timer <const> = hs.timer
 
 local Space = {}
 Space.__index = Space
@@ -11,7 +12,7 @@ Space.__index = Space
 function Space.init(paperwm)
     Space.PaperWM = paperwm
     Space.MissionControl = dofile(hs.spoons.resourcePath("mission_control.lua"))
-    Space.MissionControl.PaperWM = paperwm  -- Pass PaperWM reference for config access
+    Space.MissionControl.PaperWM = paperwm -- Pass PaperWM reference for config access
 end
 
 ---tile all column in a space by moving and resizing windows
@@ -32,7 +33,7 @@ function Space.tileSpace(space)
     -- if focused window is in space, tile from that
     local focused_window = Window.focusedWindow()
     local anchor_window = (function()
-        if focused_window and not Space.PaperWM.state.is_floating[focused_window:id()] and Spaces.windowSpaces(focused_window)[1] == space then
+        if focused_window and not Space.PaperWM.floating.isFloating(focused_window) and Spaces.windowSpaces(focused_window)[1] == space then
             return focused_window
         else
             return Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
@@ -212,12 +213,11 @@ function Space.moveWindowToSpace(index)
     local allowed_screens = Space.PaperWM.window_filter:getFilters().override.allowScreens or Screen.allScreens()
     allowed_screens = Fnutils.imap(allowed_screens, function(screen) return Screen.find(screen) end)
 
-    -- get the old space from the window list or by querying removed window
-    local old_space = (function(allowed)
-        if allowed then
-            return Space.PaperWM.windows.removeWindow(focused_window, true) -- don't switch focus
-        end
-    end)(Fnutils.contains(allowed_screens, old_screen))
+    -- if window is on a managed space and is not floating, then toggling it to floating
+    -- this will retile the current space before moving the window
+    if Fnutils.contains(allowed_screens, old_screen) and not Space.PaperWM.floating.isFloating(focused_window) then
+        Space.PaperWM.floating.toggleFloating(focused_window)
+    end
 
     local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space)
     if not ret or err then
@@ -225,14 +225,23 @@ function Space.moveWindowToSpace(index)
         return
     end
 
-    if old_space then
-        Space.tileSpace(old_space)
-    end
-
+    -- if new space is managed then toggle window to not floating to tile new space
     if Fnutils.contains(allowed_screens, new_screen) then
-        Space.PaperWM.windows.addWindow(focused_window)
-        Space.tileSpace(new_space)
-        Space.MissionControl:focusSpace(new_space, focused_window)
+        local do_add_window = coroutine.wrap(function()
+            repeat                     -- wait until window appears on new space
+                coroutine.yield(false) -- not done
+            until Spaces.windowSpaces(focused_window)[1] == new_space
+
+            -- now we can toggle it not floating, add the window, and tile new space
+            Space.PaperWM.floating.toggleFloating(focused_window)
+            Space.MissionControl:focusSpace(new_space, focused_window)
+            return true -- done
+        end)
+
+        local start_time = Timer.secondsSinceEpoch()
+        Timer.doUntil(do_add_window, function(timer)
+            if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
+        end, Window.animationDuration)
     end
 end
 

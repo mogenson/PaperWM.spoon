@@ -36,8 +36,10 @@ end
 ---@return Window|nil
 function Windows.getFirstVisibleWindow(space, screen_frame, direction)
     direction = direction or Direction.LEFT
-    local distance = math.huge
-    local closest = nil
+    local on_screen_distance = math.huge
+    local on_screen_closest = nil
+    local off_screen_distance = -math.huge
+    local off_screen_closest = nil
 
     for _, windows in ipairs(Windows.PaperWM.state.window_list[space] or {}) do
         local window = windows[1] -- take first window in column
@@ -48,12 +50,17 @@ function Windows.getFirstVisibleWindow(space, screen_frame, direction)
                 return screen_frame.x2 - window:frame().x2
             end
         end)() or math.huge
-        if d >= 0 and d < distance then
-            distance = d
-            closest = window
+        if d >= 0 and d < on_screen_distance then
+            on_screen_distance = d
+            on_screen_closest = window
+        end
+        if d < 0 and d > off_screen_distance then
+            off_screen_distance = d
+            off_screen_closest = window
         end
     end
-    return closest
+
+    return on_screen_closest or off_screen_closest
 end
 
 ---get a column of windows for a space from the window_list
@@ -127,14 +134,7 @@ function Windows.updateVirtualPositions(space, windows, x)
     end
 end
 
----save the is_floating list to settings
-function Windows.persistFloatingList()
-    local persisted = {}
-    for k, _ in pairs(Windows.PaperWM.state.is_floating) do
-        table.insert(persisted, k)
-    end
-    hs.settings.set(Windows.PaperWM.state.IsFloatingKey, persisted)
-end
+
 
 ---tile a column of window by moving and resizing
 ---@param windows Window[] column of windows
@@ -186,7 +186,7 @@ function Windows.refreshWindows()
     local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
         local index = Windows.PaperWM.state.index_table[window:id()]
-        if Windows.PaperWM.state.is_floating[window:id()] then
+        if Windows.PaperWM.floating.isFloating(window) then
             -- ignore floating windows
         elseif not index then
             -- add window
@@ -936,34 +936,6 @@ function Windows.moveWindow(window, frame)
     end)
 end
 
----add or remove focused window from the floating layer and retile the space
----@param window Window|nil optional window to float and focus
-function Windows.toggleFloating(window)
-    window = window or Window.focusedWindow()
-    if not window then
-        Windows.PaperWM.logger.d("focused window not found")
-        return
-    end
 
-    local id = window:id()
-    if Windows.PaperWM.state.is_floating[id] then
-        Windows.PaperWM.state.is_floating[id] = nil
-    else
-        Windows.PaperWM.state.is_floating[id] = true
-    end
-    Windows.persistFloatingList()
-
-    local space = (function()
-        if Windows.PaperWM.state.is_floating[id] then
-            return Windows.removeWindow(window, true)
-        else
-            return Windows.addWindow(window)
-        end
-    end)()
-    if space then
-        window:focus()
-        Windows.PaperWM:tileSpace(space)
-    end
-end
 
 return Windows
