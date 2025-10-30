@@ -68,7 +68,7 @@ function Space.tileSpace(space)
     end
 
     -- adjust anchor window column
-    local column = Space.PaperWM.windows.getColumn(space, anchor_index.col)
+    local column = Space.PaperWM.state.windowList(space, anchor_index.col)
     if not column then
         Space.PaperWM.logger.e("no anchor window column")
         return
@@ -99,14 +99,14 @@ function Space.tileSpace(space)
 
     -- tile windows from anchor right
     local x = anchor_frame.x2 + right_gap
-    for col = anchor_index.col + 1, #(Space.PaperWM.state.window_list[space] or {}) do
+    for col = anchor_index.col + 1, #(Space.PaperWM.state.windowList(space)) do
         local bounds = {
             x = math.min(x, right_margin),
             x2 = nil,
             y = canvas.y,
             y2 = canvas.y2,
         }
-        local column = Space.PaperWM.windows.getColumn(space, col)
+        local column = Space.PaperWM.state.windowList(space, col)
         local width = Space.PaperWM.windows.tileColumn(column, bounds)
         Space.PaperWM.windows.updateVirtualPositions(space, column, x)
         x = x + width + right_gap
@@ -121,7 +121,7 @@ function Space.tileSpace(space)
             y = canvas.y,
             y2 = canvas.y2,
         }
-        local column = Space.PaperWM.windows.getColumn(space, col)
+        local column = Space.PaperWM.state.windowList(space, col)
         local width = Space.PaperWM.windows.tileColumn(column, bounds)
         Space.PaperWM.windows.updateVirtualPositions(space, column, x2 - width)
         x2 = x2 - width - left_gap

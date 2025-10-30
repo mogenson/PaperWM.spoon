@@ -4,7 +4,7 @@ local State = {}
 State.__index = State
 
 ---private state
-State.window_list = {} -- 3D array of tiles in order of [space][x][y]
+local window_list = {} -- 3D array of tiles in order of [space][x][y]
 State.index_table = {} -- dictionary of {space, x, y} with window id for keys
 local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
 local x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
@@ -22,13 +22,67 @@ end
 
 ---clear all internal state
 function State.clear()
-    State.window_list = {}
+    window_list = {}
     State.index_table = {}
     ui_watchers = {}
     x_positions = {}
     State.is_floating = {}
     State.prev_focused_window = nil
     State.pending_window = nil
+end
+
+local function update_index(space)
+    for col, rows in ipairs(window_list[space] or {}) do
+        for row, window in ipairs(rows) do
+            State.index_table[window:id()] = { space = space, col = col, row = row }
+        end
+    end
+end
+
+function State.windowList(space, column, row)
+    if space then
+        local columns = window_list[space]
+        if column then
+            local rows = columns and columns[column]
+            if row then
+                return rows and rows[row]
+            end
+
+            return rows and setmetatable({}, {
+                __index = function(_, row) return rows[row] end,
+                __newindex = function(_, row, window)
+                    rows[row] = window
+                    if not next(columns[column]) then table.remove(columns, column) end
+                    if not next(window_list[space]) then window_list[space] = nil end
+                    update_index(space)
+                end,
+                __len = function(_) return #rows end,
+                __pairs = function(_) return pairs(rows) end,
+                __ipairs = function(_) return ipairs(rows) end,
+            })
+        end
+
+        return setmetatable({}, columns and {
+            __index = function(_, column) return columns[column] end,
+            __newindex = function(_, column, rows)
+                -- space is guaranteed to exist here
+                columns[column] = rows -- add a new column
+                -- handle case where all columns have been removed from a space
+                if not next(window_list[space]) then window_list[space] = nil end
+                update_index(space)
+            end,
+            __len = function(_) return #columns end,
+            __pairs = function(_) return pairs(columns) end,
+            __ipairs = function(_) return ipairs(columns) end,
+        } or { -- metatable for a nil space
+            __newindex = function(_, column, rows)
+                -- space may not exist here so create it
+                if not window_list[space] then window_list[space] = {} end
+                window_list[space][column] = rows
+                update_index(space)
+            end,
+        })
+    end
 end
 
 ---create and start a UI watcher for a new window
@@ -85,7 +139,7 @@ end
 ---return internal state for debugging purposes
 function State.get()
     return {
-        window_list = State.window_list,
+        window_list = window_list,
         index_table = State.index_table,
         ui_watchers = ui_watchers,
         x_positions = x_positions,
@@ -100,7 +154,7 @@ function State.dump()
     local output = { "--- PaperWM State ---" }
 
     table.insert(output, "window_list:")
-    for space, columns in pairs(State.window_list) do
+    for space, columns in pairs(window_list) do
         table.insert(output, string.format("  Space %s:", tostring(space)))
         for col_idx, column in ipairs(columns) do
             table.insert(output, string.format("    Column %d:", col_idx))
