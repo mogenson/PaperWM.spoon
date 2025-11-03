@@ -185,7 +185,7 @@ function Events.swipeHandler(self)
                 return
             end
 
-            local focused_index = self.state.index_table[focused_window:id()]
+            local focused_index = self.state.windowIndex(focused_window)
             if not focused_index then
                 self.logger.e("focused index not found")
                 return
@@ -244,7 +244,7 @@ function Events.mouseHandler(self)
             if self.drag_window and flags:containExactly(self.drag_window) then
                 local drag_window = windowUnderCursor(event)
                 if drag_window then
-                    local index = self.state.index_table[drag_window:id()]
+                    local index = self.state.windowIndex(drag_window)
                     if not index then
                         self.logger.e("drag window index not found")
                         return delete_event

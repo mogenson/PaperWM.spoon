@@ -5,7 +5,7 @@ State.__index = State
 
 ---private state
 local window_list = {} -- 3D array of tiles in order of [space][x][y]
-State.index_table = {} -- dictionary of {space, x, y} with window id for keys
+local index_table = {} -- dictionary of {space, x, y} with window id for keys
 local ui_watchers = {} -- dictionary of uielement watchers with window id for keys
 local x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
 ---public state
@@ -23,7 +23,7 @@ end
 ---clear all internal state
 function State.clear()
     window_list = {}
-    State.index_table = {}
+    index_table = {}
     ui_watchers = {}
     x_positions = {}
     State.is_floating = {}
@@ -31,14 +31,23 @@ function State.clear()
     State.pending_window = nil
 end
 
+---walk through all tiled windows in a space and update the index table
+---@param space Space
 local function update_index(space)
     for col, rows in ipairs(window_list[space] or {}) do
         for row, window in ipairs(rows) do
-            State.index_table[window:id()] = { space = space, col = col, row = row }
+            index_table[window:id()] = { space = space, col = col, row = row }
         end
     end
 end
 
+---get a proxy table for a space, column, or row of tiled windows
+---the proxy table can be used to iterate over, insert, remove, and access
+---windows while keeping track of internal state
+---@param space Space get a list of columns for a space
+---@param column number|nil get a list of windows for a column
+---@param row number|nil get a window for a row in a column
+---@return Window[][]|Window[]|Window|nil
 function State.windowList(space, column, row)
     if space then
         local columns = window_list[space]
@@ -83,6 +92,16 @@ function State.windowList(space, column, row)
             end,
         })
     end
+end
+
+---get the index { space, col, row } of a tiled window
+---@param window Window
+---@param remove boolean|nil Set to true to remove the entry
+---@return table|nil
+function State.windowIndex(window, remove)
+    local index = index_table[window:id()]
+    if remove then index_table[window:id()] = nil end
+    return index
 end
 
 ---create and start a UI watcher for a new window
@@ -140,7 +159,7 @@ end
 function State.get()
     return {
         window_list = window_list,
-        index_table = State.index_table,
+        index_table = index_table,
         ui_watchers = ui_watchers,
         x_positions = x_positions,
         is_floating = State.is_floating,
@@ -165,7 +184,7 @@ function State.dump()
     end
 
     table.insert(output, "\nindex_table:")
-    for id, index in pairs(State.index_table) do
+    for id, index in pairs(index_table) do
         table.insert(output, string.format("  Window ID %d: space=%s, col=%d, row=%d",
             id, tostring(index.space), index.col, index.row))
     end

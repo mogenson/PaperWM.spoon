@@ -101,7 +101,7 @@ function Windows.refreshWindows()
 
     local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
-        local index = Windows.PaperWM.state.index_table[window:id()]
+        local index = Windows.PaperWM.state.windowIndex(window)
         if Windows.PaperWM.floating.isFloating(window) then
             -- ignore floating windows
         elseif not index then
@@ -145,7 +145,7 @@ function Windows.addWindow(add_window)
     end
 
     -- check if window is already in window list
-    if Windows.PaperWM.state.index_table[add_window:id()] then return end
+    if Windows.PaperWM.state.windowIndex(add_window) then return end
 
     local space = Spaces.windowSpaces(add_window)[1]
     if not space then
@@ -161,10 +161,9 @@ function Windows.addWindow(add_window)
     -- hs.window.focusedWindow() will return add_window
     -- new window focused event for add_window has not happened yet
     if Windows.PaperWM.state.prev_focused_window and
-        ((Windows.PaperWM.state.index_table[Windows.PaperWM.state.prev_focused_window:id()] or {}).space == space) and
-        (Windows.PaperWM.state.prev_focused_window:id() ~= add_window:id()) then
-        add_column = Windows.PaperWM.state.index_table[Windows.PaperWM.state.prev_focused_window:id()].col +
-            1 -- insert to the right
+        ((Windows.PaperWM.state.windowIndex(Windows.PaperWM.state.prev_focused_window) or {}).space == space) and
+        (Windows.PaperWM.state.prev_focused_window:id() ~= add_window:id()) then -- insert to the right
+        add_column = Windows.PaperWM.state.windowIndex(Windows.PaperWM.state.prev_focused_window).col + 1
     else
         local x = add_window:frame().center.x
         for col, windows in ipairs(Windows.PaperWM.state.windowList(space)) do
@@ -191,8 +190,8 @@ end
 ---@param skip_new_window_focus boolean|nil don't focus a nearby window if true
 ---@return Space|nil space that contained removed window
 function Windows.removeWindow(remove_window, skip_new_window_focus)
-    -- get index of window
-    local remove_index = Windows.PaperWM.state.index_table[remove_window:id()]
+    -- get index of window and remove
+    local remove_index = Windows.PaperWM.state.windowIndex(remove_window, true)
     if not remove_index then
         Windows.PaperWM.logger.e("remove index not found")
         return
@@ -215,9 +214,6 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     -- clear window position
     Windows.PaperWM.state.xPositions(remove_index.space)[remove_window:id()] = nil
 
-    -- remove index
-    Windows.PaperWM.state.index_table[remove_window:id()] = nil
-
     return remove_index.space -- return space for removed window
 end
 
@@ -234,7 +230,7 @@ function Windows.focusWindow(direction, focused_index)
         end
 
         -- get focused window index
-        focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
+        focused_index = Windows.PaperWM.state.windowIndex(focused_window)
     end
 
     if not focused_index then
@@ -324,7 +320,7 @@ function Windows.swapWindows(direction)
         return
     end
 
-    local focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
+    local focused_index = Windows.PaperWM.state.windowIndex(focused_window)
     if not focused_index then
         Windows.PaperWM.logger.e("focused index not found")
         return
@@ -593,7 +589,7 @@ function Windows.slurpWindow()
     end
 
     -- get window index
-    local focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
+    local focused_index = Windows.PaperWM.state.windowIndex(focused_window)
     if not focused_index then
         Windows.PaperWM.logger.e("focused index not found")
         return
@@ -641,7 +637,7 @@ function Windows.barfWindow()
     end
 
     -- get window index
-    local focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
+    local focused_index = Windows.PaperWM.state.windowIndex(focused_window)
     if not focused_index then
         Windows.PaperWM.logger.e("focused index not found")
         return
