@@ -94,58 +94,6 @@ function Windows.getCanvas(screen)
     )
 end
 
----update the virtual x position for a table of windows on the specified space
----@param space Space
----@param windows Window[]
-function Windows.updateVirtualPositions(space, windows, x)
-    local x_positions = Windows.PaperWM.state.xPositions(space)
-    for _, window in ipairs(windows) do
-        x_positions[window:id()] = x
-    end
-end
-
----tile a column of window by moving and resizing
----@param windows Window[] column of windows
----@param bounds Frame bounds to constrain column of tiled windows
----@param h number|nil set windows to specified height
----@param w number|nil set windows to specified width
----@param id number|nil id of window to set specific height
----@param h4id number|nil specific height for provided window id
----@return number width of tiled column
-function Windows.tileColumn(windows, bounds, h, w, id, h4id)
-    local last_window, frame
-    local bottom_gap = Windows.getGap("bottom")
-
-    for _, window in ipairs(windows) do
-        frame = window:frame()
-        w = w or frame.w -- take given width or width of first window
-        if bounds.x then -- set either left or right x coord
-            frame.x = bounds.x
-        elseif bounds.x2 then
-            frame.x = bounds.x2 - w
-        end
-        if h then              -- set height if given
-            if id and h4id and window:id() == id then
-                frame.h = h4id -- use this height for window with id
-            else
-                frame.h = h    -- use this height for all other windows
-            end
-        end
-        frame.y = bounds.y
-        frame.w = w
-        frame.y2 = math.min(frame.y2, bounds.y2) -- don't overflow bottom of bounds
-        Windows.moveWindow(window, frame)
-        bounds.y = math.min(frame.y2 + bottom_gap, bounds.y2)
-        last_window = window
-    end
-    -- expand last window height to bottom
-    if frame.y2 ~= bounds.y2 then
-        frame.y2 = bounds.y2
-        Windows.moveWindow(last_window, frame)
-    end
-    return w -- return width of column
-end
-
 ---get all windows across all spaces and retile them
 function Windows.refreshWindows()
     -- get all windows across spaces
@@ -626,7 +574,7 @@ local function tile_column_equaly(windows)
         y2 = canvas.y2,
     }
     local h = math.max(0, canvas.h - ((num_windows - 1) * bottom_gap)) // num_windows
-    Windows.tileColumn(windows, bounds, h)
+    Windows.PaperWM.tiling.tileColumn(windows, bounds, h)
 end
 
 ---take the current focused window and move it into the bottom of

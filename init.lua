@@ -40,14 +40,13 @@
 ---
 --- Download: [https://github.com/mogenson/PaperWM.spoon](https://github.com/mogenson/PaperWM.spoon)
 local Spaces <const> = hs.spaces
-local Window <const> = hs.window
 
 local PaperWM = {}
 PaperWM.__index = PaperWM
 
 -- Metadata
 PaperWM.name = "PaperWM"
-PaperWM.version = "0.8"
+PaperWM.version = "0.9"
 PaperWM.author = "Michael Mogenson"
 PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
@@ -73,6 +72,7 @@ PaperWM.space = dofile(hs.spoons.resourcePath("space.lua"))
 PaperWM.events = dofile(hs.spoons.resourcePath("events.lua"))
 PaperWM.actions = dofile(hs.spoons.resourcePath("actions.lua"))
 PaperWM.floating = dofile(hs.spoons.resourcePath("floating.lua"))
+PaperWM.tiling = dofile(hs.spoons.resourcePath("tiling.lua"))
 
 -- Initialize modules
 PaperWM.windows.init(PaperWM)
@@ -81,6 +81,7 @@ PaperWM.events.init(PaperWM)
 PaperWM.actions.init(PaperWM)
 PaperWM.state.init(PaperWM)
 PaperWM.floating.init(PaperWM)
+PaperWM.tiling.init(PaperWM)
 
 -- Apply config
 for k, v in pairs(PaperWM.config) do
@@ -126,7 +127,7 @@ function PaperWM:stop()
 end
 
 function PaperWM:tileSpace(space)
-    self.space.tileSpace(space)
+    self.tiling.tileSpace(space)
 end
 
 function PaperWM:bindHotkeys(mapping)

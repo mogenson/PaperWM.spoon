@@ -96,7 +96,7 @@ function Events.windowEventHandler(window, event, self)
         space = Spaces.windowSpaces(window)[1]
     end
 
-    if space then self.space.tileSpace(space) end
+    if space then self:tileSpace(space) end
 end
 
 ---coroutine to slide all windows in a space by dx
@@ -152,7 +152,7 @@ local function slide_windows(self, space, screen_frame)
         if visible_window then
             visible_window:focus()
         else
-            self.space.tileSpace(space)
+            self:tileSpace(space)
         end
     else
         self.logger.e("no focused window at end of swipe")
