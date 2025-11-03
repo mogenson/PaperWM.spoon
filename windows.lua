@@ -370,23 +370,47 @@ end
 ---swap positions within the column
 ---@param direction Direction use Direction LEFT, RIGHT, UP, or DOWN
 function Windows.swapWindows(direction)
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        Windows.PaperWM.logger.d("focused window not found")
+        return
+    end
+
+    local focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
+    if not focused_index then
+        Windows.PaperWM.logger.e("focused index not found")
+        return
+    end
+
     if direction == Direction.LEFT or direction == Direction.RIGHT then
-        Windows.swapColumns(direction)
+        local columns = Windows.PaperWM.state.windowList(focused_index.space)
+        if not columns then
+            Windows.PaperWM.logger.ef("no windows on space %d", focused_index.space)
+            return
+        end
+
+        local current_column = focused_index.col
+        if not columns[current_column] then
+            Windows.PaperWM.logger.ef("no current column %d on space %d", current_column, focused_index.space)
+            return
+        end
+
+        local target_column = focused_index.col + direction
+        if not columns[target_column] then
+            Windows.PaperWM.logger.ef("no target column %d on space %d", target_column, focused_index.space)
+            return
+        end
+
+        -- move focused window to target column location
+        local focused_frame = focused_window:frame()
+        local target_frame = columns[target_column][1]:frame()
+        focused_frame.x = target_frame.x
+        Windows.moveWindow(focused_window, focused_frame)
+
+        -- remove then insert column of windows to swap
+        local windows = table.remove(columns, current_column)
+        table.insert(columns, target_column, windows)
     elseif direction == Direction.UP or direction == Direction.DOWN then
-        -- use focused window as source window
-        local focused_window = Window.focusedWindow()
-        if not focused_window then
-            Windows.PaperWM.logger.d("focused window not found")
-            return
-        end
-
-        -- get focused window index
-        local focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
-        if not focused_index then
-            Windows.PaperWM.logger.e("focused index not found")
-            return
-        end
-
         local windows = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
         if not windows then
             Windows.PaperWM.logger.ef("no windows in column %d on space %d", focused_index.col, focused_index.space)
@@ -399,50 +423,7 @@ function Windows.swapWindows(direction)
         -- remove and insert to swap
         local window = table.remove(windows, current_row)
         table.insert(windows, target_row, window)
-
-        -- update layout
-        Windows.PaperWM:tileSpace(focused_index.space)
     end
-end
-
----exchange two columns of windows
----@param direction Direction Direction.LEFT or Direction.RIGHT
-function Windows.swapColumns(direction)
-    -- use focused window as source window
-    local focused_window = Window.focusedWindow()
-    if not focused_window then
-        Windows.PaperWM.logger.e("focused window not found")
-        return
-    end
-
-    -- get focused window index
-    local focused_index = Windows.PaperWM.state.index_table[focused_window:id()]
-    if not focused_index then
-        Windows.PaperWM.logger.e("focused index not found")
-        return
-    end
-
-    local columns = Windows.PaperWM.state.windowList(focused_index.space)
-    if not columns then
-        Windows.PaperWM.logger.ef("no windows on space %d", focused_index.space)
-        return
-    end
-
-    local current_column = focused_index.col
-    if not columns[current_column] then
-        Windows.PaperWM.logger.ef("no current column %d on space %d", current_column, focused_index.space)
-        return
-    end
-
-    local target_column = focused_index.col + direction
-    if not columns[target_column] then
-        Windows.PaperWM.logger.ef("no target column %d on space %d", target_column, focused_index.space)
-        return
-    end
-
-    -- remove then insert column of windows to swap
-    local windows = table.remove(columns, current_column)
-    table.insert(columns, target_column, windows)
 
     -- update layout
     Windows.PaperWM:tileSpace(focused_index.space)
@@ -630,6 +611,24 @@ function Windows.increaseWindowSize(direction, scale)
     Windows.PaperWM:tileSpace(space)
 end
 
+---tile a column of windows so they each have an equal height
+---@param windows Window[]
+local function tile_column_equaly(windows)
+    -- final column frames should be equal in height
+    local first_window = windows[1]
+    local num_windows = #windows
+    local canvas = Windows.getCanvas(first_window:screen())
+    local bottom_gap = Windows.getGap("bottom")
+    local bounds = {
+        x = first_window:frame().x,
+        x2 = nil,
+        y = canvas.y,
+        y2 = canvas.y2,
+    }
+    local h = math.max(0, canvas.h - ((num_windows - 1) * bottom_gap)) // num_windows
+    Windows.tileColumn(windows, bounds, h)
+end
+
 ---take the current focused window and move it into the bottom of
 ---the column to the left
 function Windows.slurpWindow()
@@ -660,15 +659,20 @@ function Windows.slurpWindow()
     end
 
     -- get column to left
-    local target_column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col - 1)
+    local target_index = focused_index.col - 1
+    local target_column = Windows.PaperWM.state.windowList(focused_index.space, target_index)
     if not target_column then
-        Windows.PaperWM.logger.df("target column %d not found on space %d", focused_index.col - 1, focused_index.space)
+        Windows.PaperWM.logger.df("target column %d not found on space %d", target_index, focused_index.space)
         return
     end
 
     -- remove window and append to end of target column
     assert(focused_window == table.remove(current_column, focused_index.row))
     table.insert(target_column, focused_window)
+
+    -- final column frames should be equal in height
+    local final_column = Windows.PaperWM.state.windowList(focused_index.space, target_index)
+    tile_column_equaly(final_column)
 
     -- update layout
     Windows.PaperWM:tileSpace(focused_index.space)
@@ -709,6 +713,15 @@ function Windows.barfWindow()
     local target_column = focused_index.col + 1
     assert(focused_window == table.remove(current_column, focused_index.row))
     table.insert(Windows.PaperWM.state.windowList(focused_index.space), target_column, { focused_window })
+
+    -- move focused window to target column location
+    local focused_frame = focused_window:frame()
+    focused_frame.x = focused_frame.x2 + Windows.getGap("right")
+    Windows.moveWindow(focused_window, focused_frame)
+
+    -- remaining column frames should be equal in height
+    local final_column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
+    tile_column_equaly(final_column)
 
     -- update layout
     Windows.PaperWM:tileSpace(focused_index.space)

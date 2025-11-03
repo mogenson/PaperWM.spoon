@@ -27,8 +27,14 @@ function Actions.actions()
         swap_right = Fnutils.partial(Actions.PaperWM.windows.swapWindows, Direction.RIGHT),
         swap_up = Fnutils.partial(Actions.PaperWM.windows.swapWindows, Direction.UP),
         swap_down = Fnutils.partial(Actions.PaperWM.windows.swapWindows, Direction.DOWN),
-        swap_column_left = Fnutils.partial(Actions.PaperWM.windows.swapColumns, Direction.LEFT),
-        swap_column_right = Fnutils.partial(Actions.PaperWM.windows.swapColumns, Direction.RIGHT),
+        swap_column_left = function()
+            Actions.PaperWM.logger.e("swap_column_left is deprecated, please use swap_left")
+            Actions.PaperWM.windows.swapWindows(Direction.LEFT)
+        end,
+        swap_column_right = function()
+            Actions.PaperWM.logger.e("swap_column_right is deprecated, please use swap_right")
+            Actions.PaperWM.windows.swapWindows(Direction.RIGHT)
+        end,
         center_window = Actions.PaperWM.windows.centerWindow,
         full_width = Actions.PaperWM.windows.toggleWindowFullWidth(),
         increase_width = Fnutils.partial(Actions.PaperWM.windows.increaseWindowSize, Direction.WIDTH, 1),
