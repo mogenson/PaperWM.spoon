@@ -1,110 +1,18 @@
 ---@diagnostic disable
 
-package.preload["windows"] = function()
-    _G.hs = {
-        spaces = {
-            windowSpaces = function(_) return { 1 } end,
-            focusedSpace = function() return 1 end,
-            activeSpaces = function() return { mock_screen_uuid = 1 } end,
-        },
-        uielement = {
-            watcher = {
-                windowMoved = "windowMoved",
-                windowResized = "windowResized",
-            },
-        },
-        window = {
-            animationDuration = 0.0,
-            focusedWindow = function() return nil end,
-        },
-        geometry = {
-            rect = function(x, y, w, h) return { x = x, y = y, w = w, h = h, x2 = x + w, y2 = y + h } end,
-        },
-        fnutils = {
-            partial = function(func, ...)
-                local args = { ... }
-                return function(...)
-                    local all_args = {}
-                    for i = 1, #args do all_args[i] = args[i] end
-                    local arg_n = #args
-                    local varargs = { ... }
-                    for i = 1, #varargs do all_args[arg_n + i] = varargs[i] end
-                    return func(table.unpack(all_args))
-                end
-            end,
-        },
-        screen = {
-            mainScreen = function()
-                return {
-                    getUUID = function() return "mock_screen_uuid" end,
-                    frame = function() return { x = 0, y = 0, w = 1000, h = 800 } end,
-                }
-            end,
-        },
-        settings = {
-            set = function(_, _) end,
-        },
-    }
-    return dofile("windows.lua")
-end
-
-package.preload["state"] = function()
-    return dofile("state.lua")
-end
+package.preload["mocks"] = function() return dofile("spec/mocks.lua") end
 
 describe("PaperWM.windows", function()
+    local Mocks = require("mocks")
+    Mocks.init_mocks()
+
     local Windows = require("windows")
     local State = require("state")
+    local Tiling = require("tiling")
+    local Floating = require("floating")
 
-    local mock_screen = function()
-        return {
-            getUUID = function() return "mock_screen_uuid" end,
-            frame = function() return { x = 0, y = 0, w = 1000, h = 800 } end,
-        }
-    end
-
-    -- Mock Hammerspoon objects and functions
-    local mock_window = function(id, title, frame)
-        frame = frame or { x = 0, y = 0, w = 100, h = 100 }
-        frame.x2 = frame.x + frame.w
-        frame.y2 = frame.y + frame.h
-        frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
-        return {
-            id = function() return id end,
-            title = function() return title end,
-            frame = function() return frame end,
-            application = function() return { bundleID = function() return "com.apple.Terminal" end } end,
-            tabCount = function() return 0 end,
-            isMaximizable = function() return true end,
-            newWatcher = function()
-                return {
-                    start = function() end,
-                    stop = function() end,
-                }
-            end,
-            focus = function() end,
-            setFrame = function(new_frame) frame = new_frame end,
-            screen = function() return mock_screen() end,
-        }
-    end
-
-    local mock_paperwm = {
-        state = State,
-        events = {
-            windowEventHandler = function() end,
-        },
-        window_filter = {
-            getWindows = function() return {} end,
-        },
-        logger = {
-            d = function(...) end,
-            e = function(...) end,
-            v = function(...) end,
-            df = function(...) end,
-        },
-        tileSpace = function() end,
-        window_gap = 8,
-    }
+    local mock_paperwm = Mocks.get_mock_paperwm({ Windows = Windows, State = State, Tiling = Tiling, Floating = Floating })
+    local mock_window = Mocks.mock_window
 
     local focused_window
 
@@ -112,6 +20,8 @@ describe("PaperWM.windows", function()
         -- Reset state before each test
         State.init(mock_paperwm)
         Windows.init(mock_paperwm)
+        Floating.init(mock_paperwm)
+        Tiling.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
     end)
 
@@ -181,8 +91,7 @@ describe("PaperWM.windows", function()
             local win2 = mock_window(102, "Window 2", { x = 0, y = 108, w = 100, h = 100, y2 = 208 })
             Windows.addWindow(win1)
             -- manually add win2 to the same column
-            table.insert(State.window_list[1][1], win2)
-            State.index_table[102] = { space = 1, col = 1, row = 2 }
+            table.insert(State.windowList(1, 1), win2)
             focused_window = win1
 
             Windows.swapWindows(Windows.Direction.DOWN)
@@ -216,8 +125,7 @@ describe("PaperWM.windows", function()
             local win1 = mock_window(101, "Window 1", { x = 0, y = 0, w = 100, h = 100 })
             local win2 = mock_window(102, "Window 2")
             Windows.addWindow(win1)
-            table.insert(State.window_list[1][1], win2)
-            State.index_table[102] = { space = 1, col = 1, row = 2 }
+            table.insert(State.windowList(1, 1), win2)
             focused_window = win1
 
             Windows.barfWindow()
