@@ -70,6 +70,12 @@ Config.swipe_fingers = 0 ---@type number
 ---increase this number to make windows move futher when swiping
 Config.swipe_gain = 1 ---@type number
 
+-- set to a table of modifier keys to enable window dragging
+Config.drag_window = nil ---@type string[]|nil e.g. { "alt", "cmd" }`
+
+-- set to a table of modifier keys to enable window lifting
+Config.lift_window = nil ---@type string[]|nil e.g. { "alt", "cmd", "shift" }
+
 ---center mouse cursor on screen after switching spaces
 Config.center_mouse = true ---@type boolean
 

@@ -66,12 +66,6 @@ PaperWM:bindHotkeys({
     swap_up    = {{"alt", "cmd", "shift"}, "up"},
     swap_down  = {{"alt", "cmd", "shift"}, "down"},
 
-    -- alternative: swap entire columns, rather than
-    -- individual windows (to be used instead of
-    -- swap_left / swap_right bindings)
-    -- swap_column_left = {{"alt", "cmd", "shift"}, "left"},
-    -- swap_column_right = {{"alt", "cmd", "shift"}, "right"},
-
     -- position and resize focused window
     center_window        = {{"alt", "cmd"}, "c"},
     full_width           = {{"alt", "cmd"}, "f"},

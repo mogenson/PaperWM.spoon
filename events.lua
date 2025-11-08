@@ -8,7 +8,6 @@ local MouseEventDeltaY <const> = hs.eventtap.event.properties.mouseEventDeltaY
 local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
 local Timer <const> = hs.timer
-local Watcher <const> = hs.uielement.watcher
 local Window <const> = hs.window
 local WindowFilter <const> = hs.window.filter
 
@@ -97,7 +96,7 @@ function Events.windowEventHandler(window, event, self)
         space = Spaces.windowSpaces(window)[1]
     end
 
-    if space then self.space.tileSpace(space) end
+    if space then self:tileSpace(space) end
 end
 
 ---coroutine to slide all windows in a space by dx
@@ -111,11 +110,10 @@ local function slide_windows(self, space, screen_frame)
     -- cache windows, frame, and virtual x positions because window lookup is expensive
     -- stop window watchers
     local windows      = {}
-    for id, x in pairs(self.state.x_positions[space] or {}) do
-        local window = Window(id)
+    for id, x in pairs(self.state.xPositions(space)) do
+        local window = Window.get(id)
         if window then
-            local watcher = self.state.ui_watchers[id]
-            if watcher then watcher:stop() end
+            self.state.uiWatcherStop(id)
             local frame = window:frame()
             table.insert(windows, { window = window, frame = frame, x = x })
         end
@@ -135,10 +133,7 @@ local function slide_windows(self, space, screen_frame)
     end
 
     -- start window watchers
-    for _, item in ipairs(windows) do
-        local watcher = self.state.ui_watchers[item.window:id()]
-        if watcher then watcher:start({ Watcher.windowMoved, Watcher.windowResized }) end
-    end
+    for _, item in ipairs(windows) do self.state.uiWatcherStart(item.window:id()) end
     windows = nil -- force collection
 
     -- ensure a focused window is on screen
@@ -157,7 +152,7 @@ local function slide_windows(self, space, screen_frame)
         if visible_window then
             visible_window:focus()
         else
-            self.space.tileSpace(space)
+            self:tileSpace(space)
         end
     else
         self.logger.e("no focused window at end of swipe")
@@ -190,7 +185,7 @@ function Events.swipeHandler(self)
                 return
             end
 
-            local focused_index = self.state.index_table[focused_window:id()]
+            local focused_index = self.state.windowIndex(focused_window)
             if not focused_index then
                 self.logger.e("focused index not found")
                 return
@@ -232,8 +227,8 @@ function Events.mouseHandler(self)
         if not screen then return end
         local space = Spaces.activeSpaceOnScreen(screen)
         if not space then return end
-        for id, _ in pairs(self.state.x_positions[space] or {}) do
-            local window = Window(id)
+        for id, _ in pairs(self.state.xPositions(space)) do
+            local window = Window.get(id)
             if window and cursor:inside(window:frame()) then return window end
         end
     end
@@ -249,7 +244,7 @@ function Events.mouseHandler(self)
             if self.drag_window and flags:containExactly(self.drag_window) then
                 local drag_window = windowUnderCursor(event)
                 if drag_window then
-                    local index = self.state.index_table[drag_window:id()]
+                    local index = self.state.windowIndex(drag_window)
                     if not index then
                         self.logger.e("drag window index not found")
                         return delete_event
@@ -329,7 +324,7 @@ end
 function Events.stop()
     -- stop events
     Events.PaperWM.window_filter:unsubscribeAll()
-    for _, watcher in pairs(Events.PaperWM.state.ui_watchers) do watcher:stop() end
+    Events.PaperWM.state.uiWatcherStopAll()
     screen_watcher:stop()
 
     -- stop listening for touchpad swipes
