@@ -46,7 +46,7 @@ PaperWM.__index = PaperWM
 
 -- Metadata
 PaperWM.name = "PaperWM"
-PaperWM.version = "0.9"
+PaperWM.version = "1.0-beta-1"
 PaperWM.author = "Michael Mogenson"
 PaperWM.homepage = "https://github.com/mogenson/PaperWM.spoon"
 PaperWM.license = "MIT - https://opensource.org/licenses/MIT"
