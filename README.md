@@ -143,6 +143,9 @@ modal:bind({}, "h", nil, actions.focus_left)
 modal:bind({}, "j", nil, actions.focus_down)
 modal:bind({}, "k", nil, actions.focus_up)
 modal:bind({}, "l", nil, actions.focus_right)
+modal:bind({}, "escape", function() modal:exit() end)
+
+PaperWM:start()
 ```
 
 `PaperWM:start()` will begin automatically tiling new and existing windows.
