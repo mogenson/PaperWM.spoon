@@ -169,6 +169,8 @@ For example:
 ```lua
 -- ignore a specific app
 PaperWM.window_filter:rejectApp("iStat Menus Status")
+-- ignore a specific window of an app
+PaperWM.window_filter:setAppFilter("iTunes", { rejectTitles = "MiniPlayer" })
 -- list of screens to tile (use % to escape string match characters, like -)
 PaperWM.window_filter:setScreens({ "Built%-in Retina Display" })
 -- restart for new window filter to take effect
