@@ -13,6 +13,7 @@ end
 function Actions.actions()
     local Direction = Actions.PaperWM.windows.Direction
     return {
+        start_events = Fnutils.partial(Actions.PaperWM.start, Actions.PaperWM),
         stop_events = Fnutils.partial(Actions.PaperWM.stop, Actions.PaperWM),
         refresh_windows = Actions.PaperWM.windows.refreshWindows,
         dump_state = Actions.PaperWM.state.dump,
