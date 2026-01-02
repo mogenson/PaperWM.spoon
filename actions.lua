@@ -18,6 +18,7 @@ function Actions.actions()
         refresh_windows = Actions.PaperWM.windows.refreshWindows,
         dump_state = Actions.PaperWM.state.dump,
         toggle_floating = Actions.PaperWM.floating.toggleFloating,
+        focus_floating = Actions.PaperWM.floating.focusFloating,
         focus_left = Fnutils.partial(Actions.PaperWM.windows.focusWindow, Direction.LEFT),
         focus_right = Fnutils.partial(Actions.PaperWM.windows.focusWindow, Direction.RIGHT),
         focus_up = Fnutils.partial(Actions.PaperWM.windows.focusWindow, Direction.UP),
