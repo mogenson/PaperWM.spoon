@@ -75,24 +75,35 @@ end
 ---raise all floating windows that are not minimized or hidden
 function Floating.focusFloating()
     local windows_to_focus = {}
-    local all_windows <const> = Window.allWindows()
-    local floating_map <const> = Floating.PaperWM.state.is_floating
+    -- Find floating windows
+    for id, is_floating in pairs(Floating.PaperWM.state.is_floating) do
+        if is_floating then
+            local window = Window(id)
+            if window and window:isVisible() and not window:isMinimized() then
+                windows_to_focus[id] = window
+            end
+        end
+    end
+    -- Find rejected windows
+    local all_windows = Window.allWindows()
     local allowed_map = {}
     for _, win in ipairs(Floating.PaperWM.window_filter:getWindows(all_windows)) do
         allowed_map[win:id()] = true
     end
     for _, window in ipairs(all_windows) do
         local id <const> = window:id()
-        local is_floating <const> = floating_map[id]
         local is_rejected <const> = not allowed_map[id]
-        if (is_floating or is_rejected) and window:isVisible() and not window:isMinimized() then
-            table.insert(windows_to_focus, window)
+        if is_rejected and not windows_to_focus[id] then
+            if window:isVisible() and not window:isMinimized() then
+                windows_to_focus[id] = window
+            end
         end
     end
-    if #windows_to_focus == 0 then
+    -- Focus floating and rejected windows
+    if next(windows_to_focus) == nil then
         return
     end
-    for _, window in ipairs(windows_to_focus) do
+    for _, window in pairs(windows_to_focus) do
         window:focus()
     end
 end
