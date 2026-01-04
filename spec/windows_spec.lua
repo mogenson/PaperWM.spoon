@@ -40,6 +40,38 @@ describe("PaperWM.windows", function()
             assert.are.equal(1, state.index_table[101].row)
             assert.is_not_nil(state.ui_watchers[101])
         end)
+
+        it("should skip Apple windows with tabs", function()
+            local win = mock_window(101, "Test Window", nil, {
+                tabCount = function() return 2 end,
+            })
+
+            local space = Windows.addWindow(win)
+
+            local state = Windows.PaperWM.state.get()
+            assert.is_nil(space)
+            assert.is_nil(state.index_table[101])
+            assert.is_nil(state.ui_watchers[101])
+        end)
+
+        it("should add Safari windows with tabs", function()
+            local win = mock_window(101, "Test Window", nil, {
+                tabCount = function() return 2 end,
+                application = function() return { bundleID = function() return "com.apple.Safari" end } end,
+            })
+
+            local space = Windows.addWindow(win)
+
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(1, space)
+            assert.are.equal(1, #state.window_list[space])
+            assert.are.equal(1, #state.window_list[space][1])
+            assert.are.equal(win, state.window_list[space][1][1])
+            assert.is_not_nil(state.index_table[101])
+            assert.are.equal(1, state.index_table[101].col)
+            assert.are.equal(1, state.index_table[101].row)
+            assert.is_not_nil(state.ui_watchers[101])
+        end)
     end)
 
 

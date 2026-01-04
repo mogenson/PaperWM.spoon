@@ -9,27 +9,28 @@ function M.mock_screen()
     }
 end
 
-function M.mock_window(id, title, frame)
+function M.mock_window(id, title, frame, overrides)
+    overrides = overrides or {}
     frame = frame or { x = 0, y = 0, w = 100, h = 100 }
     frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
     frame.x2 = frame.x + frame.w
     frame.y2 = frame.y + frame.h
     return {
-        id = function() return id end,
-        title = function() return title end,
-        frame = function() return frame end,
-        application = function() return { bundleID = function() return "com.apple.Terminal" end } end,
-        tabCount = function() return 0 end,
-        isMaximizable = function() return true end,
-        newWatcher = function()
+        id = overrides.id or function() return id end,
+        title = overrides.title or function() return title end,
+        frame = overrides.frame or function() return frame end,
+        application = overrides.application or function() return { bundleID = function() return "com.apple.Terminal" end } end,
+        tabCount = overrides.tabCount or function() return 0 end,
+        isMaximizable = overrides.isMaximizable or function() return true end,
+        newWatcher = overrides.newWatcher or function()
             return {
                 start = function() end,
                 stop = function() end,
             }
         end,
-        focus = function() end,
-        setFrame = function(new_frame) frame = new_frame end,
-        screen = function() return M.mock_screen() end,
+        focus = overrides.focus or function() end,
+        setFrame = overrides.setFrame or function(new_frame) frame = new_frame end,
+        screen = overrides.screen or function() return M.mock_screen() end,
     }
 end
 
@@ -134,6 +135,9 @@ function M.init_mocks(modules)
         settings = {
             set = function(_, _) end,
             get = function(_) return {} end,
+        },
+        notify = {
+            show = function(_, _, _, _) end,
         },
     }
 

@@ -129,7 +129,8 @@ function Windows.addWindow(add_window)
     -- All existing tabs in a window will have their tabCount reset to 0
     -- We can't query whether an exiting hs.window is a tab or not after creation
     local apple <const> = "com.apple"
-    if add_window:tabCount() > 0 and add_window:application():bundleID():sub(1, #apple) == apple then
+    local safari <const> = "com.apple.Safari"
+    if add_window:tabCount() > 0 and add_window:application():bundleID():sub(1, #apple) == apple and add_window:application():bundleID():sub(1, #safari) ~= safari then
         -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
         -- show up as separate windows. Third party apps like Microsoft Office
         -- use tabs that are all contained within one window and tile fine.
