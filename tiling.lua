@@ -67,6 +67,8 @@ end
 ---tile all column in a space by moving and resizing windows
 ---@param space Space
 function Tiling.tileSpace(space)
+    local start = hs.timer.absoluteTime()
+
     if not space or Spaces.spaceType(space) ~= "user" then
         Tiling.PaperWM.logger.e("current space invalid")
         return
@@ -174,6 +176,38 @@ function Tiling.tileSpace(space)
         update_virtual_positions(space, column, x2 - width)
         x2 = x2 - width - left_gap
     end
+
+    -- tileSpace() takes anywhere from 3 to 60 ms on an M3 Macbook
+    local finish = hs.timer.absoluteTime()
+    local elapsed = (finish - start) / 1000000
+    Tiling.PaperWM.logger.df("tileSpace(%d) elapsed time: %0.3f ms", space, elapsed)
+
+    start = hs.timer.absoluteTime()
+
+    local all_windows = hs.window.visibleWindows()
+    print("all windows:")
+    for _, win in ipairs(all_windows) do
+        print(("  [%s]: %d"):format(win:title(), win:id()))
+    end
+
+    local index_table = Tiling.PaperWM.state.get().index_table
+    local floating_windows = hs.fnutils.ifilter(all_windows, function(win) return index_table[win:id()] == nil end)
+
+    print("floating windows:")
+    for _, win in ipairs(floating_windows) do
+        local id = win:id()
+        if id ~= 0 then -- there's always one window with id: 0 and no title, what is it?
+            print(("  focusing [%s]: %d"):format(win:title(), id))
+            win:focus()
+        end
+    end
+
+    anchor_window:focus() -- restore focus to user's window
+
+    --  seems like this takes about 20 - 100 ms on an M3 Macbook
+    finish = hs.timer.absoluteTime()
+    elapsed = (finish - start) / 1000000
+    print(("floating window focus elapsed time: %0.3f ms"):format(elapsed))
 end
 
 return Tiling

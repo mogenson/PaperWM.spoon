@@ -74,6 +74,10 @@ function Events.windowEventHandler(window, event, self)
                 end)
             return
         end
+        if self.state.prev_focused_window == window then
+            self.logger.df("ignoring already focused window: [%s]: %d", window:title(), window:id())
+            return
+        end
         self.state.prev_focused_window = window -- for addWindow()
         space = Spaces.windowSpaces(window)[1]
     elseif event == "windowVisible" or event == "windowUnfullscreened" then
