@@ -81,9 +81,6 @@ function Floating.focusFloating()
             table.insert(windows_to_focus, window)
         end
     end
-    if #windows_to_focus == 0 then
-        return
-    end
     for _, window in ipairs(windows_to_focus) do
         window:focus()
     end
