@@ -72,4 +72,18 @@ function Floating.toggleFloating(window)
     end
 end
 
+---focus all floating windows that are not minimized or hidden
+function Floating.focusFloating()
+    local windows_to_focus = {}
+    local visible_windows <const> = Window.visibleWindows()
+    for _, window in ipairs(visible_windows) do
+        if not Floating.PaperWM.state.isTiled(window:id()) then
+            table.insert(windows_to_focus, window)
+        end
+    end
+    for _, window in ipairs(windows_to_focus) do
+        window:focus()
+    end
+end
+
 return Floating
