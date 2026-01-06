@@ -1,3 +1,4 @@
+local Fnutils <const> = hs.fnutils
 local Window <const> = hs.window
 
 local Floating = {}
@@ -74,16 +75,18 @@ end
 
 ---focus all floating windows that are not minimized or hidden
 function Floating.focusFloating()
-    local windows_to_focus = {}
-    local visible_windows <const> = Window.visibleWindows()
-    for _, window in ipairs(visible_windows) do
-        if not Floating.PaperWM.state.isTiled(window:id()) then
-            table.insert(windows_to_focus, window)
-        end
-    end
+    local focused_window = Window.focusedWindow()
+
+    local windows_to_focus <const> = Fnutils.ifilter(Window.visibleWindows(), function(win)
+        return not Floating.PaperWM.state.isTiled(win:id())
+    end)
+
     for _, window in ipairs(windows_to_focus) do
         window:focus()
     end
+
+    -- restore focus to original window
+    if focused_window then focused_window:focus() end
 end
 
 return Floating

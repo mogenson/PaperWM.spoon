@@ -9,6 +9,7 @@ Config.default_hotkeys = {
     refresh_windows      = { { "alt", "cmd", "shift" }, "r" },
     dump_state           = { { "alt", "cmd", "shift" }, "d" },
     toggle_floating      = { { "alt", "cmd", "shift" }, "escape" },
+    focus_floating       = { { "alt", "cmd", "shift" }, "f" },
     focus_left           = { { "alt", "cmd" }, "left" },
     focus_right          = { { "alt", "cmd" }, "right" },
     focus_up             = { { "alt", "cmd" }, "up" },
