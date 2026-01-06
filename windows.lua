@@ -214,6 +214,11 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     -- clear window position
     Windows.PaperWM.state.xPositions(remove_index.space)[remove_window:id()] = nil
 
+    -- clear dangling reference
+    if Windows.PaperWM.state.prev_focused_window == remove_window then
+        Windows.PaperWM.state.prev_focused_window = nil
+    end
+
     return remove_index.space -- return space for removed window
 end
 

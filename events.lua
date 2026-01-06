@@ -45,7 +45,7 @@ function Events.windowEventHandler(window, event, self)
         return
     end
 
-    self.logger.df("%s for [%s] id: %d", event, window:title(), window:id())
+    self.logger.df("%s for [%s]: %d", event, window:title(), window:id())
     local space = nil
 
     --[[ When a new window is created, We first get a windowVisible event but
@@ -72,6 +72,10 @@ function Events.windowEventHandler(window, event, self)
                     self.logger.vf("pending window timer for %s", window)
                     Events.windowEventHandler(window, event, self)
                 end)
+            return
+        end
+        if self.state.prev_focused_window == window then
+            self.logger.df("ignoring already focused window: [%s]: %d", window:title(), window:id())
             return
         end
         self.state.prev_focused_window = window -- for addWindow()

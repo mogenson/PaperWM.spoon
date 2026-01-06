@@ -101,6 +101,11 @@ function M.init_mocks(modules)
                     return func(table.unpack(all_args))
                 end
             end,
+            ifilter = function(t, fn)
+                local nt = {}
+                for _, v in ipairs(t) do if fn(v) then nt[#nt + 1] = v end end
+                return nt
+            end,
         },
         logger = {
             new = function(_)
