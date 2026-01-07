@@ -119,6 +119,16 @@ local function slide_windows(self, space, screen_frame)
         end
     end
 
+    local update_window_frames = function(dx)
+        if dx ~= 0 then
+            for _, item in ipairs(windows) do
+                item.x = item.x + dx
+                item.frame.x = dx > 0 and math.min(item.x, right_margin) or math.max(item.x, left_margin - item.frame.w)
+                item.window:setTopLeft(item.frame.x, item.frame.y)
+            end
+        end
+    end
+
     local dx_queue = {}
     while true do
         local dx = coroutine.yield()
@@ -129,13 +139,7 @@ local function slide_windows(self, space, screen_frame)
             table.remove(dx_queue, 1)
         end
 
-        if dx ~= 0 then
-            for _, item in ipairs(windows) do
-                item.x = item.x + dx                               -- scroll left or right
-                item.frame.x = dx > 0 and math.min(item.x, right_margin) or math.max(item.x, left_margin - item.frame.w)
-                item.window:setTopLeft(item.frame.x, item.frame.y) -- avoid the animationDuration
-            end
-        end
+        update_window_frames(dx)
     end
 
     local slide_windows_cleanup = function()
@@ -206,15 +210,7 @@ local function slide_windows(self, space, screen_frame)
                 end
 
                 local time_delta = current_time - last_time
-                local dx = velocity * time_delta
-                if dx ~= 0 then
-                    for _, item in ipairs(windows) do
-                        item.x = item.x + dx
-                        item.frame.x = dx > 0 and math.min(item.x, right_margin) or math.max(item.x, left_margin - item.frame.w)
-                        item.window:setTopLeft(item.frame.x, item.frame.y)
-                    end
-                end
-
+                update_window_frames(velocity * time_delta)
                 last_time = current_time
             end
 
