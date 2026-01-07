@@ -119,9 +119,15 @@ local function slide_windows(self, space, screen_frame)
         end
     end
 
+    local dx_queue = {}
     while true do
         local dx = coroutine.yield()
         if not dx then break end
+
+        table.insert(dx_queue, { timestamp=Timer.secondsSinceEpoch(), dx=dx })
+        if #dx_queue > 5 then
+            table.remove(dx_queue, 1)
+        end
 
         if dx ~= 0 then
             for _, item in ipairs(windows) do
@@ -132,36 +138,97 @@ local function slide_windows(self, space, screen_frame)
         end
     end
 
-    -- start window watchers
-    for _, item in ipairs(windows) do self.state.uiWatcherStart(item.window:id()) end
-    windows = nil -- force collection
+    local slide_windows_cleanup = function()
+        -- start window watchers
+        for _, item in ipairs(windows) do self.state.uiWatcherStart(item.window:id()) end
+        windows = nil -- force collection
 
-    -- ensure a focused window is on screen
-    local focused_window = Window.focusedWindow()
-    if focused_window then
-        local frame = focused_window:frame()
-        local visible_window = (function()
-            if frame.x < screen_frame.x then
-                return self.windows.getFirstVisibleWindow(space, screen_frame,
-                    self.windows.Direction.LEFT)
-            elseif frame.x2 > screen_frame.x2 then
-                return self.windows.getFirstVisibleWindow(space, screen_frame,
-                    self.windows.Direction.RIGHT)
+        -- ensure a focused window is on screen
+        local focused_window = Window.focusedWindow()
+        if focused_window then
+            local frame = focused_window:frame()
+            local visible_window = (function()
+                if frame.x < screen_frame.x then
+                    return self.windows.getFirstVisibleWindow(space, screen_frame,
+                        self.windows.Direction.LEFT)
+                elseif frame.x2 > screen_frame.x2 then
+                    return self.windows.getFirstVisibleWindow(space, screen_frame,
+                        self.windows.Direction.RIGHT)
+                end
+            end)()
+            if visible_window then
+                visible_window:focus()
+            else
+                self:tileSpace(space)
             end
-        end)()
-        if visible_window then
-            visible_window:focus()
         else
-            self:tileSpace(space)
+            self.logger.e("no focused window at end of swipe")
         end
+    end
+
+    -- Apply inertia if enabled
+    self.swipe_inertia_fps = 60
+    self.swipe_inertia_decay = 0.925
+    self.swipe_inertia_max_duration = 0.5
+    if #dx_queue > 1 and self.swipe_inertia_max_duration > 0 then
+        local current_time = Timer.secondsSinceEpoch()
+        local swipe_end_time = current_time + self.swipe_inertia_max_duration
+
+        local total_dx = 0
+        for i, dx_info in ipairs(dx_queue) do
+            total_dx = total_dx + dx_info.dx
+        end
+
+        local last_time = dx_queue[#dx_queue].timestamp
+        local elapsed = last_time - dx_queue[1].timestamp
+        local velocity = total_dx / elapsed
+
+        -- Apply inertia for a short duration
+        -- local swipe_inertia_max_duration = 0.3  -- seconds
+        -- local swipe_inertia_decay = 0.95     -- how quickly velocity decays
+        local inertia_timer
+        inertia_timer = Timer.new(1 / self.swipe_inertia_fps,
+            function()
+                local current_time = Timer.secondsSinceEpoch()
+                if current_time > swipe_end_time then
+                    slide_windows_cleanup()
+                    inertia_timer:stop()
+                    return
+                end
+
+                -- Apply velocity with exponential decay
+                velocity = velocity * self.swipe_inertia_decay
+                if math.abs(velocity) < 0.1 then
+                    -- Stop when velocity is very small
+                    slide_windows_cleanup()
+                    inertia_timer:stop()
+                    return
+                end
+
+                local time_delta = current_time - last_time
+                local dx = velocity * time_delta
+                if dx ~= 0 then
+                    for _, item in ipairs(windows) do
+                        item.x = item.x + dx
+                        item.frame.x = dx > 0 and math.min(item.x, right_margin) or math.max(item.x, left_margin - item.frame.w)
+                        item.window:setTopLeft(item.frame.x, item.frame.y)
+                    end
+                end
+
+                last_time = current_time
+            end
+
+        )
+        inertia_timer:start()
     else
-        self.logger.e("no focused window at end of swipe")
+        slide_windows_cleanup()
     end
 
     while true do
         self.logger.ef("resumed finished slide_windows coroutine with: %s", coroutine.yield())
     end
 end
+
 
 ---generate callback function for touchpad swipe gesture event
 ---@param self PaperWM
