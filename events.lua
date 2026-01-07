@@ -171,9 +171,6 @@ local function slide_windows(self, space, screen_frame)
     end
 
     -- Apply inertia if enabled
-    self.swipe_inertia_fps = 60
-    self.swipe_inertia_decay = 0.925
-    self.swipe_inertia_max_duration = 0.5
     if #dx_queue > 1 and self.swipe_inertia_max_duration > 0 then
         local current_time = Timer.secondsSinceEpoch()
         local swipe_end_time = current_time + self.swipe_inertia_max_duration
