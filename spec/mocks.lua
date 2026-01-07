@@ -140,6 +140,9 @@ function M.init_mocks(modules)
             set = function(_, _) end,
             get = function(_) return {} end,
         },
+        notify = {
+            show = function(_, _, _, _) end,
+        },
     }
 
     setmetatable(hs.screen, {
