@@ -301,7 +301,7 @@ function Windows.focusWindowAt(n)
     local screen = Screen.mainScreen()
     local space = Spaces.activeSpaces()[screen:getUUID()]
     local columns = Windows.PaperWM.state.windowList(space)
-    if not next(columns) then return end
+    if #columns == 0 then return end
 
     local i = 1
     for col = 1, #columns do

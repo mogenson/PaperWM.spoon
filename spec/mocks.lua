@@ -67,6 +67,7 @@ function M.init_mocks(modules)
             spaceDisplay = function(_) return "mock_screen_uuid" end,
             focusedSpace = function() return 1 end,
             allSpaces = function() return { mock_screen_uuid = { 1, 2, 3 } } end,
+            activeSpaces = function() return { mock_screen_uuid = 1 } end,
         },
         screen = {
             find = function(_) return M.mock_screen() end,
