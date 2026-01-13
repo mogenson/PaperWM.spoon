@@ -187,4 +187,39 @@ describe("PaperWM.windows", function()
             assert.are.equal(win1, state.window_list[1][2][1])
         end)
     end)
+
+    describe("focusWindowAt", function()
+        it("should focus the window at the specified index", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            local win3 = mock_window(103, "Window 3")
+
+            -- Setup state: 2 columns. Col 1 has win1, win2. Col 2 has win3.
+            Windows.addWindow(win1)
+            table.insert(State.windowList(1, 1), win2)
+            table.insert(State.windowList(1), { win3 })
+
+            -- spy on focus
+            local s = spy.on(win3, "focus")
+
+            -- win1 is index 1, win2 is index 2, win3 is index 3
+            Windows.focusWindowAt(3)
+
+            assert.spy(s).was.called()
+        end)
+
+        it("should focus the first window", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+
+            local s = spy.on(win1, "focus")
+
+            Windows.focusWindowAt(1)
+
+            assert.spy(s).was.called()
+        end)
+    end)
 end)
