@@ -67,6 +67,7 @@ function M.init_mocks(modules)
             spaceDisplay = function(_) return "mock_screen_uuid" end,
             focusedSpace = function() return 1 end,
             allSpaces = function() return { mock_screen_uuid = { 1, 2, 3 } } end,
+            activeSpaces = function() return { mock_screen_uuid = 1 } end,
         },
         screen = {
             find = function(_) return M.mock_screen() end,
@@ -101,6 +102,11 @@ function M.init_mocks(modules)
                     return func(table.unpack(all_args))
                 end
             end,
+            ifilter = function(t, fn)
+                local nt = {}
+                for _, v in ipairs(t) do if fn(v) then nt[#nt + 1] = v end end
+                return nt
+            end,
         },
         logger = {
             new = function(_)
@@ -134,6 +140,9 @@ function M.init_mocks(modules)
         settings = {
             set = function(_, _) end,
             get = function(_) return {} end,
+        },
+        notify = {
+            show = function(_, _, _, _) end,
         },
     }
 

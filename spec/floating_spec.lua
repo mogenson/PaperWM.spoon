@@ -11,6 +11,8 @@ describe("PaperWM.floating", function()
     local Mocks = require("mocks")
     Mocks.init_mocks()
 
+    local spy = require("luassert.spy")
+
     local Floating = require("floating")
     local Windows = require("windows")
     local State = require("state")
@@ -30,6 +32,7 @@ describe("PaperWM.floating", function()
         Space.init(mock_paperwm)
         Tiling.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
+        hs.window.visibleWindows = function() return {} end
     end)
 
     describe("toggleFloating", function()
@@ -57,6 +60,41 @@ describe("PaperWM.floating", function()
             mock_paperwm:tileSpace(1)
 
             assert.are.same(initial_frame, win:frame())
+        end)
+    end)
+
+    describe("focusFloating", function()
+        it("should focus all floating windows", function()
+            -- Create mock windows
+            local tiled_win1 = mock_window(101, "Tiled Window 1")
+            tiled_win1.focus = spy.new(function() end)
+            local tiled_win2 = mock_window(102, "Tiled Window 2")
+            tiled_win2.focus = spy.new(function() end)
+            local floating_win1 = mock_window(201, "Floating Window 1")
+            floating_win1.focus = spy.new(function() end)
+            local floating_win2 = mock_window(202, "Floating Window 2")
+            floating_win2.focus = spy.new(function() end)
+
+            -- Add tiled windows to the state
+            local space = 1
+            local window_list = State.windowList(space)
+            window_list[1] = { tiled_win1, tiled_win2 }
+
+            -- Mock visibleWindows to return all windows
+            hs.window.visibleWindows = function()
+                return { tiled_win1, tiled_win2, floating_win1, floating_win2 }
+            end
+
+            -- Call the function
+            Floating.focusFloating()
+
+            -- Assert that focus was called on floating windows
+            assert.spy(floating_win1.focus).was.called(1)
+            assert.spy(floating_win2.focus).was.called(1)
+
+            -- Assert that focus was NOT called on tiled windows
+            assert.spy(tiled_win1.focus).was.not_called()
+            assert.spy(tiled_win2.focus).was.not_called()
         end)
     end)
 end)

@@ -40,6 +40,55 @@ describe("PaperWM.windows", function()
             assert.are.equal(1, state.index_table[101].row)
             assert.is_not_nil(state.ui_watchers[101])
         end)
+
+        it("should skip Apple windows with tabs", function()
+            local win = mock_window(101, "Test Window", nil)
+            win.tabCount = function() return 2 end
+            win.application = function() return { bundleID = function() return "com.apple.Finder" end } end
+
+            local space = Windows.addWindow(win)
+
+            local state = Windows.PaperWM.state.get()
+            assert.is_nil(space)
+            assert.is_nil(state.index_table[101])
+            assert.is_nil(state.ui_watchers[101])
+        end)
+
+        it("should add Safari windows with tabs", function()
+            local win = mock_window(101, "Test Window", nil)
+            win.tabCount = function() return 2 end
+            win.application = function() return { bundleID = function() return "com.apple.Safari" end } end
+
+            local space = Windows.addWindow(win)
+
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(1, space)
+            assert.are.equal(1, #state.window_list[space])
+            assert.are.equal(1, #state.window_list[space][1])
+            assert.are.equal(win, state.window_list[space][1][1])
+            assert.is_not_nil(state.index_table[101])
+            assert.are.equal(1, state.index_table[101].col)
+            assert.are.equal(1, state.index_table[101].row)
+            assert.is_not_nil(state.ui_watchers[101])
+        end)
+
+        it("non-Apple apps with tabs can be added", function()
+            local win = mock_window(101, "Test Window", nil)
+            win.tabCount = function() return 2 end
+            win.application = function() return { bundleID = function() return "com.Microsoft.Word" end } end
+
+            local space = Windows.addWindow(win)
+
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(1, space)
+            assert.are.equal(1, #state.window_list[space])
+            assert.are.equal(1, #state.window_list[space][1])
+            assert.are.equal(win, state.window_list[space][1][1])
+            assert.is_not_nil(state.index_table[101])
+            assert.are.equal(1, state.index_table[101].col)
+            assert.are.equal(1, state.index_table[101].row)
+            assert.is_not_nil(state.ui_watchers[101])
+        end)
     end)
 
 
@@ -136,6 +185,41 @@ describe("PaperWM.windows", function()
             assert.are.equal(1, #state.window_list[1][2]) -- one window in second column
             assert.are.equal(win2, state.window_list[1][1][1])
             assert.are.equal(win1, state.window_list[1][2][1])
+        end)
+    end)
+
+    describe("focusWindowAt", function()
+        it("should focus the window at the specified index", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            local win3 = mock_window(103, "Window 3")
+
+            -- Setup state: 2 columns. Col 1 has win1, win2. Col 2 has win3.
+            Windows.addWindow(win1)
+            table.insert(State.windowList(1, 1), win2)
+            table.insert(State.windowList(1), { win3 })
+
+            -- spy on focus
+            local s = spy.on(win3, "focus")
+
+            -- win1 is index 1, win2 is index 2, win3 is index 3
+            Windows.focusWindowAt(3)
+
+            assert.spy(s).was.called()
+        end)
+
+        it("should focus the first window", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+
+            local s = spy.on(win1, "focus")
+
+            Windows.focusWindowAt(1)
+
+            assert.spy(s).was.called()
         end)
     end)
 end)

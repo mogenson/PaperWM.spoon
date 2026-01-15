@@ -129,7 +129,10 @@ function Windows.addWindow(add_window)
     -- All existing tabs in a window will have their tabCount reset to 0
     -- We can't query whether an exiting hs.window is a tab or not after creation
     local apple <const> = "com.apple"
-    if add_window:tabCount() > 0 and add_window:application():bundleID():sub(1, #apple) == apple then
+    local safari <const> = "com.apple.Safari"
+    if add_window:tabCount() > 0
+        and add_window:application():bundleID():sub(1, #apple) == apple
+        and add_window:application():bundleID():sub(1, #safari) ~= safari then
         -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
         -- show up as separate windows. Third party apps like Microsoft Office
         -- use tabs that are all contained within one window and tile fine.
@@ -214,6 +217,11 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     -- clear window position
     Windows.PaperWM.state.xPositions(remove_index.space)[remove_window:id()] = nil
 
+    -- clear dangling reference
+    if Windows.PaperWM.state.prev_focused_window == remove_window then
+        Windows.PaperWM.state.prev_focused_window = nil
+    end
+
     return remove_index.space -- return space for removed window
 end
 
@@ -293,7 +301,7 @@ function Windows.focusWindowAt(n)
     local screen = Screen.mainScreen()
     local space = Spaces.activeSpaces()[screen:getUUID()]
     local columns = Windows.PaperWM.state.windowList(space)
-    if not next(columns) then return end
+    if #columns == 0 then return end
 
     local i = 1
     for col = 1, #columns do

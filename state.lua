@@ -155,6 +155,13 @@ function State.xPositions(space)
     })
 end
 
+---check for the presence of a window in the tiled list
+---@param id number Window ID
+---@return boolean
+function State.isTiled(id)
+    return index_table[id] ~= nil
+end
+
 ---return internal state for debugging purposes
 function State.get()
     return {

@@ -84,6 +84,8 @@ PaperWM:bindHotkeys({
 
     -- move the focused window into / out of the tiling layer
     toggle_floating = {{"alt", "cmd", "shift"}, "escape"},
+    -- raise all floating windows on top of tiled windows
+    focus_floating  = {{"alt", "cmd", "shift"}, "f"},
 
     -- focus the first / second / etc window in the current space
     focus_window_1 = {{"cmd", "shift"}, "1"},
