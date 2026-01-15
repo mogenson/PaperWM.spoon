@@ -71,13 +71,13 @@ Config.swipe_fingers = 0 ---@type number
 Config.swipe_gain = 1 ---@type number
 
 ---target fps for updating animation for swipe inertia
-Config.swipe_inertia_fps = 60 --@type number
+Config.swipe_inertia_fps = 60 ---@type number
 
 ---exponential decay of the velocity for inertial swipe
-Config.swipe_inertia_decay = 0.925 --@type number
+Config.swipe_inertia_decay = 0.925 ---@type number
 
 ---the maximum duration of swipe inertia in seconds. any value above 0 enables swipe inertia
-Config.swipe_inertia_max_duration = 0.0 --@type number
+Config.swipe_inertia_max_duration = 0.0 ---@type number
 
 -- set to a table of modifier keys to enable window dragging
 Config.drag_window = nil ---@type string[]|nil e.g. { "alt", "cmd" }`

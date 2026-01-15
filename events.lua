@@ -185,10 +185,14 @@ local function slide_windows(self, space, screen_frame)
         local velocity = total_dx / elapsed
 
         -- Apply inertia for a short duration
-        -- local swipe_inertia_max_duration = 0.3  -- seconds
-        -- local swipe_inertia_decay = 0.95     -- how quickly velocity decays
         local inertia_timer
-        inertia_timer = Timer.new(1 / self.swipe_inertia_fps,
+        local target_fps = self.swipe_inertia_fps
+        if target_fps <= 0 then
+            target_fps = 60
+            self.logger.ef("swipe_inertia_fps <= 0, using %f instead", target_fps)
+        end
+
+        inertia_timer = Timer.new(1 / target_fps,
             function()
                 local current_time = Timer.secondsSinceEpoch()
                 if current_time > swipe_end_time then
