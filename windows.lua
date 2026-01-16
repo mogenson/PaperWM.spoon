@@ -124,13 +124,13 @@ end
 ---@param add_window Window new window to be added
 ---@return Space|nil space that contains new window
 function Windows.addWindow(add_window)
-    -- A window with no tabs will have a tabCount of 0
+    -- A window with no tabs will have a tabCount of 0 or 1
     -- A new tab for a window will have tabCount equal to the total number of tabs
     -- All existing tabs in a window will have their tabCount reset to 0
     -- We can't query whether an exiting hs.window is a tab or not after creation
     local apple <const> = "com.apple"
     local safari <const> = "com.apple.Safari"
-    if add_window:tabCount() > 0
+    if add_window:tabCount() > 1
         and add_window:application():bundleID():sub(1, #apple) == apple
         and add_window:application():bundleID():sub(1, #safari) ~= safari then
         -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
