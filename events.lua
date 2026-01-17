@@ -19,6 +19,7 @@ Events.__index = Events
 function Events.init(paperwm)
     Events.PaperWM = paperwm
     Events.Swipe = dofile(hs.spoons.resourcePath("swipe.lua"))
+    Events.gestures = {}
 end
 
 ---refresh window layout on screen change
@@ -34,6 +35,41 @@ local screen_watcher = Screen.watcher.new((function()
         end
     end
 end)())
+
+
+---check if any gestures are currently active
+function Events.hasActiveGestures()
+    local gestures = Events.gestures
+    for _, gesture in pairs(gestures) do
+        if gesture then
+            return true
+        end
+    end
+
+    return false
+end
+
+---interrupt any active gestures
+---@param id number id of current gesture
+function Events.interruptActiveGestures(id)
+    for _, gesture in pairs(Events.gestures) do
+        if gesture then
+            -- Invalidate gesture
+            gesture.interrupted = true
+
+            local timer = gesture.timer
+            if timer then
+                -- This will cause the timer to cleanup, which
+                -- must be handled before registering the new gesture.
+                Events.PaperWM.logger.df("invalidating gesture: %d", gesture.id)
+                timer.stop()
+            else
+                Events.PaperWM.logger.wf("new gesture (%d) without an end, ending previous gesture (%d)", id, gesture.id)
+                gesture.coro()
+            end
+        end
+    end
+end
 
 ---callback for window events
 ---@param window Window
@@ -100,14 +136,15 @@ function Events.windowEventHandler(window, event, self)
         space = Spaces.windowSpaces(window)[1]
     end
 
-    if space then self:tileSpace(space) end
+    if space and not Events.hasActiveGestures() then self:tileSpace(space) end
 end
 
 ---coroutine to slide all windows in a space by dx
 ---@param self PaperWM
----@param space Space
----@param screen_frame Frame
-local function slide_windows(self, space, screen_frame)
+---@param gesture table
+local function slide_windows(self, gesture)
+    local space = gesture.space
+    local screen_frame = gesture.screen_frame
     local left_margin  = screen_frame.x + self.screen_margin
     local right_margin = screen_frame.x2 - self.screen_margin
 
@@ -117,6 +154,7 @@ local function slide_windows(self, space, screen_frame)
     for id, x in pairs(self.state.xPositions(space)) do
         local window = Window.get(id)
         if window then
+            self.logger.df("stopping watcher for (%d)", id)
             self.state.uiWatcherStop(id)
             local frame = window:frame()
             table.insert(windows, { window = window, frame = frame, x = x })
@@ -133,12 +171,13 @@ local function slide_windows(self, space, screen_frame)
         end
     end
 
+    local dx
     local dx_queue = {}
     while true do
-        local dx = coroutine.yield()
+        dx = coroutine.yield()
         if not dx then break end
 
-        table.insert(dx_queue, { timestamp=Timer.secondsSinceEpoch(), dx=dx })
+        table.insert(dx_queue, { timestamp = Timer.secondsSinceEpoch(), dx = dx })
         if #dx_queue > 5 then
             table.remove(dx_queue, 1)
         end
@@ -147,37 +186,52 @@ local function slide_windows(self, space, screen_frame)
     end
 
     local slide_windows_cleanup = function()
-        -- start window watchers
-        for _, item in ipairs(windows) do self.state.uiWatcherStart(item.window:id()) end
-        windows = nil -- force collection
+        self.logger.df("slide_windows_cleanup (%d)", gesture.id)
+        local gestures = Events.gestures
+        gestures[gesture.id] = nil
 
-        -- ensure a focused window is on screen
-        local focused_window = Window.focusedWindow()
-        if focused_window then
-            local frame = focused_window:frame()
-            local visible_window = (function()
-                if frame.x < screen_frame.x then
-                    return self.windows.getFirstVisibleWindow(space, screen_frame,
-                        self.windows.Direction.LEFT)
-                elseif frame.x2 > screen_frame.x2 then
-                    return self.windows.getFirstVisibleWindow(space, screen_frame,
-                        self.windows.Direction.RIGHT)
+        -- if a gesture was interrupted by a new gesture, it will
+        -- be responsible for the code inside the if
+        if not gesture.interrupted then
+            -- ensure a focused window is on screen
+            -- should be before restarting window watchers
+            local focused_window = Window.focusedWindow()
+            if focused_window then
+                local frame = focused_window:frame()
+                local visible_window = (function()
+                    if frame.x < screen_frame.x then
+                        return self.windows.getFirstVisibleWindow(space, screen_frame,
+                            self.windows.Direction.LEFT)
+                    elseif frame.x2 > screen_frame.x2 then
+                        return self.windows.getFirstVisibleWindow(space, screen_frame,
+                            self.windows.Direction.RIGHT)
+                    end
+                end)()
+                if visible_window then
+                    self.logger.df("focusing window: %s", visible_window:title())
+                    visible_window:focus()
+                else
+                    self.logger.d("no visible window, tiling")
+                    self:tileSpace(space)
                 end
-            end)()
-            if visible_window then
-                visible_window:focus()
             else
-                self:tileSpace(space)
+                self.logger.e("no focused window at end of gesture")
             end
-        else
-            self.logger.e("no focused window at end of swipe")
+
+            -- start window watchers
+            for _, item in ipairs(windows) do
+                self.logger.df("starting watcher for (%d)", item.window:id())
+                self.state.uiWatcherStart(item.window:id())
+            end
         end
+
+        windows = nil -- force collection
     end
 
     -- Apply inertia if enabled
-    if #dx_queue > 1 and self.swipe_inertia_max_duration > 0 then
+    if not gesture.interrupted and #dx_queue > 1 and self.gesture_inertia_max_duration > 0 then
         local current_time = Timer.secondsSinceEpoch()
-        local swipe_end_time = current_time + self.swipe_inertia_max_duration
+        local gesture_end_time = current_time + self.gesture_inertia_max_duration
 
         local total_dx = 0
         for i, dx_info in ipairs(dx_queue) do
@@ -186,41 +240,43 @@ local function slide_windows(self, space, screen_frame)
 
         local last_time = dx_queue[#dx_queue].timestamp
         local elapsed = last_time - dx_queue[1].timestamp
-        local velocity = total_dx / elapsed
+        local max_magnitude = hs.math.abs(self.gesture_max_velocity)
+        local velocity = hs.math.max(hs.math.min(total_dx / elapsed, max_magnitude), -max_magnitude)
 
         -- Apply inertia for a short duration
-        local inertia_timer
-        local target_fps = self.swipe_inertia_fps
+        local target_fps = self.gesture_inertia_fps
         if target_fps <= 0 then
             target_fps = 60
-            self.logger.ef("swipe_inertia_fps <= 0, using %f instead", target_fps)
+            self.logger.ef("gesture_inertia_fps <= 0, using %f instead", target_fps)
         end
 
-        inertia_timer = Timer.new(1 / target_fps,
+        local timer
+        timer = Timer.new(1 / target_fps,
             function()
-                local current_time = Timer.secondsSinceEpoch()
-                if current_time > swipe_end_time then
-                    slide_windows_cleanup()
-                    inertia_timer:stop()
-                    return
-                end
-
                 -- Apply velocity with exponential decay
-                velocity = velocity * self.swipe_inertia_decay
-                if math.abs(velocity) < 0.1 then
-                    -- Stop when velocity is very small
+                local current_time = Timer.secondsSinceEpoch()
+                velocity = velocity * self.gesture_inertia_decay
+                if gesture.interrupted or current_time > gesture_end_time or math.abs(velocity) < 0.1 then
+                    -- Stop:
+                    --   1) if gesture is no longer valid
+                    --   2) if max time elapsed
+                    --   3) when velocity is very small
                     slide_windows_cleanup()
-                    inertia_timer:stop()
+                    timer:stop()
                     return
                 end
 
+                self.logger.df("inertia gesture id (%d), velocity (%f)", gesture.id, velocity)
                 local time_delta = current_time - last_time
                 update_window_frames(velocity * time_delta)
                 last_time = current_time
             end
 
         )
-        inertia_timer:start()
+        gesture.timer = {
+            stop = function() slide_windows_cleanup(); timer:stop() end
+        }
+        timer:start()
     else
         slide_windows_cleanup()
     end
@@ -235,7 +291,7 @@ end
 ---@param self PaperWM
 function Events.swipeHandler(self)
     -- saved upvalues between callback function calls
-    local swipe_coro, screen_frame = nil, nil
+    local gestures = Events.gestures
 
     ---callback for touchpad swipe gesture event
     ---@param id number unique id across callbacks for the same swipe
@@ -243,7 +299,10 @@ function Events.swipeHandler(self)
     ---@param dx number change in horizonal position since last callback: between 0 and 1
     ---@param dy number change in vertical position since last callback: between 0 and 1
     return function(id, type, dx, dy)
+        local active_swipe = gestures[id]
         if type == Events.Swipe.BEGIN then
+            assert(active_swipe == nil)
+            Events.interruptActiveGestures(id)
             self.logger.df("new swipe: %d", id)
 
             -- use focused window for space to scroll windows
@@ -266,17 +325,24 @@ function Events.swipeHandler(self)
             end
 
             -- cache upvalues
-            screen_frame = screen:frame()
-            swipe_coro = coroutine.wrap(slide_windows)
-            swipe_coro(self, focused_index.space, screen_frame)
-        elseif swipe_coro and type == Events.Swipe.END then
+            gestures[id] = {
+                id = id,
+                interrupted = false,
+                screen_frame = screen:frame(),
+                space = focused_index.space,
+                coro = coroutine.wrap(slide_windows)
+            }
+
+            local swipe = gestures[id]
+            swipe.coro(self, swipe)
+        elseif active_swipe and type == Events.Swipe.END then
             self.logger.df("swipe end: %d", id)
-            swipe_coro(nil)
-            swipe_coro = nil
-        elseif swipe_coro and screen_frame and type == Events.Swipe.MOVED then
+            active_swipe.coro()
+        elseif active_swipe and active_swipe.screen_frame and type == Events.Swipe.MOVED then
+            self.logger.df("swipe moved: %d", id)
             if math.abs(dy) >= math.abs(dx) then return end -- horizontal swipes only
-            dx = math.floor(self.swipe_gain * dx * screen_frame.w)
-            swipe_coro(dx)
+            dx = math.floor(self.swipe_gain * dx * active_swipe.screen_frame.w)
+            active_swipe.coro(dx)
         end
     end
 end
@@ -284,7 +350,9 @@ end
 ---generate callback function for mouse events
 ---@param self PaperWM
 function Events.mouseHandler(self)
-    local lift_window, drag_coro = nil, nil
+    -- saved upvalues between callback function calls
+    local gestures = Events.gestures
+    local lift_window, drag = nil, nil
 
     ---find a Window under the mouse cursor
     ---@param event userdata
@@ -322,9 +390,19 @@ function Events.mouseHandler(self)
                         self.logger.e("no screen for space")
                         return delete_event
                     end
-                    drag_coro = coroutine.wrap(slide_windows)
-                    drag_coro(self, index.space, screen:frame())
-                    self.logger.df("drag window start for: %s", drag_window)
+
+                    drag = {
+                        id = hs.math.randomFromRange(1, 0xFFFF),
+                        interrupted = false,
+                        screen_frame = screen:frame(),
+                        space = index.space,
+                        coro = coroutine.wrap(slide_windows)
+                    }
+                    Events.interruptActiveGestures(drag.id)
+                    gestures[drag.id] = drag
+
+                    drag.coro(self, drag)
+                    self.logger.df("drag window start for: %d - (%s)", drag.id, drag_window)
                     delete_event = true
                 end
             elseif self.lift_window and flags:containExactly(self.lift_window) then
@@ -335,8 +413,9 @@ function Events.mouseHandler(self)
                 delete_event = true
             end
         elseif type == LeftMouseDragged then
-            if drag_coro then
-                drag_coro(event:getProperty(MouseEventDeltaX))
+            if drag then
+                self.logger.df("drag window move: %d", drag.id)
+                drag.coro(event:getProperty(MouseEventDeltaX))
                 delete_event = true
             elseif lift_window then
                 local frame = lift_window:frame()
@@ -347,10 +426,10 @@ function Events.mouseHandler(self)
                 delete_event = true
             end
         elseif type == LeftMouseUp then
-            if drag_coro then
-                self.logger.df("drag window stop")
-                drag_coro(nil)
-                drag_coro = nil
+            if drag then
+                self.logger.df("drag window stop: %d", drag.id)
+                drag.coro()
+                drag = nil
                 delete_event = true
             elseif lift_window then
                 -- set window to not floating, tile
