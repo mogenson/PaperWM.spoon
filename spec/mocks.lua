@@ -2,10 +2,17 @@
 
 local M = {}
 
-function M.mock_screen()
+function M.mock_screen(id, frame, notch)
     return {
-        frame = function() return { x = 0, y = 0, w = 1000, h = 800, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } } end,
-        getUUID = function() return "mock_screen_uuid" end,
+        frame = function()
+            if notch then
+                return frame or { x = 0, y = 32, w = 1000, h = 768, x2 = 1000, y2 = 800, center = { x = 500, y = 416 } }
+            else
+                return frame or { x = 0, y = 0, w = 1000, h = 768, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } }
+            end
+        end,
+        fullFrame = function() return { x = 0, y = 0, w = 1000, h = 800, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } } end,
+        getUUID = function() return id or "mock_screen_uuid" end,
     }
 end
 
