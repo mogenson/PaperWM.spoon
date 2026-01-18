@@ -10,6 +10,7 @@ local ui_watchers = {} -- dictionary of uielement watchers with window id for ke
 local x_positions = {} -- dictionary of horizontal positions with [space][id] for keys
 ---public state
 State.is_floating = {} -- dictionary of boolean with window id for keys
+State.fullscreen_restore = {} -- dictionary of {space, col} by window id
 State.prev_focused_window = nil ---@type Window|nil
 State.pending_window = nil ---@type Window|nil
 
@@ -27,6 +28,7 @@ function State.clear()
     ui_watchers = {}
     x_positions = {}
     State.is_floating = {}
+    State.fullscreen_restore = {}
     State.prev_focused_window = nil
     State.pending_window = nil
 end

@@ -123,6 +123,23 @@ describe("PaperWM.windows", function()
         end)
     end)
 
+    describe("addWindowAtColumn", function()
+        it("should insert a window at the specified column", function()
+            local win1 = mock_window(101, "Window 1", { x = 0, y = 0, w = 100, h = 100 })
+            local win2 = mock_window(102, "Window 2", { x = 200, y = 0, w = 100, h = 100 })
+            local win3 = mock_window(103, "Window 3", { x = 400, y = 0, w = 100, h = 100 })
+
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+            Windows.addWindowAtColumn(win3, 2)
+
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(win1, state.window_list[1][1][1])
+            assert.are.equal(win3, state.window_list[1][2][1])
+            assert.are.equal(win2, state.window_list[1][3][1])
+        end)
+    end)
+
     describe("removeWindow", function()
         it("should remove a window from the state", function()
             local win = mock_window(101, "Test Window")

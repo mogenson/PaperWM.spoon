@@ -28,4 +28,13 @@ describe("PaperWM.state", function()
             assert.is_false(State.isTiled(456))
         end)
     end)
+
+    describe("clear", function()
+        it("should reset fullscreen restore state", function()
+            State.fullscreen_restore[123] = { space = 1, col = 2 }
+            State.clear()
+
+            assert.is_nil(State.fullscreen_restore[123])
+        end)
+    end)
 end)
