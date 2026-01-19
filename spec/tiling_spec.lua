@@ -27,11 +27,12 @@ describe("PaperWM.tiling", function()
         Floating.init(mock_paperwm)
         Tiling.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
-        Windows.getCanvas = function() return { x = 8, y = 8, w = 984, h = 784, x2 = 992, y2 = 792 } end
+        -- Windows.getCanvas = function() return { x = 8, y = 8, w = 984, h = 784, x2 = 992, y2 = 792 } end
     end)
 
     describe("tileSpace", function()
-        it("should tile a single window to fit in the screen", function()
+        it("should tile a single window to fit in the screen with external_bar", function()
+            mock_paperwm.external_bar = { top = 40 }
             local win = mock_window(101, "Test Window", { x = 0, y = 0, w = 100, h = 100 })
             Windows.addWindow(win)
             focused_window = win
@@ -40,12 +41,12 @@ describe("PaperWM.tiling", function()
 
             local frame = win:frame()
             assert.are.equal(8, frame.x)
-            assert.are.equal(8, frame.y)
+            assert.are.equal(48, frame.y)
             assert.are.equal(100, frame.w)
-            assert.are.equal(784, frame.h)
+            assert.are.equal(644, frame.h)
         end)
-
-        it("should tile two windows side-by-side", function()
+        it("should tile two windows side-by-side with external_bar", function()
+            mock_paperwm.external_bar = { top = 40 }
             local win1 = mock_window(101, "Window 1", { x = 0, y = 0, w = 100, h = 100 })
             local win2 = mock_window(102, "Window 2", { x = 200, y = 0, w = 100, h = 100 })
             Windows.addWindow(win1)
@@ -56,15 +57,52 @@ describe("PaperWM.tiling", function()
 
             local frame1 = win1:frame()
             assert.are.equal(8, frame1.x)
-            assert.are.equal(8, frame1.y)
+            assert.are.equal(48, frame1.y)
             assert.are.equal(100, frame1.w)
-            assert.are.equal(784, frame1.h)
+            assert.are.equal(644, frame1.h)
 
             local frame2 = win2:frame()
             assert.are.equal(108, frame2.x)
-            assert.are.equal(8, frame2.y)
+            assert.are.equal(48, frame2.y)
             assert.are.equal(100, frame2.w)
-            assert.are.equal(792, frame2.y2) -- tileColumn sets y2
+            assert.are.equal(692, frame2.y2) -- tileColumn sets y2
+        end)
+        it("should tile a single window to fit in the screen", function()
+            mock_paperwm.external_bar = nil
+            local win = mock_window(101, "Test Window", { x = 0, y = 0, w = 100, h = 100 })
+            Windows.addWindow(win)
+            focused_window = win
+
+            Tiling.tileSpace(1)
+
+            local frame = win:frame()
+            assert.are.equal(8, frame.x)
+            assert.are.equal(40, frame.y)
+            assert.are.equal(100, frame.w)
+            assert.are.equal(652, frame.h)
+        end)
+
+        it("should tile two windows side-by-side", function()
+            mock_paperwm.external_bar = nil
+            local win1 = mock_window(101, "Window 1", { x = 0, y = 0, w = 100, h = 100 })
+            local win2 = mock_window(102, "Window 2", { x = 200, y = 0, w = 100, h = 100 })
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+            focused_window = win1
+
+            Tiling.tileSpace(1)
+
+            local frame1 = win1:frame()
+            assert.are.equal(8, frame1.x)
+            assert.are.equal(40, frame1.y)
+            assert.are.equal(100, frame1.w)
+            assert.are.equal(652, frame1.h)
+
+            local frame2 = win2:frame()
+            assert.are.equal(108, frame2.x)
+            assert.are.equal(40, frame2.y)
+            assert.are.equal(100, frame2.w)
+            assert.are.equal(692, frame2.y2) -- tileColumn sets y2
         end)
     end)
 
@@ -101,6 +139,5 @@ describe("PaperWM.tiling", function()
             assert.are.equal(100, frame2.w)
             assert.are.equal(780, frame2.y2)
         end)
-
     end)
 end)
