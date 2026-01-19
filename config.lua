@@ -71,17 +71,16 @@ Config.swipe_fingers = 0 ---@type number
 ---increase this number to make windows move futher when swiping
 Config.swipe_gain = 1 ---@type number
 
----target fps for updating animation for gesture inertia
-Config.gesture_inertia_fps = 60 ---@type number
-
----exponential decay of the velocity for inertial gesture
-Config.gesture_inertia_decay = 0.925 ---@type number
-
----max velocity magnitude for inertial gesture
-Config.gesture_max_velocity = 5000 ---@type number
-
----the maximum duration of gesture inertia in seconds. any value above 0 enables gesture inertia
-Config.gesture_inertia_max_duration = 0.0 ---@type number
+---Configure inertial window slide for swipe and mouse drag gestures, set to nil to disable
+---Some suggested values:
+---    PaperWM.gesture_inertia = {
+--          fps = 60, ---target fps for animating gesture inertia
+--          decay = 0.925, ---exponential decay of the velocity
+--          max_velocity = 5000, ---max velocity magnitude
+--          max_duration = 0.5 ---max duration of the effect in seconds
+---    }
+---@type { fps: number, decay: number, max_velocity: number, max_duration: number }?
+Config.gesture_inertia = nil
 
 -- set to a table of modifier keys to enable window dragging
 Config.drag_window = nil ---@type string[]|nil e.g. { "alt", "cmd" }`
