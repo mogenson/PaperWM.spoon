@@ -81,30 +81,7 @@ function Events.windowEventHandler(window, event, self)
         self.state.prev_focused_window = window -- for addWindow()
         space = Spaces.windowSpaces(window)[1]
     elseif event == "windowVisible" or event == "windowUnfullscreened" then
-        local restore = nil
-        if event == "windowUnfullscreened" then
-            local current_space = Spaces.windowSpaces(window)[1]
-            local saved = self.state.fullscreen_restore[window:id()]
-            if saved and current_space and saved.space == current_space then
-                restore = saved
-            elseif saved and current_space and saved.space ~= current_space then
-                self.state.fullscreen_restore[window:id()] = nil
-            end
-        end
-
-        if restore then
-            local existing_index = self.state.windowIndex(window)
-            if existing_index then
-                space = existing_index.space
-                self.state.fullscreen_restore[window:id()] = nil
-            else
-                space = self.windows.addWindowAtColumn(window, restore.col, restore.space)
-                if space then self.state.fullscreen_restore[window:id()] = nil end
-            end
-        else
-            space = self.windows.addWindow(window)
-        end
-
+        space = self.windows.addWindow(window)
         if self.state.pending_window and window == self.state.pending_window then
             self.state.pending_window = nil -- tried to add window for the second time
         elseif not space then
@@ -123,9 +100,15 @@ function Events.windowEventHandler(window, event, self)
             self.state.fullscreen_restore[window:id()] = {
                 space = idx.space,
                 col = idx.col,
+                row = idx.row,
             }
         end
         space = self.windows.removeWindow(window, true) -- don't focus new window if fullscreened
+    elseif event == "windowDestroyed" then
+        self.state.fullscreen_restore[window:id()] = nil
+        if self.state.windowIndex(window) then
+            space = self.windows.removeWindow(window, true)
+        end
     elseif event == "AXWindowMoved" or event == "AXWindowResized" then
         space = Spaces.windowSpaces(window)[1]
     end

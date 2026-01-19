@@ -130,6 +130,14 @@ function Windows.addWindow(add_window)
         return
     end
 
+    local restore = Windows.PaperWM.state.fullscreen_restore[add_window:id()]
+    if restore and restore.space == space then
+        Windows.PaperWM.state.fullscreen_restore[add_window:id()] = nil
+        return Windows.addWindowAtPosition(add_window, restore.col, restore.row, space)
+    elseif restore and restore.space ~= space then
+        Windows.PaperWM.state.fullscreen_restore[add_window:id()] = nil
+    end
+
     -- find where to insert window
     local add_column = 1
 
@@ -208,6 +216,69 @@ function Windows.addWindowAtColumn(add_window, add_column, space)
     table.insert(columns, add_column, { add_window })
 
     -- subscribe to window moved events
+    Windows.PaperWM.state.uiWatcherCreate(add_window)
+
+    return space
+end
+
+---add a new window at the specified column and row
+---@param add_window Window new window to be added
+---@param add_column number column to insert at (1-indexed)
+---@param add_row number row to insert at (1-indexed)
+---@param space Space|nil optional space for the window
+---@return Space|nil space that contains new window
+function Windows.addWindowAtPosition(add_window, add_column, add_row, space)
+    local restore_row = add_row or 1
+
+    -- A window with no tabs will have a tabCount of 0 or 1
+    -- A new tab for a window will have tabCount equal to the total number of tabs
+    -- All existing tabs in a window will have their tabCount reset to 0
+    -- We can't query whether an exiting hs.window is a tab or not after creation
+    local apple <const> = "com.apple"
+    local safari <const> = "com.apple.Safari"
+    if add_window:tabCount() > 1
+        and add_window:application():bundleID():sub(1, #apple) == apple
+        and add_window:application():bundleID():sub(1, #safari) ~= safari then
+        -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
+        -- show up as separate windows. Third party apps like Microsoft Office
+        -- use tabs that are all contained within one window and tile fine.
+        hs.notify.show("PaperWM", "Windows with tabs are not supported!",
+            "See https://github.com/mogenson/PaperWM.spoon/issues/39")
+        return
+    end
+
+    -- ignore windows that have a zoom button, but are not maximizable
+    if not add_window:isMaximizable() then
+        Windows.PaperWM.logger.d("ignoring non-maximizable window")
+        return
+    end
+
+    -- check if window is already in window list
+    if Windows.PaperWM.state.windowIndex(add_window) then return end
+
+    if not space then
+        space = Spaces.windowSpaces(add_window)[1]
+    end
+    if not space then
+        Windows.PaperWM.logger.e("add window does not have a space")
+        return
+    end
+
+    -- if the target column doesn't exist, fall back to a new column
+    local columns = Windows.PaperWM.state.windowList(space)
+    if not columns or not columns[add_column] then
+        return Windows.addWindowAtColumn(add_window, add_column, space)
+    end
+
+    local column = Windows.PaperWM.state.windowList(space, add_column)
+    local max_row = #column + 1
+    if restore_row < 1 then
+        restore_row = 1
+    elseif restore_row > max_row then
+        restore_row = max_row
+    end
+
+    table.insert(column, restore_row, add_window)
     Windows.PaperWM.state.uiWatcherCreate(add_window)
 
     return space
