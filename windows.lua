@@ -22,6 +22,48 @@ local Direction <const> = {
 }
 Windows.Direction = Direction
 
+---validate a window before adding to tiling list
+---@param add_window Window new window to be added
+---@param space Space|nil optional space for the window
+---@return Space|nil
+local function validate_add_window(add_window, space)
+    -- A window with no tabs will have a tabCount of 0 or 1
+    -- A new tab for a window will have tabCount equal to the total number of tabs
+    -- All existing tabs in a window will have their tabCount reset to 0
+    -- We can't query whether an exiting hs.window is a tab or not after creation
+    local apple <const> = "com.apple"
+    local safari <const> = "com.apple.Safari"
+    if add_window:tabCount() > 1
+        and add_window:application():bundleID():sub(1, #apple) == apple
+        and add_window:application():bundleID():sub(1, #safari) ~= safari then
+        -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
+        -- show up as separate windows. Third party apps like Microsoft Office
+        -- use tabs that are all contained within one window and tile fine.
+        hs.notify.show("PaperWM", "Windows with tabs are not supported!",
+            "See https://github.com/mogenson/PaperWM.spoon/issues/39")
+        return
+    end
+
+    -- ignore windows that have a zoom button, but are not maximizable
+    if not add_window:isMaximizable() then
+        Windows.PaperWM.logger.d("ignoring non-maximizable window")
+        return
+    end
+
+    -- check if window is already in window list
+    if Windows.PaperWM.state.windowIndex(add_window) then return end
+
+    if not space then
+        space = Spaces.windowSpaces(add_window)[1]
+    end
+    if not space then
+        Windows.PaperWM.logger.e("add window does not have a space")
+        return
+    end
+
+    return space
+end
+
 ---initialize module with reference to PaperWM
 ---@param paperwm PaperWM
 function Windows.init(paperwm)
@@ -124,9 +166,8 @@ end
 ---@param add_window Window new window to be added
 ---@return Space|nil space that contains new window
 function Windows.addWindow(add_window)
-    local space = Spaces.windowSpaces(add_window)[1]
+    local space = validate_add_window(add_window)
     if not space then
-        Windows.PaperWM.logger.e("add window does not have a space")
         return
     end
 
@@ -170,39 +211,8 @@ end
 ---@param space Space|nil optional space for the window
 ---@return Space|nil space that contains new window
 function Windows.addWindowAtColumn(add_window, add_column, space)
-    -- A window with no tabs will have a tabCount of 0 or 1
-    -- A new tab for a window will have tabCount equal to the total number of tabs
-    -- All existing tabs in a window will have their tabCount reset to 0
-    -- We can't query whether an exiting hs.window is a tab or not after creation
-    local apple <const> = "com.apple"
-    local safari <const> = "com.apple.Safari"
-    if add_window:tabCount() > 1
-        and add_window:application():bundleID():sub(1, #apple) == apple
-        and add_window:application():bundleID():sub(1, #safari) ~= safari then
-        -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
-        -- show up as separate windows. Third party apps like Microsoft Office
-        -- use tabs that are all contained within one window and tile fine.
-        hs.notify.show("PaperWM", "Windows with tabs are not supported!",
-            "See https://github.com/mogenson/PaperWM.spoon/issues/39")
-        return
-    end
-
-    -- ignore windows that have a zoom button, but are not maximizable
-    if not add_window:isMaximizable() then
-        Windows.PaperWM.logger.d("ignoring non-maximizable window")
-        return
-    end
-
-    -- check if window is already in window list
-    if Windows.PaperWM.state.windowIndex(add_window) then return end
-
-    if not space then
-        space = Spaces.windowSpaces(add_window)[1]
-    end
-    if not space then
-        Windows.PaperWM.logger.e("add window does not have a space")
-        return
-    end
+    space = validate_add_window(add_window, space)
+    if not space then return end
 
     local columns = Windows.PaperWM.state.windowList(space)
     local max_column = #columns + 1
@@ -230,39 +240,8 @@ end
 function Windows.addWindowAtPosition(add_window, add_column, add_row, space)
     local restore_row = add_row or 1
 
-    -- A window with no tabs will have a tabCount of 0 or 1
-    -- A new tab for a window will have tabCount equal to the total number of tabs
-    -- All existing tabs in a window will have their tabCount reset to 0
-    -- We can't query whether an exiting hs.window is a tab or not after creation
-    local apple <const> = "com.apple"
-    local safari <const> = "com.apple.Safari"
-    if add_window:tabCount() > 1
-        and add_window:application():bundleID():sub(1, #apple) == apple
-        and add_window:application():bundleID():sub(1, #safari) ~= safari then
-        -- It's mostly built-in Apple apps like Finder and Terminal whose tabs
-        -- show up as separate windows. Third party apps like Microsoft Office
-        -- use tabs that are all contained within one window and tile fine.
-        hs.notify.show("PaperWM", "Windows with tabs are not supported!",
-            "See https://github.com/mogenson/PaperWM.spoon/issues/39")
-        return
-    end
-
-    -- ignore windows that have a zoom button, but are not maximizable
-    if not add_window:isMaximizable() then
-        Windows.PaperWM.logger.d("ignoring non-maximizable window")
-        return
-    end
-
-    -- check if window is already in window list
-    if Windows.PaperWM.state.windowIndex(add_window) then return end
-
-    if not space then
-        space = Spaces.windowSpaces(add_window)[1]
-    end
-    if not space then
-        Windows.PaperWM.logger.e("add window does not have a space")
-        return
-    end
+    space = validate_add_window(add_window, space)
+    if not space then return end
 
     -- if the target column doesn't exist, fall back to a new column
     local columns = Windows.PaperWM.state.windowList(space)
