@@ -27,7 +27,6 @@ describe("PaperWM.tiling", function()
         Floating.init(mock_paperwm)
         Tiling.init(mock_paperwm)
         hs.window.focusedWindow = function() return focused_window end
-        -- Windows.getCanvas = function() return { x = 8, y = 8, w = 984, h = 784, x2 = 992, y2 = 792 } end
     end)
 
     describe("tileSpace", function()
