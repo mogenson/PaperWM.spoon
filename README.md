@@ -165,6 +165,20 @@ PaperWM.window_gap = 10
 PaperWM.window_gap  =  { top = 10, bottom = 8, left = 12, right = 12 }
 ```
 
+Third-party tools like [Sketchybar](https://github.com/felixkratz/sketchybar) 
+can be used to create custom status bars and/or dock. Set `PaperWM.external_bar` 
+to the to a table specifying `top`, `bottom` in number of pixels of your bar
+and dock to ensure consistent window placement on displays with and without a "notch".
+
+For example:
+
+```lua
+-- Add 40px offset for an external status bar
+PaperWM.external_bar = {top = 40}
+-- or, add 20px offset for an external status bar and 40px offset for an external dock
+PaperWM.external_bar = {top = 20, bottom = 40}
+```
+
 Configure the `PaperWM.window_filter` to set which apps and screens are managed.
 For example:
 

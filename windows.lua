@@ -81,16 +81,23 @@ end
 ---@return Frame
 function Windows.getCanvas(screen)
     local screen_frame = screen:frame()
+    local screen_full_frame = screen:fullFrame()
     local left_gap = Windows.getGap("left")
     local right_gap = Windows.getGap("right")
     local top_gap = Windows.getGap("top")
     local bottom_gap = Windows.getGap("bottom")
+    local external_bar = Windows.PaperWM.external_bar
+    local external_bar_top = external_bar and external_bar.top
+    local external_bar_bottom = external_bar and external_bar.bottom
+    local frame_top = external_bar_top and screen_full_frame.y + external_bar_top or screen_frame.y
+    local frame_bottom = external_bar_bottom and screen_full_frame.y2 - external_bar_bottom or screen_frame.y2
+    local frame_height = frame_bottom - frame_top
 
     return Rect(
         screen_frame.x + left_gap,
-        screen_frame.y + top_gap,
+        frame_top + top_gap,
         screen_frame.w - (left_gap + right_gap),
-        screen_frame.h - (top_gap + bottom_gap)
+        frame_height - (top_gap + bottom_gap)
     )
 end
 
