@@ -26,7 +26,7 @@ Windows.Direction = Direction
 ---@param add_window Window new window to be added
 ---@param space Space|nil optional space for the window
 ---@return Space|nil
-local function validate_add_window(add_window, space)
+local function validateAddWindow(add_window, space)
     -- A window with no tabs will have a tabCount of 0 or 1
     -- A new tab for a window will have tabCount equal to the total number of tabs
     -- All existing tabs in a window will have their tabCount reset to 0
@@ -166,7 +166,7 @@ end
 ---@param add_window Window new window to be added
 ---@return Space|nil space that contains new window
 function Windows.addWindow(add_window)
-    local space = validate_add_window(add_window)
+    local space = validateAddWindow(add_window)
     if not space then
         return
     end
@@ -211,7 +211,7 @@ end
 ---@param space Space|nil optional space for the window
 ---@return Space|nil space that contains new window
 function Windows.addWindowAtColumn(add_window, add_column, space)
-    space = validate_add_window(add_window, space)
+    space = validateAddWindow(add_window, space)
     if not space then return end
 
     local columns = Windows.PaperWM.state.windowList(space)
@@ -240,7 +240,7 @@ end
 function Windows.addWindowAtPosition(add_window, add_column, add_row, space)
     local restore_row = add_row or 1
 
-    space = validate_add_window(add_window, space)
+    space = validateAddWindow(add_window, space)
     if not space then return end
 
     -- if the target column doesn't exist, fall back to a new column
