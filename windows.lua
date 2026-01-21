@@ -718,7 +718,7 @@ function Windows.moveWindowToScreen(direction)
         return
     end
 
-    -- if window is on a managed space and is not floating, then toggling it to floating
+    -- if window is on a managed screen and is not floating, then toggling it to floating
     -- this will retile the current space before moving the window
     if Fnutils.contains(allowed_screens, old_screen) and not Windows.PaperWM.floating.isFloating(focused_window) then
         Windows.PaperWM.floating.toggleFloating(focused_window)
@@ -747,7 +747,15 @@ function Windows.moveWindowToScreen(direction)
 
     local start_time = hs.timer.secondsSinceEpoch()
     hs.timer.doUntil(do_add_window, function(timer)
-        if hs.timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
+        if hs.timer.secondsSinceEpoch() - start_time > 1 then
+            if focused_window:screen() == old_screen then
+                -- move was not successful, toggle floating
+                hs.notify.show("PaperWM", "Unable to move to adjacent screen!",
+                    "Make sure the screen exists.")
+                Windows.PaperWM.floating.toggleFloating(focused_window)
+            end
+            timer:stop()
+        end
     end, hs.window.animationDuration)
 end
 
