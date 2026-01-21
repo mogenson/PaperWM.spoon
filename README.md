@@ -245,6 +245,23 @@ PaperWM.drag_window = { "alt", "cmd" }`
 PaperWM.lift_window = { "alt", "cmd", "shift" }
 ```
 
+### Gesture Inertia
+
+If you enable Smooth Scrolling or Mouse Dragging above, they will not by
+default exhibit inertia (when you stop the gesture movement will stop
+immediately). This is different than the default behavior of macOS. If you
+want that behavior you can configure it with the `PaperWM.gesture_inertia`
+table in your config.
+
+```lua
+PaperWM.gesture_inertia = {
+    fps = 120, ---target fps for animating gesture inertia
+    decay = 0.925, ---exponential decay of the velocity
+    max_velocity = 5000, ---max velocity magnitude
+    max_duration = 0.5, ---max duration of the effect in seconds
+}
+```
+
 ## Limitations
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would
