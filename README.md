@@ -245,6 +245,21 @@ PaperWM.drag_window = { "alt", "cmd" }`
 PaperWM.lift_window = { "alt", "cmd", "shift" }
 ```
 
+### Mouse Scrolling
+
+Spin the mouse scroll wheel while holding the `PaperWM.scroll_window` hotkey to
+slide all windows on a space left or right. Release the hotkey to stop. Change
+`PaperWM.scroll_gain` to a positive or negative number to adjust the direction
+and sensitivity.
+
+```lua
+-- set to a table of modifier keys to enable window scroling, default is nil
+PaperWM.scroll_window = { "alt", "cmd" }`
+
+-- increase move windows further when scrolling, invert to change direction
+PaperWM.scroll_gain = 10.0
+```
+
 ## Limitations
 
 MacOS does not allow a window to be moved fully off-screen. Windows that would

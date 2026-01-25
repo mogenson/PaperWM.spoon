@@ -55,7 +55,7 @@ Config.window_filter = WindowFilter.new():setOverrideFilter({
     hasTitlebar = true,
     allowRoles = "AXStandardWindow",
 })
--- external bar: make space for external menu bar
+---external bar: make space for external menu bar
 Config.external_bar = nil ---@type {top: number?, bottom: number?}?
 
 ---window gaps: can be set as a single number or a table with top, bottom, left, right values
@@ -73,11 +73,17 @@ Config.swipe_fingers = 0 ---@type number
 ---increase this number to make windows move futher when swiping
 Config.swipe_gain = 1 ---@type number
 
--- set to a table of modifier keys to enable window dragging
-Config.drag_window = nil ---@type string[]|nil e.g. { "alt", "cmd" }`
+---set to a table of modifier keys to enable window dragging
+Config.drag_window = nil ---@type string[]? e.g. { "alt", "cmd" }`
 
--- set to a table of modifier keys to enable window lifting
-Config.lift_window = nil ---@type string[]|nil e.g. { "alt", "cmd", "shift" }
+---set to a table of modifier keys to enable window lifting
+Config.lift_window = nil ---@type string[]? e.g. { "alt", "cmd", "shift" }
+
+---set to a table of modifier keys to enable mouse scrolling
+Config.scroll_window = nil ---@type string[]? e.g. { "alt", "cmd" }
+
+---increase to move windows further when scrolling, negate to invert direction
+Config.scroll_gain = 10 ---@type number
 
 ---center mouse cursor on screen after switching spaces
 Config.center_mouse = true ---@type boolean
