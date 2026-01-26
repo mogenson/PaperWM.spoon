@@ -156,10 +156,10 @@ local function slide_windows(self, space, screen_frame)
                     self.windows.Direction.RIGHT)
             end
         end)()
-        if visible_window then
-            visible_window:focus()
+        if visible_window and visible_window ~= focused_window then
+            visible_window:focus() -- switching focus will cause space to tile
         else
-            self:tileSpace(space)
+            self:tileSpace(space)  -- retile with same focused window
         end
     else
         self.logger.e("no focused window at end of swipe")
