@@ -5,6 +5,9 @@ local LeftMouseDragged <const> = hs.eventtap.event.types.leftMouseDragged
 local LeftMouseUp <const> = hs.eventtap.event.types.leftMouseUp
 local MouseEventDeltaX <const> = hs.eventtap.event.properties.mouseEventDeltaX
 local MouseEventDeltaY <const> = hs.eventtap.event.properties.mouseEventDeltaY
+local ScrollWheel <const> = hs.eventtap.event.types.scrollWheel
+local ScrollWheelEventDelta <const> = hs.eventtap.event.properties.scrollWheelEventDeltaAxis1
+local FlagsChanged <const> = hs.eventtap.event.types.flagsChanged
 local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
 local Timer <const> = hs.timer
@@ -290,10 +293,67 @@ function Events.mouseHandler(self)
                 delete_event = true
             elseif lift_window then
                 -- set window to not floating, tile
-                self.logger.df("lift window stop")
+                self.logger.d("lift window stop")
                 self.floating.toggleFloating(lift_window)
                 lift_window = nil
                 delete_event = true
+            end
+        end
+        return delete_event
+    end
+end
+
+---generate callback for scroll wheel events
+---@param self PaperWM
+function Events.scrollHandler(self)
+    local flags_watcher, scroll_coro = nil, nil
+
+    ---callback for scroll wheel event
+    ---@param event userdata
+    ---@return boolean delete or propagate event
+    return function(event)
+        local delete_event = false
+        if self.scroll_window and event:getType() == ScrollWheel
+            and event:getFlags():containExactly(self.scroll_window or {}) then
+            delete_event = true
+            if not scroll_coro then
+                self.logger.d("scroll window start")
+
+                local focused_window = Window.focusedWindow()
+                if not focused_window then
+                    self.logger.d("focused window not found")
+                    return delete_event
+                end
+
+                local focused_index = self.state.windowIndex(focused_window)
+                if not focused_index then
+                    self.logger.e("focused index not found")
+                    return delete_event
+                end
+
+                local screen = Screen(Spaces.spaceDisplay(focused_index.space))
+                if not screen then
+                    self.logger.e("no screen for space")
+                    return delete_event
+                end
+
+                scroll_coro = coroutine.wrap(slide_windows)
+                scroll_coro(self, focused_index.space, screen:frame())
+            else
+                scroll_coro(event:getProperty(ScrollWheelEventDelta) * (self.scroll_gain or 1))
+            end
+            if not flags_watcher then
+                flags_watcher = hs.eventtap.new({ FlagsChanged },
+                    function(event) ---@diagnostic disable-line:redefined-local
+                        if not event:getFlags():contain(self.scroll_window or {}) then
+                            self.logger.d("scroll window stop")
+                            assert(scroll_coro)(nil)
+                            assert(flags_watcher):stop()
+                            scroll_coro = nil
+                            flags_watcher = nil
+                        end
+                        return false -- forward event
+                    end):start()
             end
         end
         return delete_event
@@ -322,6 +382,12 @@ function Events.start()
         Events.mouse_watcher = hs.eventtap.new({ LeftMouseDown, LeftMouseDragged, LeftMouseUp },
             Events.mouseHandler(Events.PaperWM)):start()
     end
+
+    -- register a scroll wheel watcher if the scroll_window hotkey is set
+    if Events.PaperWM.scroll_window then
+        Events.scroll_watcher = hs.eventtap.new({ ScrollWheel },
+            Events.scrollHandler(Events.PaperWM)):start()
+    end
 end
 
 ---stop monitoring for window events
@@ -336,6 +402,9 @@ function Events.stop()
 
     -- stop listening for mouse events
     if Events.mouse_watcher then Events.mouse_watcher:stop() end
+
+    -- stop listening for scroll events
+    if Events.scroll_watcher then Events.scroll_watcher:stop() end
 end
 
 return Events
