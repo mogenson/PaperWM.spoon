@@ -112,6 +112,10 @@ PaperWM:bindHotkeys({
     switch_space_9 = {{"alt", "cmd"}, "9"},
 
     -- move focused window to a new space and tile
+    move_window_l = {{ "ctrl", "alt", "cmd" }, "left"},
+    move_window_r = {{ "ctrl", "alt", "cmd" }, "right"},
+    move_window_u = {{ "ctrl", "alt", "cmd" }, "up"},
+    move_window_d = {{ "ctrl", "alt", "cmd" }, "down"},
     move_window_1 = {{"alt", "cmd", "shift"}, "1"},
     move_window_2 = {{"alt", "cmd", "shift"}, "2"},
     move_window_3 = {{"alt", "cmd", "shift"}, "3"},
