@@ -155,7 +155,11 @@ function Windows.addWindow(add_window)
     end
 
     -- check if window is already in window list
-    if Windows.PaperWM.state.windowIndex(add_window) then return end
+    local existing_window = Windows.PaperWM.state.windowIndex(add_window)
+    if existing_window then
+        Windows.PaperWM.logger.wf("removing existing window with same id: %d", add_window:id())
+        Windows.removeWindow(existing_window, true)
+    end
 
     local space = Spaces.windowSpaces(add_window)[1]
     if not space then
