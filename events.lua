@@ -133,7 +133,7 @@ local function slide_windows(self, space, screen_frame)
         if dx ~= 0 then
             for _, item in ipairs(windows) do
                 item.x = item.x + dx                               -- scroll left or right
-                item.frame.x = dx > 0 and math.min(item.x, right_margin) or math.max(item.x, left_margin - item.frame.w)
+                item.frame.x = math.max(left_margin - item.frame.w, math.min(item.x, right_margin))
                 item.window:setTopLeft(item.frame.x, item.frame.y) -- avoid the animationDuration
             end
         end
