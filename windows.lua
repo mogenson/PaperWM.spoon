@@ -175,6 +175,8 @@ function Windows.addWindow(add_window)
         (Windows.PaperWM.state.prev_focused_window:id() ~= add_window:id()) then -- insert to the right
         add_column = Windows.PaperWM.state.windowIndex(Windows.PaperWM.state.prev_focused_window).col + 1
     else
+        -- ensure window is within screen
+        add_window:setFrameInScreenBounds(add_window:frame(), 0)
         local x = add_window:frame().center.x
         for col, windows in ipairs(Windows.PaperWM.state.windowList(space)) do
             if x < windows[1]:frame().center.x then
@@ -191,6 +193,9 @@ function Windows.addWindow(add_window)
 
     -- subscribe to window moved events
     Windows.PaperWM.state.uiWatcherCreate(add_window)
+
+    -- focus new window so it's tiled on screen
+    add_window:focus()
 
     return space
 end

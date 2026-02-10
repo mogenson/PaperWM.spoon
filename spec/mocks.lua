@@ -12,24 +12,33 @@ end
 
 function M.mock_window(id, title, frame)
     frame = frame or { x = 0, y = 0, w = 100, h = 100 }
-    frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
-    frame.x2 = frame.x + frame.w
-    frame.y2 = frame.y + frame.h
+
+    function set_frame(new_frame, bounds)
+        bounds = bounds or new_frame
+        frame.x = new_frame.x > bounds.x and new_frame.x or bounds.x
+        frame.y = new_frame.y > bounds.y and new_frame.y or bounds.y
+        frame.w = frame.x + new_frame.w <= bounds.x + bounds.w and new_frame.w or
+            bounds.x + bounds.w - frame.x
+        frame.h = frame.y + new_frame.h <= bounds.y + bounds.h and new_frame.h or
+            bounds.y + bounds.h - frame.y
+        frame.x2 = frame.x + frame.w
+        frame.y2 = frame.y + frame.h
+        frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
+    end
+
+    set_frame(frame)
+
     return {
         id = function() return id end,
         title = function() return title end,
         frame = function() return frame end,
-        application = function() return { bundleID = function() return "com.apple.Terminal" end } end,
+        application = function() return { bundleID = function() return "com.apple.Finder" end } end,
         tabCount = function() return 0 end,
         isMaximizable = function() return true end,
-        newWatcher = function()
-            return {
-                start = function() end,
-                stop = function() end,
-            }
-        end,
+        newWatcher = function() return { start = function() end, stop = function() end } end,
         focus = function() end,
-        setFrame = function(new_frame) frame = new_frame end,
+        setFrame = function(self, new_frame) set_frame(new_frame) end,
+        setFrameInScreenBounds = function(self, new_frame, _) set_frame(new_frame, M.mock_screen().frame()) end,
         screen = function() return M.mock_screen() end,
     }
 end
