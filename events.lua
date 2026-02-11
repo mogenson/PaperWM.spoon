@@ -98,7 +98,20 @@ function Events.windowEventHandler(window, event, self)
     elseif event == "windowNotVisible" then
         space = self.windows.removeWindow(window)
     elseif event == "windowFullscreened" then
+        local idx = self.state.windowIndex(window)
+        if idx then
+            self.state.fullscreen_restore[window:id()] = {
+                space = idx.space,
+                col = idx.col,
+                row = idx.row,
+            }
+        end
         space = self.windows.removeWindow(window, true) -- don't focus new window if fullscreened
+    elseif event == "windowDestroyed" then
+        self.state.fullscreen_restore[window:id()] = nil
+        if self.state.windowIndex(window) then
+            space = self.windows.removeWindow(window, true)
+        end
     elseif event == "AXWindowMoved" or event == "AXWindowResized" then
         space = Spaces.windowSpaces(window)[1]
     end
