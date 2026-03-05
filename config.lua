@@ -26,6 +26,7 @@ Config.default_hotkeys = {
     reverse_cycle_height = { { "ctrl", "alt", "cmd", "shift" }, "r" },
     slurp_in             = { { "alt", "cmd" }, "i" },
     barf_out             = { { "alt", "cmd" }, "o" },
+    split_screen         = { { "alt", "cmd" }, "s" },
     switch_space_l       = { { "alt", "cmd" }, "," },
     switch_space_r       = { { "alt", "cmd" }, "." },
     switch_space_1       = { { "alt", "cmd" }, "1" },
