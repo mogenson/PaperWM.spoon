@@ -686,6 +686,55 @@ function Windows.barfWindow()
     Windows.PaperWM:tileSpace(focused_index.space)
 end
 
+---evenly split screen the current column and the left column horizontally
+function Windows.splitScreen()
+    local focused_window = hs.window.focusedWindow()
+    if not focused_window then
+        Windows.PaperWM.logger.d("focused window not found")
+        return
+    end
+
+    local focused_index = Windows.PaperWM.state.windowIndex(focused_window)
+    if not focused_index then
+        Windows.PaperWM.logger.e("focused index not found")
+        return
+    end
+
+    -- get left column
+    local left_column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col - 1)
+    if not left_column then
+        Windows.PaperWM.logger.d("left column not found")
+        return
+    end
+
+    -- get current column
+    local current_column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
+    if not current_column then
+        Windows.PaperWM.logger.ef("current column %d not found on space %d", focused_index.col, focused_index.space)
+        return
+    end
+
+    local canvas = Windows.PaperWM.windows.getCanvas(focused_window:screen())
+
+    local half_width = canvas.w // 2
+
+    local left_bounds = {
+        x = canvas.x,
+        y = canvas.y,
+        y2 = canvas.y2
+    }
+
+    local current_bounds = {
+        x = canvas.x + half_width,
+        y = canvas.y,
+        y2 = canvas.y2
+    }
+
+    Windows.PaperWM.tiling.tileColumn(left_column, left_bounds, nil, half_width - Windows.PaperWM.windows.getGap("left"))
+    Windows.PaperWM.tiling.tileColumn(current_column, current_bounds, nil, half_width)
+    Windows.PaperWM.tiling.tileSpace(focused_index.space)
+end
+
 ---move and resize a window to the coordinates specified by the frame
 ---disable watchers while window is moving and re-enable after
 ---@param window Window window to move

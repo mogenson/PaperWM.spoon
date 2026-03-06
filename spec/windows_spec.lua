@@ -205,6 +205,25 @@ describe("PaperWM.windows", function()
             assert.are.equal(win1, state.window_list[1][2][1])
         end)
     end)
+    
+    describe("splitScreen", function()
+        it("should split screen the focused window the left window", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+            focused_window = win2
+
+            Windows.splitScreen()
+            
+            local frame1 = win1:frame()
+            local frame2 = win2:frame()
+            assert.are.equal(8, frame1.x)
+            assert.are.equal(484, frame1.w)
+            assert.are.equal(500, frame2.x)
+            assert.are.equal(492, frame2.w)
+        end)
+    end)
 
     describe("focusWindowAt", function()
         it("should focus the window at the specified index", function()

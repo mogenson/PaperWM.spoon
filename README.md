@@ -81,6 +81,9 @@ PaperWM:bindHotkeys({
     -- move focused window into / out of a column
     slurp_in = {{"alt", "cmd"}, "i"},
     barf_out = {{"alt", "cmd"}, "o"},
+    
+    -- split screen focused window with left window
+    split_screen = {{ "alt", "cmd" }, "s"},
 
     -- move the focused window into / out of the tiling layer
     toggle_floating = {{"alt", "cmd", "shift"}, "escape"},
