@@ -224,6 +224,7 @@ a gain to adjust the sensitivity:
 PaperWM.swipe_fingers = 0
 
 -- increase this number to make windows move farther when swiping
+-- use a negative value to reverse swipe direction
 PaperWM.swipe_gain = 1.0
 ```
 
