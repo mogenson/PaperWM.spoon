@@ -75,8 +75,6 @@ end
 
 ---focus all floating windows that are not minimized or hidden
 function Floating.focusFloating()
-    local focused_window = Window.focusedWindow()
-
     local windows_to_focus <const> = Fnutils.ifilter(Window.visibleWindows(), function(win)
         return not Floating.PaperWM.state.isTiled(win:id())
     end)
@@ -84,9 +82,6 @@ function Floating.focusFloating()
     for _, window in ipairs(windows_to_focus) do
         window:focus()
     end
-
-    -- restore focus to original window
-    if focused_window then focused_window:focus() end
 end
 
 return Floating
