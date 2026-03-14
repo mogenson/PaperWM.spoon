@@ -89,4 +89,7 @@ Config.scroll_gain = 10 ---@type number
 ---center mouse cursor on screen after switching spaces
 Config.center_mouse = true ---@type boolean
 
+---wrap focus around when reaching the edge of the window list
+Config.infinite_loop_window = false ---@type boolean
+
 return Config
