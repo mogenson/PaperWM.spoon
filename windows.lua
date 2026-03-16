@@ -268,8 +268,13 @@ function Windows.focusWindow(direction, focused_index)
             if num_cols > 1 then
                 local wrap_col = direction == Direction.LEFT and num_cols or 1
                 for row = focused_index.row, 1, -1 do
-                    new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, wrap_col, row)
-                    if new_focused_window then break end
+                    new_focused_window = columns[wrap_col][row]
+                    if new_focused_window then
+                        local windows = table.remove(columns, wrap_col)
+                        table.insert(columns, wrap_col == 1 and num_cols or 1, windows) -- insert wrap column at beginging or end
+                        Windows.PaperWM:tileSpace(focused_index.space)                  -- tile before focusing to move wrap column
+                        break
+                    end
                 end
             end
         end
@@ -281,8 +286,7 @@ function Windows.focusWindow(direction, focused_index)
             local column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
             local num_rows = column and #column or 0
             if num_rows > 1 then
-                local wrap_row = direction == Direction.UP and num_rows or 1
-                new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col, wrap_row)
+                new_focused_window = column[direction == Direction.UP and num_rows or 1]
             end
         end
     elseif direction == Direction.NEXT or direction == Direction.PREVIOUS then
