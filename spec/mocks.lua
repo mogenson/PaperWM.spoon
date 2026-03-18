@@ -134,6 +134,7 @@ function M.init_mocks(modules)
         timer = {
             secondsSinceEpoch = function() return 0 end,
             doUntil = function(c, t, d) c() end,
+            doAfter = function(delay, fn) fn() end,
         },
         mouse = {
             absolutePosition = function(_) end,

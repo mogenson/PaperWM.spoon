@@ -235,6 +235,7 @@ end
 ---move focus to a new window next to the currently focused window
 ---@param direction Direction use either Direction UP, DOWN, LEFT, or RIGHT
 ---@param focused_index Index index of focused window within the windowList
+---@return Window?
 function Windows.focusWindow(direction, focused_index)
     if not focused_index then
         -- get current focused window
@@ -291,7 +292,6 @@ function Windows.focusWindow(direction, focused_index)
         end
     elseif direction == Direction.NEXT or direction == Direction.PREVIOUS then
         local diff = direction // Direction.NEXT -- convert to 1/-1
-        local new_row_index = focused_index.row + diff
 
         -- first try above/below in same row
         new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col,

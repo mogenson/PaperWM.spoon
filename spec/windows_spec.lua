@@ -205,7 +205,7 @@ describe("PaperWM.windows", function()
             assert.are.equal(win1, state.window_list[1][2][1])
         end)
     end)
-    
+
     describe("splitScreen", function()
         it("should split screen the focused window the left window", function()
             local win1 = mock_window(101, "Window 1")
@@ -215,13 +215,201 @@ describe("PaperWM.windows", function()
             focused_window = win2
 
             Windows.splitScreen()
-            
+
             local frame1 = win1:frame()
             local frame2 = win2:frame()
             assert.are.equal(8, frame1.x)
             assert.are.equal(484, frame1.w)
             assert.are.equal(500, frame2.x)
             assert.are.equal(492, frame2.w)
+        end)
+    end)
+
+    describe("focusWindow", function()
+        it("should focus the window to the right", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+            focused_window = win1
+
+            local s = spy.on(win2, "focus")
+            Windows.focusWindow(Windows.Direction.RIGHT)
+            assert.spy(s).was.called()
+        end)
+
+        it("should focus the window to the left", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+            focused_window = win2
+
+            local s = spy.on(win1, "focus")
+            Windows.focusWindow(Windows.Direction.LEFT)
+            assert.spy(s).was.called()
+        end)
+
+        it("should focus the window below in the same column", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            Windows.addWindow(win1)
+            table.insert(State.windowList(1, 1), win2)
+            focused_window = win1
+
+            local s = spy.on(win2, "focus")
+            Windows.focusWindow(Windows.Direction.DOWN)
+            assert.spy(s).was.called()
+        end)
+
+        it("should focus the window above in the same column", function()
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            Windows.addWindow(win1)
+            table.insert(State.windowList(1, 1), win2)
+            focused_window = win2
+
+            local s = spy.on(win1, "focus")
+            Windows.focusWindow(Windows.Direction.UP)
+            assert.spy(s).was.called()
+        end)
+
+        it("should return nil when no window is to the right (no wrap)", function()
+            mock_paperwm.infinite_loop_window = false
+            local win1 = mock_window(101, "Window 1")
+            Windows.addWindow(win1)
+            focused_window = win1
+
+            local result = Windows.focusWindow(Windows.Direction.RIGHT)
+            assert.is_nil(result)
+        end)
+
+        it("should return nil when no window is to the left (no wrap)", function()
+            mock_paperwm.infinite_loop_window = false
+            local win1 = mock_window(101, "Window 1")
+            Windows.addWindow(win1)
+            focused_window = win1
+
+            local result = Windows.focusWindow(Windows.Direction.LEFT)
+            assert.is_nil(result)
+        end)
+
+        it("should return nil when no window is below (no wrap)", function()
+            mock_paperwm.infinite_loop_window = false
+            local win1 = mock_window(101, "Window 1")
+            Windows.addWindow(win1)
+            focused_window = win1
+
+            local result = Windows.focusWindow(Windows.Direction.DOWN)
+            assert.is_nil(result)
+        end)
+
+        it("should return nil when no window is above (no wrap)", function()
+            mock_paperwm.infinite_loop_window = false
+            local win1 = mock_window(101, "Window 1")
+            Windows.addWindow(win1)
+            focused_window = win1
+
+            local result = Windows.focusWindow(Windows.Direction.UP)
+            assert.is_nil(result)
+        end)
+
+        describe("with infinite_loop_window enabled", function()
+            before_each(function()
+                mock_paperwm.infinite_loop_window = true
+            end)
+
+            after_each(function()
+                mock_paperwm.infinite_loop_window = false
+            end)
+
+            it("should wrap RIGHT from last column to first", function()
+                local win1 = mock_window(101, "Window 1")
+                local win2 = mock_window(102, "Window 2")
+                Windows.addWindow(win1)
+                Windows.addWindow(win2)
+                focused_window = win2 -- rightmost column
+
+                local s = spy.on(win1, "focus")
+                Windows.focusWindow(Windows.Direction.RIGHT)
+                assert.spy(s).was.called()
+
+                -- win2's column is moved from index 2 to index 1 (front of list)
+                local state = Windows.PaperWM.state.get()
+                assert.are.equal(2, #state.window_list[1])
+                assert.are.equal(win2, state.window_list[1][1][1])
+                assert.are.equal(win1, state.window_list[1][2][1])
+            end)
+
+            it("should wrap LEFT from first column to last", function()
+                local win1 = mock_window(101, "Window 1")
+                local win2 = mock_window(102, "Window 2")
+                Windows.addWindow(win1)
+                Windows.addWindow(win2)
+                focused_window = win1 -- leftmost column
+
+                local s = spy.on(win2, "focus")
+                Windows.focusWindow(Windows.Direction.LEFT)
+                assert.spy(s).was.called()
+
+                -- win1's column is moved from index 1 to index 2 (back of list)
+                local state = Windows.PaperWM.state.get()
+                assert.are.equal(2, #state.window_list[1])
+                assert.are.equal(win2, state.window_list[1][1][1])
+                assert.are.equal(win1, state.window_list[1][2][1])
+            end)
+
+            it("should wrap DOWN from last row to first in same column", function()
+                local win1 = mock_window(101, "Window 1")
+                local win2 = mock_window(102, "Window 2")
+                Windows.addWindow(win1)
+                table.insert(State.windowList(1, 1), win2)
+                focused_window = win2 -- bottom row
+
+                local s = spy.on(win1, "focus")
+                Windows.focusWindow(Windows.Direction.DOWN)
+                assert.spy(s).was.called()
+
+                -- vertical wrap only changes focus; row order is unchanged
+                local state = Windows.PaperWM.state.get()
+                assert.are.equal(win1, state.window_list[1][1][1])
+                assert.are.equal(win2, state.window_list[1][1][2])
+            end)
+
+            it("should wrap UP from first row to last in same column", function()
+                local win1 = mock_window(101, "Window 1")
+                local win2 = mock_window(102, "Window 2")
+                Windows.addWindow(win1)
+                table.insert(State.windowList(1, 1), win2)
+                focused_window = win1 -- top row
+
+                local s = spy.on(win2, "focus")
+                Windows.focusWindow(Windows.Direction.UP)
+                assert.spy(s).was.called()
+
+                -- vertical wrap only changes focus; row order is unchanged
+                local state = Windows.PaperWM.state.get()
+                assert.are.equal(win1, state.window_list[1][1][1])
+                assert.are.equal(win2, state.window_list[1][1][2])
+            end)
+
+            it("should not wrap horizontally when only one column", function()
+                local win1 = mock_window(101, "Window 1")
+                Windows.addWindow(win1)
+                focused_window = win1
+
+                local result = Windows.focusWindow(Windows.Direction.RIGHT)
+                assert.is_nil(result)
+            end)
+
+            it("should not wrap vertically when only one row", function()
+                local win1 = mock_window(101, "Window 1")
+                Windows.addWindow(win1)
+                focused_window = win1
+
+                local result = Windows.focusWindow(Windows.Direction.DOWN)
+                assert.is_nil(result)
+            end)
         end)
     end)
 
