@@ -39,14 +39,32 @@ function Windows.getFirstVisibleWindow(space, screen_frame, direction)
     local on_screen_closest = nil
     local off_screen_distance = -math.huge
     local off_screen_closest = nil
+    local window_list = Windows.PaperWM.state.windowList(space)
 
-    for _, windows in ipairs(Windows.PaperWM.state.windowList(space)) do
+    -- the window list implies a virtual screen size larger than the underlying
+    -- screen. find an anchor point on the virtual screen for the distance
+    -- calculations below
+    local anchor = screen_frame.x
+    for _, windows in ipairs(window_list) do
         local window = windows[1] -- take first window in column
+        local window_frame = window:frame()
+        anchor = anchor + window_frame.x2 - window_frame.x
+        if direction == Direction.LEFT and window_frame.x2 > 1 then
+            break
+        elseif direction == Direction.RIGHT and window_frame.x2 > screen_frame.x2 - 1 then
+            anchor = anchor - (screen_frame.x2 - window_frame.x + 1)
+            break
+        end
+    end
+
+    local virtual_x = screen_frame.x
+    for _, windows in ipairs(window_list) do
+        local window = windows[1] -- take first window in column
+        local window_frame = window:frame()
+        window_frame.x = window_frame.x + virtual_x -- offset frame
         local d = (function()
-            if direction == Direction.LEFT then
-                return window:frame().x - screen_frame.x
-            elseif direction == Direction.RIGHT then
-                return screen_frame.x2 - window:frame().x2
+            if direction == Direction.LEFT or direction == Direction.RIGHT then
+                return window_frame.x - anchor
             end
         end)() or math.huge
         if d >= 0 and d < on_screen_distance then
@@ -57,6 +75,7 @@ function Windows.getFirstVisibleWindow(space, screen_frame, direction)
             off_screen_distance = d
             off_screen_closest = window
         end
+        virtual_x = virtual_x + window_frame.x2 - window_frame.x
     end
 
     return on_screen_closest or off_screen_closest
