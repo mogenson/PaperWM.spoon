@@ -235,6 +235,7 @@ end
 ---move focus to a new window next to the currently focused window
 ---@param direction Direction use either Direction UP, DOWN, LEFT, or RIGHT
 ---@param focused_index Index index of focused window within the windowList
+---@return Window?
 function Windows.focusWindow(direction, focused_index)
     if not focused_index then
         -- get current focused window
@@ -261,12 +262,36 @@ function Windows.focusWindow(direction, focused_index)
             new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col + direction, row)
             if new_focused_window then break end
         end
+        -- wrap around: if no window found, go to the opposite end
+        if not new_focused_window and Windows.PaperWM.infinite_loop_window then
+            local columns = Windows.PaperWM.state.windowList(focused_index.space)
+            local num_cols = columns and #columns or 0
+            if num_cols > 1 then
+                local wrap_col = direction == Direction.LEFT and num_cols or 1
+                for row = focused_index.row, 1, -1 do
+                    new_focused_window = columns[wrap_col][row]
+                    if new_focused_window then
+                        local windows = table.remove(columns, wrap_col)
+                        table.insert(columns, wrap_col == 1 and num_cols or 1, windows) -- insert wrap column at beginging or end
+                        Windows.PaperWM:tileSpace(focused_index.space)                  -- tile before focusing to move wrap column
+                        break
+                    end
+                end
+            end
+        end
     elseif direction == Direction.UP or direction == Direction.DOWN then
-        new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col,
-            focused_index.row + (direction // 2))
+        local target_row = focused_index.row + (direction // 2)
+        new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col, target_row)
+        -- wrap around: if no window found, go to the opposite end
+        if not new_focused_window and Windows.PaperWM.infinite_loop_window then
+            local column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
+            local num_rows = column and #column or 0
+            if num_rows > 1 then
+                new_focused_window = column[direction == Direction.UP and num_rows or 1]
+            end
+        end
     elseif direction == Direction.NEXT or direction == Direction.PREVIOUS then
         local diff = direction // Direction.NEXT -- convert to 1/-1
-        local new_row_index = focused_index.row + diff
 
         -- first try above/below in same row
         new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col,

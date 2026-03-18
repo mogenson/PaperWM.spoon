@@ -204,6 +204,16 @@ the screen after switching spaces. Default is `true`. Example:
 PaperWM.center_mouse = false
 ```
 
+Set `PaperWM.infinite_loop_window` to `true` to enable wrapping focus at the
+edges of the window list. When enabled, focusing left from the leftmost window
+wraps to the rightmost, and focusing up from the topmost window wraps to the
+bottommost (and vice versa). Default is `false`. Example:
+
+```lua
+-- enable infinite loop scrolling for focus left/right/up/down
+PaperWM.infinite_loop_window = true
+```
+
 Set `PaperWM.window_ratios` to the ratios to cycle window widths and heights
 through. For example:
 
