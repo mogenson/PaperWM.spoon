@@ -782,9 +782,8 @@ function Windows.moveWindow(window, frame)
     end)
 end
 
----move focused window to an adjacent screen
+---move focused window to an adjacent screen in specified direction
 ---@param direction Direction direction of the adjacent screen
--- Function to move focused window to adjacent monitor in specified direction
 function Windows.moveWindowToScreen(direction)
     local focused_window = Window.focusedWindow()
     if not focused_window then return end
@@ -826,9 +825,9 @@ function Windows.moveWindowToScreen(direction)
         return true -- done
     end)
 
-    local start_time = hs.timer.secondsSinceEpoch()
-    hs.timer.doUntil(do_add_window, function(timer)
-        if hs.timer.secondsSinceEpoch() - start_time > 1 then
+    local start_time = Timer.secondsSinceEpoch()
+    Timer.doUntil(do_add_window, function(timer)
+        if Timer.secondsSinceEpoch() - start_time > 1 then
             if focused_window:screen() == old_screen then
                 -- move was not successful, toggle floating
                 hs.notify.show("PaperWM", "Unable to move to adjacent screen!",
@@ -837,7 +836,7 @@ function Windows.moveWindowToScreen(direction)
             end
             timer:stop()
         end
-    end, hs.window.animationDuration)
+    end, Window.animationDuration)
 end
 
 return Windows
