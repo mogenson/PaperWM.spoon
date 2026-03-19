@@ -132,4 +132,61 @@ function Space.moveWindowToSpace(index)
     end
 end
 
+---move focused window to an adjacent screen in specified direction
+---@param direction Direction direction of the adjacent screen
+function Space.moveWindowToScreen(direction)
+    local focused_window = Window.focusedWindow()
+    if not focused_window then return end
+
+    -- get list of screens allowed by the window filter as hs.screen objects
+    local allowed_screens = Space.PaperWM.window_filter:getFilters().override.allowScreens or hs.screen.allScreens()
+    allowed_screens = Fnutils.imap(allowed_screens, function(screen) return hs.screen.find(screen) end)
+
+    local old_screen = focused_window:screen()
+    if not old_screen then
+        Space.PaperWM.logger.d("no screen for window")
+        return
+    end
+
+    -- if window is on a managed screen and is not floating, then toggling it to floating
+    -- this will retile the current space before moving the window
+    if Fnutils.contains(allowed_screens, old_screen) and not Space.PaperWM.floating.isFloating(focused_window) then
+        Space.PaperWM.floating.toggleFloating(focused_window)
+    end
+
+    -- Check if screens are adjacent in the specified direction
+    if direction == Space.PaperWM.windows.Direction.LEFT then
+        focused_window:moveOneScreenWest(true)
+    elseif direction == Space.PaperWM.windows.Direction.RIGHT then
+        focused_window:moveOneScreenEast(true)
+    elseif direction == Space.PaperWM.windows.Direction.UP then
+        focused_window:moveOneScreenNorth(true)
+    elseif direction == Space.PaperWM.windows.Direction.DOWN then
+        focused_window:moveOneScreenSouth(true)
+    end
+
+    local do_add_window = coroutine.wrap(function()
+        repeat                     -- wait until window appears on new screen
+            coroutine.yield(false) -- not done
+        until focused_window:screen() ~= old_screen
+
+        -- now we can toggle it not floating, add the window, and tile new space
+        Space.PaperWM.floating.toggleFloating(focused_window)
+        return true -- done
+    end)
+
+    local start_time = Timer.secondsSinceEpoch()
+    Timer.doUntil(do_add_window, function(timer)
+        if Timer.secondsSinceEpoch() - start_time > 1 then
+            if focused_window:screen() == old_screen then
+                -- move was not successful, toggle floating
+                hs.notify.show("PaperWM", "Unable to move to adjacent screen!",
+                    "Make sure the screen exists.")
+                Space.PaperWM.floating.toggleFloating(focused_window)
+            end
+            timer:stop()
+        end
+    end, Window.animationDuration)
+end
+
 return Space
