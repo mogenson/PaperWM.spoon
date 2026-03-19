@@ -61,6 +61,8 @@ function Events.interruptActiveGestures(id)
                 Events.PaperWM.logger.wf("new gesture (%d) without an end, ending previous gesture (%d)", id, gesture.id)
                 gesture.coro()
             end
+
+            return gesture
         end
     end
 end
@@ -137,6 +139,7 @@ end
 ---@param self PaperWM
 ---@param gesture table
 local function slide_windows(self, gesture)
+    local scale = gesture.scale
     local space = gesture.space
     local screen_frame = gesture.screen_frame
     local left_margin  = screen_frame.x + self.screen_margin
@@ -144,15 +147,19 @@ local function slide_windows(self, gesture)
 
     -- cache windows, frame, and virtual x positions because window lookup is expensive
     -- stop window watchers
-    local windows      = {}
-    for id, x in pairs(self.state.xPositions(space)) do
-        local window = Window.get(id)
-        if window then
-            self.logger.df("stopping watcher for (%d)", id)
-            self.state.uiWatcherStop(id)
-            local frame = window:frame()
-            table.insert(windows, { window = window, frame = frame, x = x })
+    local windows = gesture.windows
+    if windows == nil then
+        windows = {}
+        for id, x in pairs(self.state.xPositions(space)) do
+            local window = Window.get(id)
+            if window then
+                self.logger.df("stopping watcher for (%d)", id)
+                self.state.uiWatcherStop(id)
+                local frame = window:frame()
+                table.insert(windows, { window = window, frame = frame, x = x })
+            end
         end
+        gesture.windows = windows
     end
 
     local update_window_frames = function(dx)
@@ -170,7 +177,7 @@ local function slide_windows(self, gesture)
         local dx = coroutine.yield()
         if not dx then break end
 
-        table.insert(dx_queue, { timestamp = Timer.secondsSinceEpoch(), dx = dx })
+        table.insert(dx_queue, { timestamp = Timer.secondsSinceEpoch(), dx = scale * dx })
         if #dx_queue > 5 then
             table.remove(dx_queue, 1)
         end
@@ -242,7 +249,7 @@ local function slide_windows(self, gesture)
                 -- Apply velocity with exponential decay
                 local current_time = Timer.secondsSinceEpoch()
                 velocity = velocity * self.gesture_inertia.decay
-                if gesture.interrupted or current_time > gesture_end_time or math.abs(velocity) < 0.1 then
+                if gesture.interrupted or current_time > gesture_end_time or math.abs(velocity) < 1 then
                     -- Stop:
                     --   1) if gesture is no longer valid
                     --   2) if max time elapsed
@@ -283,7 +290,7 @@ function Events.swipeHandler(id, type, dx, dy)
     local active_swipe = Events.gestures[id]
     if type == Events.Swipe.BEGIN then
         assert(active_swipe == nil)
-        Events.interruptActiveGestures(id)
+        local interrupted_gesture = Events.interruptActiveGestures(id)
         self.logger.df("new swipe: %d", id)
 
         -- use focused window for space to scroll windows
@@ -305,9 +312,16 @@ function Events.swipeHandler(id, type, dx, dy)
             return
         end
 
+        local windows = nil
+        if interrupted_gesture ~= nil and interrupted_gesture.windows ~= nil then
+            windows = interrupted_gesture.windows
+        end
+
         -- cache upvalues
         Events.gestures[id] = {
             id = id,
+            scale = 1,
+            windows = windows,
             interrupted = false,
             screen_frame = screen:frame(),
             space = focused_index.space,
@@ -370,14 +384,22 @@ function Events.mouseHandler(self)
                         return delete_event
                     end
 
+                    local windows = nil
+                    local drag_id = hs.math.randomFromRange(1, 0xFFFF)
+                    local interrupted_gesture = Events.interruptActiveGestures(drag_id)
+                    if interrupted_gesture ~= nil and interrupted_gesture.windows ~= nil then
+                        windows = interrupted_gesture.windows
+                    end
+
                     drag = {
-                        id = hs.math.randomFromRange(1, 0xFFFF),
+                        id = drag_id,
+                        scale = 0.5,
+                        windows = windows,
                         interrupted = false,
                         screen_frame = screen:frame(),
                         space = index.space,
                         coro = coroutine.wrap(slide_windows)
                     }
-                    Events.interruptActiveGestures(drag.id)
                     Events.gestures[drag.id] = drag
 
                     drag.coro(self, drag)
