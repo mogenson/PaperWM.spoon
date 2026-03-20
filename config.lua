@@ -69,6 +69,12 @@ Config.window_gap = 8 ---@type number|{ top: number, bottom: number, left: numbe
 ---ratios to use when cycling widths and heights, golden ratio by default
 Config.window_ratios = { 0.23607, 0.38195, 0.61804 } ---@type number[]
 
+---default window width ratio, applied when no app-specific width matches
+Config.default_width = nil ---@type number?
+
+---default window width by app name or bundle ID
+Config.app_widths = {} ---@type table<string, number>
+
 ---size of the on-screen margin to place off-screen windows
 Config.screen_margin = 1 ---@type number
 
