@@ -81,7 +81,7 @@ PaperWM:bindHotkeys({
     -- move focused window into / out of a column
     slurp_in = {{"alt", "cmd"}, "i"},
     barf_out = {{"alt", "cmd"}, "o"},
-    
+
     -- split screen focused window with left window
     split_screen = {{ "alt", "cmd" }, "s"},
 
@@ -172,8 +172,8 @@ PaperWM.window_gap = 10
 PaperWM.window_gap  =  { top = 10, bottom = 8, left = 12, right = 12 }
 ```
 
-Third-party tools like [Sketchybar](https://github.com/felixkratz/sketchybar) 
-can be used to create custom status bars and/or dock. Set `PaperWM.external_bar` 
+Third-party tools like [Sketchybar](https://github.com/felixkratz/sketchybar)
+can be used to create custom status bars and/or dock. Set `PaperWM.external_bar`
 to the to a table specifying `top`, `bottom` in number of pixels of your bar
 and dock to ensure consistent window placement on displays with and without a "notch".
 
@@ -223,6 +223,23 @@ through. For example:
 
 ```lua
 PaperWM.window_ratios = { 1/3, 1/2, 2/3 }
+```
+
+Set `PaperWM.default_width` to apply a default width ratio for all windows:
+
+```lua
+PaperWM.default_width = 0.5
+```
+
+Set `PaperWM.app_widths` to control default window widths per app. Keys can be
+application names or bundle IDs, and values are width ratios of the tileable
+screen area. `app_widths` overrides `default_width` for matching applications.
+
+```lua
+PaperWM.app_widths = {
+    ["Google Chrome"] = 0.5,
+    ["com.apple.Safari"] = 0.75,
+}
 ```
 
 ### Smooth Scrolling

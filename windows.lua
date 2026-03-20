@@ -101,6 +101,36 @@ function Windows.getCanvas(screen)
     )
 end
 
+---return default width in pixels for a window based on default_width/app_widths config
+---@param window Window
+---@return number|nil
+function Windows.getAppDefaultWidth(window)
+    local ratio = nil
+    local app = window:application()
+    local app_widths = Windows.PaperWM.app_widths
+
+    if app and type(app_widths) == "table" then
+        local app_name = type(app.name) == "function" and app:name() or nil
+        local bundle_id = type(app.bundleID) == "function" and app:bundleID() or nil
+
+        ratio = app_widths[app_name] or app_widths[bundle_id]
+    end
+
+    if type(ratio) ~= "number" then
+        ratio = Windows.PaperWM.default_width
+    end
+
+    if type(ratio) ~= "number" or ratio <= 0 then return end
+
+    local screen = window:screen()
+    if not screen then return end
+
+    local canvas = Windows.getCanvas(screen)
+    local width = math.floor((canvas.w * ratio) + 0.5)
+
+    return math.max(1, math.min(canvas.w, width))
+end
+
 ---get all windows across all spaces and retile them
 function Windows.refreshWindows()
     -- get all windows across spaces
@@ -188,6 +218,15 @@ function Windows.addWindow(add_window)
 
     -- add window
     table.insert(Windows.PaperWM.state.windowList(space), add_column, { add_window })
+
+    local default_width = Windows.getAppDefaultWidth(add_window)
+
+    if default_width then
+        local frame = add_window:frame()
+        frame.w = default_width
+
+        Windows.moveWindow(add_window, frame)
+    end
 
     -- subscribe to window moved events
     Windows.PaperWM.state.uiWatcherCreate(add_window)
