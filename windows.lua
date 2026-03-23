@@ -63,8 +63,10 @@ function Windows.getFirstVisibleWindow(space, screen_frame, direction)
         local window_frame = window:frame()
         window_frame.x = window_frame.x + virtual_x -- offset frame
         local d = (function()
-            if direction == Direction.LEFT or direction == Direction.RIGHT then
+            if direction == Direction.LEFT then
                 return window_frame.x - anchor
+            elseif direction == Direction.RIGHT then
+                return anchor - window_frame.x
             end
         end)() or math.huge
         if d >= 0 and d < on_screen_distance then
