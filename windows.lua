@@ -105,11 +105,16 @@ end
 ---@param window Window
 ---@return number|nil
 function Windows.getAppDefaultWidth(window)
+    local default_width = Windows.PaperWM.default_width
+    local app_widths = Windows.PaperWM.app_widths
+    local has_app_widths = type(app_widths) == "table" and next(app_widths) ~= nil
+
+    if not has_app_widths and type(default_width) ~= "number" then return end
+
     local ratio = nil
     local app = window:application()
-    local app_widths = Windows.PaperWM.app_widths
 
-    if app and type(app_widths) == "table" then
+    if app and has_app_widths then
         local app_name = type(app.name) == "function" and app:name() or nil
         local bundle_id = type(app.bundleID) == "function" and app:bundleID() or nil
 
@@ -117,7 +122,7 @@ function Windows.getAppDefaultWidth(window)
     end
 
     if type(ratio) ~= "number" then
-        ratio = Windows.PaperWM.default_width
+        ratio = default_width
     end
 
     if type(ratio) ~= "number" or ratio <= 0 then return end
