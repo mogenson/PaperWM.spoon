@@ -22,6 +22,8 @@ describe("PaperWM.windows", function()
         Windows.init(mock_paperwm)
         Floating.init(mock_paperwm)
         Tiling.init(mock_paperwm)
+        mock_paperwm.default_width = nil
+        mock_paperwm.app_widths = nil
         hs.window.focusedWindow = function() return focused_window end
     end)
 
@@ -107,8 +109,59 @@ describe("PaperWM.windows", function()
             assert.are.equal(1, state.index_table[101].row)
             assert.is_not_nil(state.ui_watchers[101])
         end)
-    end)
 
+        it("should set width from app_widths by app name", function()
+            mock_paperwm.app_widths = { ["Google Chrome"] = 0.5 }
+            local win = mock_window(101, "Test Window")
+            win.application = function()
+                return {
+                    name = function() return "Google Chrome" end,
+                }
+            end
+
+            Windows.addWindow(win)
+
+            assert.are.equal(492, win:frame().w)
+        end)
+
+        it("should set width from app_widths by bundleID", function()
+            mock_paperwm.app_widths = { ["com.google.Chrome"] = 0.6 }
+            local win = mock_window(101, "Test Window")
+            win.application = function()
+                return {
+                    bundleID = function() return "com.google.Chrome" end,
+                }
+            end
+
+            Windows.addWindow(win)
+
+            assert.are.equal(590, win:frame().w)
+        end)
+
+        it("should set width from default_width when app_widths is not configured", function()
+            mock_paperwm.default_width = 0.4
+            local win = mock_window(101, "Test Window")
+
+            Windows.addWindow(win)
+
+            assert.are.equal(394, win:frame().w)
+        end)
+
+        it("app_widths should take precedence over default_width", function()
+            mock_paperwm.default_width = 0.4
+            mock_paperwm.app_widths = { ["Google Chrome"] = 0.5 }
+            local win = mock_window(101, "Test Window")
+            win.application = function()
+                return {
+                    name = function() return "Google Chrome" end,
+                }
+            end
+
+            Windows.addWindow(win)
+
+            assert.are.equal(492, win:frame().w)
+        end)
+    end)
 
     describe("addWindowsInOrder", function()
         it("should add windows from left to right", function()
