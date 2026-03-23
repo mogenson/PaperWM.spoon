@@ -225,15 +225,16 @@ through. For example:
 PaperWM.window_ratios = { 1/3, 1/2, 2/3 }
 ```
 
-Set `PaperWM.default_width` to apply a default width ratio for all windows:
+Set `PaperWM.default_width` to set the width of newly added windows as a ratio
+of the screen's width (e.g., `0.5` means half the screen width):
 
 ```lua
 PaperWM.default_width = 0.5
 ```
 
 Set `PaperWM.app_widths` to control default window widths per app. Keys can be
-application names or bundle IDs, and values are width ratios of the tileable
-screen area. `app_widths` overrides `default_width` for matching applications.
+application names or bundle IDs, and values are width ratios (see `PaperWM.default_width`).
+`app_widths` overrides `default_width` for matching applications.
 
 ```lua
 PaperWM.app_widths = {
