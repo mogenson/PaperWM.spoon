@@ -132,7 +132,14 @@ function Events.windowEventHandler(window, event, self)
         space = Spaces.windowSpaces(window)[1]
     end
 
-    if space and not Events.hasActiveGestures() then self:tileSpace(space) end
+    if space then
+        -- Interrupt active gestures when handling a window event
+        if Events.hasActiveGestures() then
+            Events.interruptActiveGestures(-1)
+        end
+
+        self:tileSpace(space)
+    end
 end
 
 ---coroutine to slide all windows in a space by dx
