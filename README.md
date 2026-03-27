@@ -172,8 +172,8 @@ PaperWM.window_gap = 10
 PaperWM.window_gap  =  { top = 10, bottom = 8, left = 12, right = 12 }
 ```
 
-Third-party tools like [Sketchybar](https://github.com/felixkratz/sketchybar) 
-can be used to create custom status bars and/or dock. Set `PaperWM.external_bar` 
+Third-party tools like [Sketchybar](https://github.com/felixkratz/sketchybar)
+can be used to create custom status bars and/or dock. Set `PaperWM.external_bar`
 to the to a table specifying `top`, `bottom` in number of pixels of your bar
 and dock to ensure consistent window placement on displays with and without a "notch".
 
@@ -223,6 +223,24 @@ through. For example:
 
 ```lua
 PaperWM.window_ratios = { 1/3, 1/2, 2/3 }
+```
+
+Set `PaperWM.default_width` to set the width of newly added windows as a ratio
+of the screen's width (e.g., `0.5` means half the screen width):
+
+```lua
+PaperWM.default_width = 0.5
+```
+
+Set `PaperWM.app_widths` to control default window widths per app. Keys can be
+application names or bundle IDs, and values are width ratios (see `PaperWM.default_width`).
+`app_widths` overrides `default_width` for matching applications.
+
+```lua
+PaperWM.app_widths = {
+    ["Google Chrome"] = 0.5,
+    ["com.apple.Safari"] = 0.75,
+}
 ```
 
 ### Smooth Scrolling
