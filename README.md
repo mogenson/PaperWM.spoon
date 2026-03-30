@@ -103,7 +103,7 @@ PaperWM:bindHotkeys({
 
     -- focus the leftmost / rightmost window in the current space
     focus_window_first = {{"cmd", "shift"}, "home"},
-    focus_window_last = {{"cmd", "shift"}, "end"},
+    focus_window_last  = {{"cmd", "shift"}, "end"},
 
     -- switch to a new Mission Control space
     switch_space_l = {{"alt", "cmd"}, ","},
