@@ -394,14 +394,14 @@ end
 
 ---focus the first window in the current space
 function Windows.focusWindowFirst()
-    local space = Spaces.activeSpaceOnScreen()
+    local space = Spaces.focusedSpace()
     local window = Windows.PaperWM.state.windowList(space, 1, 1)
     if window then window:focus() end
 end
 
 ---focus the last window in the current space
 function Windows.focusWindowLast()
-    local space = Spaces.activeSpaceOnScreen()
+    local space = Spaces.focusedSpace()
     local columns = Windows.PaperWM.state.windowList(space)
     if #columns == 0 then return end
 
