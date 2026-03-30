@@ -85,6 +85,8 @@ function Actions.actions()
         focus_window_7 = Fnutils.partial(Actions.PaperWM.windows.focusWindowAt, 7),
         focus_window_8 = Fnutils.partial(Actions.PaperWM.windows.focusWindowAt, 8),
         focus_window_9 = Fnutils.partial(Actions.PaperWM.windows.focusWindowAt, 9),
+        focus_window_first = Actions.PaperWM.windows.focusWindowFirst,
+        focus_window_last = Actions.PaperWM.windows.focusWindowLast,
     }
 end
 

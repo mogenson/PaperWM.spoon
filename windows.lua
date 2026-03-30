@@ -392,6 +392,32 @@ function Windows.focusWindowAt(n)
     end
 end
 
+---focus the first window in the current space
+function Windows.focusWindowFirst()
+    local screen = Screen.mainScreen()
+    local space = Spaces.activeSpaces()[screen:getUUID()]
+    local columns = Windows.PaperWM.state.windowList(space)
+    if #columns == 0 then return end
+
+    local rows = columns[1]
+    if #rows == 0 then return end
+
+    rows[1]:focus()
+end
+
+---focus the last window in the current space
+function Windows.focusWindowLast()
+    local screen = Screen.mainScreen()
+    local space = Spaces.activeSpaces()[screen:getUUID()]
+    local columns = Windows.PaperWM.state.windowList(space)
+    if #columns == 0 then return end
+
+    local rows = columns[#columns]
+    if #rows == 0 then return end
+
+    rows[#rows]:focus()
+end
+
 ---swap the focused window with a window next to it
 ---if swapping horizontally and the adjacent window is in a column, swap the
 ---entire column. if swapping vertically and the focused window is in a column,
