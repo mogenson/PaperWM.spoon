@@ -6,7 +6,8 @@ local LeftMouseUp <const> = hs.eventtap.event.types.leftMouseUp
 local MouseEventDeltaX <const> = hs.eventtap.event.properties.mouseEventDeltaX
 local MouseEventDeltaY <const> = hs.eventtap.event.properties.mouseEventDeltaY
 local ScrollWheel <const> = hs.eventtap.event.types.scrollWheel
-local ScrollWheelEventDelta <const> = hs.eventtap.event.properties.scrollWheelEventDeltaAxis1
+local ScrollWheelEventDeltaAxis1 <const> = hs.eventtap.event.properties.scrollWheelEventDeltaAxis1
+local ScrollWheelEventDeltaAxis2 <const> = hs.eventtap.event.properties.scrollWheelEventDeltaAxis2
 local FlagsChanged <const> = hs.eventtap.event.types.flagsChanged
 local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
@@ -340,7 +341,10 @@ function Events.scrollHandler(self)
                 scroll_coro = coroutine.wrap(slide_windows)
                 scroll_coro(self, focused_index.space, screen:frame())
             else
-                scroll_coro(event:getProperty(ScrollWheelEventDelta) * (self.scroll_gain or 1))
+                local deltaAxis1 = event:getProperty(ScrollWheelEventDeltaAxis1)
+                local deltaAxis2 = event:getProperty(ScrollWheelEventDeltaAxis2)
+                local delta = (math.abs(deltaAxis1) > math.abs(deltaAxis2)) and deltaAxis1 or deltaAxis2
+                scroll_coro(delta * (self.scroll_gain or 1))
             end
             if not flags_watcher then
                 flags_watcher = hs.eventtap.new({ FlagsChanged },
