@@ -29,7 +29,10 @@ function M.mock_window(id, title, frame)
             }
         end,
         focus = function() end,
-        setFrame = function(new_frame) frame = new_frame end,
+		-- Support both win:setFrame(f) (passes self as first arg) and win.setFrame(f)
+		setFrame = function(self_or_frame, maybe_frame)
+			frame = maybe_frame ~= nil and maybe_frame or self_or_frame
+		end,
         screen = function() return M.mock_screen() end,
     }
 end

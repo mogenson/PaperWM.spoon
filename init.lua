@@ -73,6 +73,8 @@ PaperWM.events = dofile(hs.spoons.resourcePath("events.lua"))
 PaperWM.actions = dofile(hs.spoons.resourcePath("actions.lua"))
 PaperWM.floating = dofile(hs.spoons.resourcePath("floating.lua"))
 PaperWM.tiling = dofile(hs.spoons.resourcePath("tiling.lua"))
+-- windowRestore_afterStop
+PaperWM.window_restore = dofile(hs.spoons.resourcePath("window_restore.lua"))
 
 -- Initialize modules
 PaperWM.windows.init(PaperWM)
@@ -81,7 +83,9 @@ PaperWM.events.init(PaperWM)
 PaperWM.actions.init(PaperWM)
 PaperWM.state.init(PaperWM)
 PaperWM.floating.init(PaperWM)
-PaperWM.tiling.init(PaperWM)
+PaperWM.tiling.init(PaperWM) 
+-- windowRestore_afterStop
+PaperWM.window_restore.init(PaperWM)
 
 -- Apply config
 for k, v in pairs(PaperWM.config) do
@@ -96,6 +100,9 @@ function PaperWM:start()
         self.logger.e(
             "please check 'Displays have separate Spaces' in System Preferences -> Mission Control")
     end
+
+	-- windowRestore_afterStop: save current window frames before tiling takes effect
+	self.window_restore.saveWindowFrames()
 
     -- clear state
     self.state.clear();
@@ -118,7 +125,10 @@ function PaperWM:stop()
     -- stop events
     self.events.stop()
 
-    -- fit all windows within the bounds of the screen
+	-- windowRestore_afterStop: restore window frames to their pre-tiling positions
+	self.window_restore.restoreWindowFrames()
+
+	-- ensure any window without a saved frame stays within screen bounds
     for _, window in ipairs(self.window_filter:getWindows()) do
         window:setFrameInScreenBounds()
     end

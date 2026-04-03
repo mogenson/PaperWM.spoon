@@ -156,13 +156,17 @@ modal:bind({}, "h", nil, actions.focus_left)
 modal:bind({}, "j", nil, actions.focus_down)
 modal:bind({}, "k", nil, actions.focus_up)
 modal:bind({}, "l", nil, actions.focus_right)
-modal:bind({}, "escape", function() modal:exit() end)
+modal:bind({}, "escape", function()
+    PaperWM:stop()
+    modal:exit()
+end)
 
 PaperWM:start()
 ```
 
 `PaperWM:start()` will begin automatically tiling new and existing windows.
-`PaperWM:stop()` will release control over windows.
+`PaperWM:stop()` will release control over windows and restore the window 
+to its original position and size after PaperWM stop.
 
 Set `PaperWM.window_gap` to the number of pixels between windows and screen
 edges. This can be a single number for all sides, or a table specifying `top`,
