@@ -101,8 +101,8 @@ function PaperWM:start()
             "please check 'Displays have separate Spaces' in System Preferences -> Mission Control")
     end
 
-	-- windowRestore_afterStop: save current window frames before tiling takes effect
-	self.window_restore.saveWindowFrames()
+    -- windowRestore_afterStop: save current window frames before tiling takes effect
+    self.window_restore.saveWindowFrames()
 
     -- clear state
     self.state.clear();
@@ -125,10 +125,10 @@ function PaperWM:stop()
     -- stop events
     self.events.stop()
 
-	-- windowRestore_afterStop: restore window frames to their pre-tiling positions
-	self.window_restore.restoreWindowFrames()
+    -- windowRestore_afterStop: restore window frames to their pre-tiling positions
+    self.window_restore.restoreWindowFrames()
 
-	-- ensure any window without a saved frame stays within screen bounds
+    -- ensure any window without a saved frame stays within screen bounds
     for _, window in ipairs(self.window_filter:getWindows()) do
         window:setFrameInScreenBounds()
     end
