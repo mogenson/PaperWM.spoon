@@ -25,6 +25,7 @@ function Actions.actions()
         focus_down = Fnutils.partial(Actions.PaperWM.windows.focusWindow, Direction.DOWN),
         focus_prev = Fnutils.partial(Actions.PaperWM.windows.focusWindow, Direction.PREVIOUS),
         focus_next = Fnutils.partial(Actions.PaperWM.windows.focusWindow, Direction.NEXT),
+        focus_wrap = Actions.PaperWM.windows.focusWrap,
         swap_left = Fnutils.partial(Actions.PaperWM.windows.swapWindows, Direction.LEFT),
         swap_right = Fnutils.partial(Actions.PaperWM.windows.swapWindows, Direction.RIGHT),
         swap_up = Fnutils.partial(Actions.PaperWM.windows.swapWindows, Direction.UP),
