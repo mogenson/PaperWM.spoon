@@ -38,6 +38,8 @@ function Actions.actions()
             Actions.PaperWM.windows.swapWindows(Direction.RIGHT)
         end,
         center_window = Actions.PaperWM.windows.centerWindow,
+        anchor_window_left = Fnutils.partial(Actions.PaperWM.windows.moveToSideEdge, Direction.LEFT),
+        anchor_window_right = Fnutils.partial(Actions.PaperWM.windows.moveToSideEdge, Direction.RIGHT),
         full_width = Actions.PaperWM.windows.toggleWindowFullWidth(),
         increase_width = Fnutils.partial(Actions.PaperWM.windows.increaseWindowSize, Direction.WIDTH, 1),
         decrease_width = Fnutils.partial(Actions.PaperWM.windows.increaseWindowSize, Direction.WIDTH, -1),
