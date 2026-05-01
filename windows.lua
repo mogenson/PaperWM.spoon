@@ -236,6 +236,8 @@ function Windows.addWindow(add_window)
     -- subscribe to window moved events
     Windows.PaperWM.state.uiWatcherCreate(add_window)
 
+    Windows.PaperWM.logger.df("adding window: %s (%d)", add_window:title(), add_window:id())
+
     return space
 end
 
@@ -258,9 +260,11 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     end
 
     -- remove window
-    assert(remove_window == table.remove(
-        Windows.PaperWM.state.windowList(remove_index.space, remove_index.col), remove_index.row)
-    )
+    if remove_window ~= table.remove(
+            Windows.PaperWM.state.windowList(remove_index.space, remove_index.col), remove_index.row)
+    then
+        Windows.PaperWM.logger.ef("removed window %s (%d) doesn't match", remove_window:title(), remove_window:id())
+    end
 
     -- remove watcher
     Windows.PaperWM.state.uiWatcherDelete(remove_window:id())
@@ -272,6 +276,8 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
     if Windows.PaperWM.state.prev_focused_window == remove_window then
         Windows.PaperWM.state.prev_focused_window = nil
     end
+
+    Windows.PaperWM.logger.df("removing window: %s (%d)", remove_window:title(), remove_window:id())
 
     return remove_index.space -- return space for removed window
 end
@@ -845,13 +851,13 @@ function Windows.splitScreen()
     local left_bounds = {
         x = canvas.x,
         y = canvas.y,
-        y2 = canvas.y2
+        y2 = canvas.y2,
     }
 
     local current_bounds = {
         x = canvas.x + half_width,
         y = canvas.y,
-        y2 = canvas.y2
+        y2 = canvas.y2,
     }
 
     Windows.PaperWM.tiling.tileColumn(left_column, left_bounds, nil, half_width - Windows.PaperWM.windows.getGap("left"))
