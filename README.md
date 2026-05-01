@@ -68,6 +68,8 @@ PaperWM:bindHotkeys({
 
     -- position and resize focused window
     center_window        = {{"alt", "cmd"}, "c"},
+    anchor_window_left   = {{"ctrl", "alt", "cmd"}, ","},
+    anchor_window_right  = {{"ctrl", "alt", "cmd"}, "."},
     full_width           = {{"alt", "cmd"}, "f"},
     cycle_width          = {{"alt", "cmd"}, "r"},
     reverse_cycle_width  = {{"ctrl", "alt", "cmd"}, "r"},

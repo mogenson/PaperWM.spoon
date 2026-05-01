@@ -500,6 +500,42 @@ function Windows.centerWindow()
     Windows.PaperWM:tileSpace(space)
 end
 
+---move the focused window to the left or right edge of the canvas
+---this makes the focused window the left or right anchor of the tiled viewport
+---@param direction Direction use Direction.LEFT or Direction.RIGHT
+function Windows.moveToSideEdge(direction)
+    if direction ~= Direction.LEFT and direction ~= Direction.RIGHT then
+        Windows.PaperWM.logger.e("direction must be either Direction.LEFT or Direction.RIGHT")
+        return
+    end
+
+    -- get current focused window
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        Windows.PaperWM.logger.d("focused window not found")
+        return
+    end
+
+    local screen = focused_window:screen()
+    if not screen then
+        Windows.PaperWM.logger.d("focused window screen not found")
+        return
+    end
+
+    local focused_frame = focused_window:frame()
+    local canvas = Windows.getCanvas(screen)
+    if direction == Direction.LEFT then
+        focused_frame.x = canvas.x
+    else
+        focused_frame.x = math.max(canvas.x, (canvas.x + canvas.w) - focused_frame.w)
+    end
+    Windows.moveWindow(focused_window, focused_frame)
+
+    -- update layout
+    local space = Spaces.windowSpaces(focused_window)[1]
+    Windows.PaperWM:tileSpace(space)
+end
+
 ---set the focused window to the width of the screen and cache the original width
 ---restore the original window size if called again, don't change the height
 function Windows.toggleWindowFullWidth()

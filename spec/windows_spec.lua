@@ -278,6 +278,48 @@ describe("PaperWM.windows", function()
         end)
     end)
 
+    describe("moveToSideEdge", function()
+        it("should move the focused window to the left edge of the canvas", function()
+            local win = mock_window(101, "Window 1", { x = 450, y = 32, w = 100, h = 668 })
+            Windows.addWindow(win)
+            focused_window = win
+
+            Windows.moveToSideEdge(Windows.Direction.LEFT)
+
+            local frame = win:frame()
+            assert.are.equal(8, frame.x)
+        end)
+
+        it("should move the focused window to the right edge of the canvas", function()
+            local win = mock_window(101, "Window 1", { x = 450, y = 32, w = 100, h = 668 })
+            Windows.addWindow(win)
+            focused_window = win
+
+            Windows.moveToSideEdge(Windows.Direction.RIGHT)
+
+            local frame = win:frame()
+            assert.are.equal(892, frame.x)
+        end)
+
+        it("should not move or retile when direction is invalid", function()
+            local win = mock_window(101, "Window 1", { x = 450, y = 32, w = 100, h = 668 })
+            Windows.addWindow(win)
+            focused_window = win
+
+            local move_spy = spy.on(Windows, "moveWindow")
+            local tile_spy = spy.on(mock_paperwm, "tileSpace")
+            finally(function()
+                move_spy:revert()
+                tile_spy:revert()
+            end)
+
+            Windows.moveToSideEdge(Windows.Direction.UP)
+
+            assert.spy(move_spy).was_not.called()
+            assert.spy(tile_spy).was_not.called()
+        end)
+    end)
+
     describe("focusWindow", function()
         it("should focus the window to the right", function()
             local win1 = mock_window(101, "Window 1")
