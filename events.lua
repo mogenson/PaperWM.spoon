@@ -104,7 +104,11 @@ function Events.windowEventHandler(window, event, self)
         space = Spaces.windowSpaces(window)[1]
     end
 
-    if space then self:tileSpace(space) end
+    -- schedule tileSpace in a callback to allow global state, like
+    -- Window:focusedWindow(), to update after this event handler
+    if space then
+        Timer.doAfter(Window.animationDuration, function() self:tileSpace(space) end)
+    end
 end
 
 ---coroutine to slide all windows in a space by dx

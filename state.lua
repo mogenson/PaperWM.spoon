@@ -205,7 +205,8 @@ function State.dump()
     for space, positions in pairs(x_positions) do
         table.insert(output, string.format("  Space %s:", tostring(space)))
         for id, x in pairs(positions) do
-            table.insert(output, string.format("    Window %s (%d): x=%d", hs.window(id):title(), id, x))
+            local window = hs.window(id)
+            table.insert(output, string.format("    Window %s (%d): x=%d", window and window:title() or "nil", id, x))
         end
     end
 

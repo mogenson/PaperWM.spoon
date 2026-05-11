@@ -80,8 +80,8 @@ function Tiling.tileSpace(space)
     end
 
     -- if focused window is in space, tile from that
-    local focused_window = Window.focusedWindow()
     local anchor_window = (function()
+        local focused_window = Window.focusedWindow()
         if focused_window and not Tiling.PaperWM.floating.isFloating(focused_window) and Spaces.windowSpaces(focused_window)[1] == space then
             return focused_window
         else
@@ -93,6 +93,8 @@ function Tiling.tileSpace(space)
         Tiling.PaperWM.logger.e("no anchor window in space")
         return
     end
+
+    Tiling.PaperWM.logger.df("tiling from anchor window: %s (%d)", anchor_window:title(), anchor_window:id())
 
     local anchor_index = Tiling.PaperWM.state.windowIndex(anchor_window)
     if not anchor_index then
