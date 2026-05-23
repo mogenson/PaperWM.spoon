@@ -184,7 +184,9 @@ function Windows.addWindow(add_window)
     end
 
     -- ignore windows that have a zoom button, but are not maximizable
-    if not add_window:isMaximizable() then
+    local allow_non_maximizable = Windows.PaperWM.allow_non_maximizable_window
+        and Windows.PaperWM.allow_non_maximizable_window(add_window)
+    if not allow_non_maximizable and not add_window:isMaximizable() then
         Windows.PaperWM.logger.d("ignoring non-maximizable window")
         return
     end
