@@ -77,6 +77,9 @@ Config.default_width = nil ---@type number?
 ---default window width by app name or bundle ID
 Config.app_widths = {} ---@type table<string, number>
 
+---optional hook to allow specific non-maximizable windows to be tiled
+Config.allow_non_maximizable_window = nil ---@type fun(window: Window): boolean
+
 ---size of the on-screen margin to place off-screen windows
 Config.screen_margin = 1 ---@type number
 

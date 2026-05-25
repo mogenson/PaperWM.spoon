@@ -249,6 +249,17 @@ PaperWM.app_widths = {
 }
 ```
 
+Some applications report windows as non-maximizable even though those windows can
+still be tiled correctly. Set `PaperWM.allow_non_maximizable_window` to opt in
+specific windows:
+
+```lua
+PaperWM.allow_non_maximizable_window = function(window)
+    local app = window:application()
+    return app and app:bundleID() == "net.imput.helium"
+end
+```
+
 ### Smooth Scrolling
 
 https://github.com/user-attachments/assets/6f1c4659-0ca8-4ba1-a181-8c1c6987e8ef
