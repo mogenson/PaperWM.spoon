@@ -247,6 +247,7 @@ end
 ---@param remove_window Window window to be removed
 ---@param skip_new_window_focus boolean|nil don't focus a nearby window if true
 ---@return Space|nil space that contained removed window
+---@return Window|nil newly focused window
 function Windows.removeWindow(remove_window, skip_new_window_focus)
     -- get index of window and remove
     local remove_index = Windows.PaperWM.state.windowIndex(remove_window, true)
@@ -255,10 +256,14 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
         return
     end
 
+    local focused_window = nil
     if not skip_new_window_focus then -- find nearby window to focus
         for _, direction in ipairs({
             Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT,
-        }) do if Windows.focusWindow(direction, remove_index) then break end end
+        }) do
+            focused_window = Windows.focusWindow(direction, remove_index)
+            if focused_window then break end
+        end
     end
 
     -- remove window
@@ -281,7 +286,7 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
 
     Windows.PaperWM.logger.df("removing window: %s (%d)", remove_window:title(), remove_window:id())
 
-    return remove_index.space -- return space for removed window
+    return remove_index.space, focused_window -- return space for removed window and maybe newly focused window
 end
 
 ---move focus to a new window next to the currently focused window

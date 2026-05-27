@@ -126,8 +126,12 @@ function PaperWM:stop()
     return self
 end
 
-function PaperWM:tileSpace(space)
-    self.tiling.tileSpace(space)
+---tile windows for a space
+---optionally starting with anchor_window and moving out
+---@param space Space
+---@param anchor_window Window
+function PaperWM:tileSpace(space, anchor_window)
+    self.tiling.tileSpace(space, anchor_window)
 end
 
 function PaperWM:bindHotkeys(mapping)

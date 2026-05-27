@@ -50,7 +50,7 @@ function Events.windowEventHandler(window, event, self)
     end
 
     self.logger.df("%s for [%s]: %d", event, window:title(), window:id())
-    local space = nil
+    local space, anchor_window = nil, nil
 
     --[[ When a new window is created, We first get a windowVisible event but
     without a Space. Next we receive a windowFocused event for the window, but
@@ -83,9 +83,9 @@ function Events.windowEventHandler(window, event, self)
             return
         end
         self.state.prev_focused_window = window -- for addWindow()
-        space = Spaces.windowSpaces(window)[1]
+        space, anchor_window = Spaces.windowSpaces(window)[1], window
     elseif event == "windowVisible" or event == "windowUnfullscreened" then
-        space = self.windows.addWindow(window)
+        space, anchor_window = self.windows.addWindow(window), window
         if self.state.pending_window and window == self.state.pending_window then
             self.state.pending_window = nil -- tried to add window for the second time
         elseif not space then
@@ -97,14 +97,14 @@ function Events.windowEventHandler(window, event, self)
             return
         end
     elseif event == "windowNotVisible" then
-        space = self.windows.removeWindow(window)
+        space, anchor_window = self.windows.removeWindow(window)
     elseif event == "windowFullscreened" then
         space = self.windows.removeWindow(window, true) -- don't focus new window if fullscreened
     elseif event == "AXWindowMoved" or event == "AXWindowResized" then
         space = Spaces.windowSpaces(window)[1]
     end
 
-    if space then self:tileSpace(space) end
+    if space then self:tileSpace(space, anchor_window) end
 end
 
 ---coroutine to slide all windows in a space by dx
