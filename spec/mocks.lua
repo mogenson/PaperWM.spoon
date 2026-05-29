@@ -108,6 +108,19 @@ function M.init_mocks(modules)
                 for _, v in ipairs(t) do if fn(v) then nt[#nt + 1] = v end end
                 return nt
             end,
+            imap = function(t, fn)
+                local nt = {}
+                for i, v in ipairs(t) do nt[i] = fn(v) end
+                return nt
+            end,
+            contains = function(t, element)
+                for _, v in ipairs(t) do if v == element then return true end end
+                return false
+            end,
+            find = function(t, fn)
+                for _, v in ipairs(t) do if fn(v) then return v end end
+                return nil
+            end,
         },
         logger = {
             new = function(_)

@@ -1,6 +1,7 @@
 local Window <const> = hs.window
 local Screen <const> = hs.screen
 local Spaces <const> = hs.spaces
+local Fnutils <const> = hs.fnutils
 
 local Tiling = {}
 Tiling._index = Tiling
@@ -65,8 +66,10 @@ function Tiling.tileColumn(windows, bounds, h, w, id, h4id)
 end
 
 ---tile all column in a space by moving and resizing windows
+---optionally starting with anchor_window and moving out
 ---@param space Space
-function Tiling.tileSpace(space)
+---@param anchor_window Window
+function Tiling.tileSpace(space, anchor_window)
     if not space or Spaces.spaceType(space) ~= "user" then
         Tiling.PaperWM.logger.e("current space invalid")
         return
@@ -79,17 +82,21 @@ function Tiling.tileSpace(space)
         return
     end
 
-    -- if focused window is in space, tile from that
-    local anchor_window = (function()
+    local function windowOnSpace(window)
+        return Fnutils.contains(Spaces.windowSpaces(window), space)
+    end
+
+    -- if anchor window is in space, tile from that. otherwise use focused window
+    anchor_window = anchor_window or (function()
         local focused_window = Window.focusedWindow()
-        if focused_window and not Tiling.PaperWM.floating.isFloating(focused_window) and Spaces.windowSpaces(focused_window)[1] == space then
+        if focused_window and not Tiling.PaperWM.floating.isFloating(focused_window) and windowOnSpace(focused_window) then
             return focused_window
         else
             return Tiling.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
         end
     end)()
 
-    if not anchor_window then
+    if not anchor_window or not windowOnSpace(anchor_window) then
         Tiling.PaperWM.logger.e("no anchor window in space")
         return
     end
