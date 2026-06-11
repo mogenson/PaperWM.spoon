@@ -39,6 +39,9 @@ local screen_watcher = Screen.watcher.new((function()
     end
 end)())
 
+---track spaces on space changed
+local space_watcher = Spaces.watcher.new(function(spaceID) Events.PaperWM.space.Tracker.trackSpaces(spaceID) end)
+
 ---callback for window events
 ---@param window Window
 ---@param event string name of the event
@@ -375,6 +378,7 @@ function Events.start()
 
     -- watch for external monitor plug / unplug
     screen_watcher:start()
+    space_watcher:start()
 
     -- recognize horizontal touchpad swipe gestures
     if Events.PaperWM.swipe_fingers > 1 then
@@ -400,6 +404,7 @@ function Events.stop()
     Events.PaperWM.window_filter:unsubscribeAll()
     Events.PaperWM.state.uiWatcherStopAll()
     screen_watcher:stop()
+    space_watcher:stop()
 
     -- stop listening for touchpad swipes
     Events.Swipe:stop()

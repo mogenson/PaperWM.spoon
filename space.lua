@@ -13,6 +13,19 @@ function Space.init(paperwm)
     Space.PaperWM = paperwm
     Space.MissionControl = dofile(hs.spoons.resourcePath("mission_control.lua"))
     Space.MissionControl.PaperWM = paperwm -- Pass PaperWM reference for config access
+    Space.Tracker = dofile(hs.spoons.resourcePath("space_tracker.lua"))
+end
+
+---switch to a Mission Control space by spaceID
+---@param spaceID a space identification
+function Space.switchToSpaceID(spaceID)
+    if Space.PaperWM.preserve_app_focus then
+      Spaces.gotoSpace(spaceID)
+    else
+      local screen = Screen(Spaces.spaceDisplay(spaceID))
+      local window = Space.PaperWM.windows.getFirstVisibleWindow(spaceID, screen:frame())
+      Space.MissionControl:focusSpace(spaceID, window)
+    end
 end
 
 ---switch to a Mission Control space
@@ -23,10 +36,13 @@ function Space.switchToSpace(index)
         Space.PaperWM.logger.d("space not found")
         return
     end
+    Space.switchToSpaceID(space)
+end
 
-    local screen = Screen(Spaces.spaceDisplay(space))
-    local window = Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
-    Space.MissionControl:focusSpace(space, window)
+---switch to a recent  Mission Control space
+function Space.switchToRecentSpace()
+    local space = Space.Tracker.getRecentSpace()
+    Space.switchToSpaceID(space)
 end
 
 ---switch to a Mission Control space to the left or right of current space

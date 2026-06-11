@@ -53,6 +53,7 @@ function Actions.actions()
             Direction.DESCENDING),
         slurp_in = Actions.PaperWM.windows.slurpWindow,
         barf_out = Actions.PaperWM.windows.barfWindow,
+        switch_recent_space = Actions.PaperWM.space.switchToRecentSpace,
         split_screen = Actions.PaperWM.windows.splitScreen,
         switch_space_l = Fnutils.partial(Actions.PaperWM.space.incrementSpace, Direction.LEFT),
         switch_space_r = Fnutils.partial(Actions.PaperWM.space.incrementSpace, Direction.RIGHT),
