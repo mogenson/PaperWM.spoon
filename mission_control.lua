@@ -21,7 +21,7 @@ MissionControl.author     = "Michael Mogenson"
 MissionControl.homepage   = "https://github.com/mogenson/PaperWM.spoon"
 MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
-MissionControl.log        = hs.logger.new(MissionControl.name)
+MissionControl.log        = hs.logger.new(MissionControl.name, "verbose")
 
 ---blocking wait
 ---@param seconds number
@@ -63,8 +63,26 @@ local function mouseDrag(start_position, end_position)
     if _WarpMouseEventTap then _WarpMouseEventTap:stop() end
     mouseMove(start_position)
     mouseDown(start_position)
-    Event.newMouseEvent(EventTypes.leftMouseDragged, end_position):post()
-    mouseUp(end_position)
+
+    -- Smoothly drag from start_position to end_position
+    local do_window_drag = coroutine.wrap(function()
+        local steps = 20
+        local sx, sy = start_position.x, start_position.y
+        local ex, ey = end_position.x, end_position.y
+        for i = 1, steps do
+            local t = i / steps
+            local x = sx + (ex - sx) * t
+            local y = sy + (ey - sy) * t
+            Event.newMouseEvent(EventTypes.leftMouseDragged, { x = x, y = y }):post()
+            coroutine.yield(false) -- not done
+        end
+        mouseUp(end_position)
+
+        return true -- done
+    end)
+
+    Timer.doUntil(do_window_drag, function () end, 0.02)
+
     ---@diagnostic disable-next-line: undefined-global
     if _WarpMouseEventTap then _WarpMouseEventTap:start() end
 end
@@ -210,6 +228,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     -- open mission control and move mouse to expand spaces list
     Spaces.openMissionControl()
     mouseMove({ x = 10, y = 10 })
+    wait(Spaces.MCwaitTime)
 
     -- get all windows in mission control
     local windows, err = getMissionControlWindows()
@@ -256,10 +275,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     self.log.vf("draging window from %s to %s", start_position, end_position)
 
     -- drag window to space then click on space to switch
-    wait(hs.spaces.MCwaitTime)
     mouseDrag(start_position, end_position)
-    wait(hs.spaces.MCwaitTime)
-    mouseClick(end_position)
 
     return true
 end
