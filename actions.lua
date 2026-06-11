@@ -16,6 +16,7 @@ function Actions.actions()
         start_events = Fnutils.partial(Actions.PaperWM.start, Actions.PaperWM),
         stop_events = Fnutils.partial(Actions.PaperWM.stop, Actions.PaperWM),
         refresh_windows = Actions.PaperWM.windows.refreshWindows,
+        refresh_windows_forcedly = Fnutils.partial(Actions.PaperWM.windows.refreshWindows, true),
         dump_state = Actions.PaperWM.state.dump,
         toggle_floating = Actions.PaperWM.floating.toggleFloating,
         focus_floating = Actions.PaperWM.floating.focusFloating,

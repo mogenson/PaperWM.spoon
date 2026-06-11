@@ -137,13 +137,21 @@ function Windows.getAppDefaultWidth(window)
 end
 
 ---get all windows across all spaces and retile them
-function Windows.refreshWindows()
+---@param is_retile_floating  boolean whether to retile floating windows, default is false
+function Windows.refreshWindows(is_retile_floating)
+    is_retile_floating = is_retile_floating == true
     -- get all windows across spaces
     local all_windows = Windows.PaperWM.window_filter:getWindows()
 
     local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
         local index = Windows.PaperWM.state.windowIndex(window)
+        
+        -- remove floating flag
+        if is_retile_floating and Windows.PaperWM.floating.isFloating(window) then
+            Windows.PaperWM.floating.removeFloating(window)
+        end
+        
         if Windows.PaperWM.floating.isFloating(window) then
             -- ignore floating windows
         elseif not index then
@@ -180,6 +188,7 @@ function Windows.addWindow(add_window)
         -- use tabs that are all contained within one window and tile fine.
         hs.notify.show("PaperWM", "Windows with tabs are not supported!",
             "See https://github.com/mogenson/PaperWM.spoon/issues/39")
+        Windows.PaperWM.logger.w("Windows with tabs are not supported!")
         return
     end
 
