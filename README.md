@@ -108,6 +108,7 @@ PaperWM:bindHotkeys({
     focus_window_last  = {{"cmd", "shift"}, "end"},
 
     -- switch to a new Mission Control space
+    switch_recent_space = {{"ctrl", "alt", "cmd"}, "6"},
     switch_space_l = {{"alt", "cmd"}, ","},
     switch_space_r = {{"alt", "cmd"}, "."},
     switch_space_1 = {{"alt", "cmd"}, "1"},
@@ -134,6 +135,11 @@ PaperWM:bindHotkeys({
     move_window_7 = {{"alt", "cmd", "shift"}, "7"},
     move_window_8 = {{"alt", "cmd", "shift"}, "8"},
     move_window_9 = {{"alt", "cmd", "shift"}, "9"}
+
+    -- refresh/retile windows (forcedly)
+    refresh_windows          = { { "alt", "cmd", "shift" }, "r" },
+    refresh_windows_forcedly = { { "alt", "cmd", "shift" }, "t" },
+
 })
 PaperWM:start()
 ```
@@ -258,6 +264,13 @@ PaperWM.allow_non_maximizable_window = function(window)
     local app = window:application()
     return app and app:bundleID() == "net.imput.helium"
 end
+```
+
+Set `PaperWM.preserve_app_focus` to control whether to preserve the focused app when switching spaces. Default is `false`. For example:
+
+```lua
+-- preserve app focus when switching spaces
+PaperWM.preserve_app_focus = true
 ```
 
 ### Smooth Scrolling
