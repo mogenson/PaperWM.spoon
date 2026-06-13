@@ -74,6 +74,9 @@ Config.window_ratios = { 0.23607, 0.38195, 0.61804 } ---@type number[]
 ---default window width ratio, applied when no app-specific width matches
 Config.default_width = nil ---@type number?
 
+---default peek width
+Config.peek_width = nil ---@type number?
+
 ---default window width by app name or bundle ID
 Config.app_widths = {} ---@type table<string, number>
 

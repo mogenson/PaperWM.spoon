@@ -112,8 +112,16 @@ function Tiling.tileSpace(space, anchor_window)
 
     -- get some global coordinates
     local screen_frame <const> = screen:frame()
-    local left_margin <const> = screen_frame.x + Tiling.PaperWM.screen_margin
-    local right_margin <const> = screen_frame.x2 - Tiling.PaperWM.screen_margin
+    
+    -- PEEK WIDTH (new optional feature - backward compatible)
+    local peek = Tiling.PaperWM.peek_width
+    if peek == nil then
+        peek = Tiling.PaperWM.screen_margin or 0
+    end
+
+    local left_margin  <const> = screen_frame.x + peek
+    local right_margin <const> = screen_frame.x2 - peek
+
     local canvas <const> = Tiling.PaperWM.windows.getCanvas(screen)
 
     -- make sure anchor window is on screen
