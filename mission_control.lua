@@ -21,7 +21,7 @@ MissionControl.author     = "Michael Mogenson"
 MissionControl.homepage   = "https://github.com/mogenson/PaperWM.spoon"
 MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
-MissionControl.log        = hs.logger.new(MissionControl.name, "verbose")
+MissionControl.log        = hs.logger.new(MissionControl.name)
 
 ---blocking wait
 ---@param seconds number
@@ -81,7 +81,7 @@ local function mouseDrag(start_position, end_position)
         return true -- done
     end)
 
-    Timer.doUntil(do_window_drag, function () end, 0.02)
+    Timer.doUntil(do_window_drag, function() end, 0.02)
 
     ---@diagnostic disable-next-line: undefined-global
     if _WarpMouseEventTap then _WarpMouseEventTap:start() end

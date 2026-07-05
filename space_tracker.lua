@@ -1,13 +1,13 @@
 local HsSpaces <const> = hs.spaces
 
 local Tracker = {}
- 
+
 Tracker.__index = Tracker
 
-local recentSpaces = { nil, nil }     -- [1] = current, [2] = previous
+local recentSpaces = { nil, nil } -- [1] = current, [2] = previous
 
 ---to track space changes
----@param spaceID space id on changed
+---@param spaceID Space id on changed
 function Tracker.trackSpaces(spaceID)
     if spaceID == -1 then
         spaceID = HsSpaces.focusedSpace()
@@ -37,7 +37,7 @@ function Tracker.getRecentSpace()
     if prev and prev ~= current then
         return prev
     end
-    
+
     return nil
 end
 

@@ -137,7 +137,7 @@ function Windows.getAppDefaultWidth(window)
 end
 
 ---get all windows across all spaces and retile them
----@param is_retile_floating  boolean whether to retile floating windows, default is false
+---@param is_retile_floating boolean whether to retile floating windows, default is false
 function Windows.refreshWindows(is_retile_floating)
     is_retile_floating = is_retile_floating == true
     -- get all windows across spaces
@@ -146,12 +146,12 @@ function Windows.refreshWindows(is_retile_floating)
     local retile_spaces = {} -- spaces that need to be retiled
     for _, window in ipairs(all_windows) do
         local index = Windows.PaperWM.state.windowIndex(window)
-        
+
         -- remove floating flag
         if is_retile_floating and Windows.PaperWM.floating.isFloating(window) then
             Windows.PaperWM.floating.removeFloating(window)
         end
-        
+
         if Windows.PaperWM.floating.isFloating(window) then
             -- ignore floating windows
         elseif not index then
