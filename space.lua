@@ -131,7 +131,7 @@ function Space.moveWindowToSpace(index)
     -- stay on the current space
     local switch_to_space = not Space.PaperWM.move_window_keep_space
 
-    local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space, switch_to_space)
+    local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space)
     if not ret or err then
         Space.PaperWM.logger.e(err)
         return

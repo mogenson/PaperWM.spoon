@@ -65,23 +65,19 @@ local function mouseDrag(start_position, end_position)
     mouseDown(start_position)
 
     -- Smoothly drag from start_position to end_position
-    local do_window_drag = coroutine.wrap(function()
-        local steps = 20
-        local sx, sy = start_position.x, start_position.y
-        local ex, ey = end_position.x, end_position.y
-        for i = 1, steps do
-            local t = i / steps
-            local x = sx + (ex - sx) * t
-            local y = sy + (ey - sy) * t
-            Event.newMouseEvent(EventTypes.leftMouseDragged, { x = x, y = y }):post()
-            coroutine.yield(false) -- not done
-        end
-        mouseUp(end_position)
+    local steps = 10
+    local interval = 0.02
+    local sx, sy = start_position.x, start_position.y
+    local ex, ey = end_position.x, end_position.y
 
-        return true -- done
-    end)
-
-    Timer.doUntil(do_window_drag, function() end, 0.02)
+    for i = 1, steps do
+        local t = i / steps
+        local x = sx + (ex - sx) * t
+        local y = sy + (ey - sy) * t
+        Event.newMouseEvent(EventTypes.leftMouseDragged, { x = x, y = y }):post()
+        hs.timer.usleep(math.floor(interval * 1e6))  -- blocks ~0.02 s per step
+    end
+    mouseUp(end_position)
 
     ---@diagnostic disable-next-line: undefined-global
     if _WarpMouseEventTap then _WarpMouseEventTap:start() end
@@ -204,10 +200,9 @@ end
 
 ---move the currently focused window to a space for the space ID
 ---@param space_id number
----@param switch_to_space boolean whether to switch to the destination space after
 ---dragging the window there; if false, Mission Control is closed instead
 ---@return boolean, string|nil
-function MissionControl:moveWindowToSpace(focused_window, space_id, switch_to_space)
+function MissionControl:moveWindowToSpace(focused_window, space_id)
     if not focused_window then
         return false, "no focused window"
     end
@@ -278,15 +273,6 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, switch_to_sp
 
     -- drag window to space
     mouseDrag(start_position, end_position)
-
-    if switch_to_space then
-        -- click on space to switch to it, which also closes Mission Control
-        wait(Spaces.MCwaitTime)
-        mouseClick(end_position)
-    else
-        -- not switching to the destination space, so close Mission Control
-        Spaces.closeMissionControl()
-    end
 
     return true
 end
