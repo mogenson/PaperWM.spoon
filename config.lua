@@ -111,4 +111,7 @@ Config.infinite_loop_window = false ---@type boolean
 ---whether to preserve app focus after switching space
 Config.preserve_app_focus = false ---@type boolean
 
+---whether to stay on the current space after moving a window to another space
+Config.move_window_keep_space = false ---@type boolean
+
 return Config

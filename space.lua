@@ -127,7 +127,11 @@ function Space.moveWindowToSpace(index)
         Space.PaperWM.floating.toggleFloating(focused_window)
     end
 
-    local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space)
+    -- switch to the destination space after dragging, unless the user wants to
+    -- stay on the current space
+    local switch_to_space = not Space.PaperWM.move_window_keep_space
+
+    local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space, switch_to_space)
     if not ret or err then
         Space.PaperWM.logger.e(err)
         return
@@ -142,7 +146,9 @@ function Space.moveWindowToSpace(index)
 
             -- now we can toggle it not floating, add the window, and tile new space
             Space.PaperWM.floating.toggleFloating(focused_window)
-            Space.MissionControl:focusSpace(new_space, focused_window)
+            if switch_to_space then
+                Space.MissionControl:focusSpace(new_space, focused_window)
+            end
             return true -- done
         end)
 

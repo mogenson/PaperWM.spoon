@@ -273,6 +273,15 @@ Set `PaperWM.preserve_app_focus` to control whether to preserve the focused app 
 PaperWM.preserve_app_focus = true
 ```
 
+Set `PaperWM.move_window_keep_space` to stay on the current space after moving a
+window to another space with `move_window_1`-`move_window_9`, instead of
+switching to follow the window. Default is `false`. For example:
+
+```lua
+-- stay on the current space after moving a window to another space
+PaperWM.move_window_keep_space = true
+```
+
 ### Smooth Scrolling
 
 https://github.com/user-attachments/assets/6f1c4659-0ca8-4ba1-a181-8c1c6987e8ef

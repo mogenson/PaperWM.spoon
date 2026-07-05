@@ -204,8 +204,10 @@ end
 
 ---move the currently focused window to a space for the space ID
 ---@param space_id number
+---@param switch_to_space boolean whether to switch to the destination space after
+---dragging the window there; if false, Mission Control is closed instead
 ---@return boolean, string|nil
-function MissionControl:moveWindowToSpace(focused_window, space_id)
+function MissionControl:moveWindowToSpace(focused_window, space_id, switch_to_space)
     if not focused_window then
         return false, "no focused window"
     end
@@ -274,8 +276,17 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     local end_position = Geometry(space.AXFrame).center
     self.log.vf("draging window from %s to %s", start_position, end_position)
 
-    -- drag window to space then click on space to switch
+    -- drag window to space
     mouseDrag(start_position, end_position)
+
+    if switch_to_space then
+        -- click on space to switch to it, which also closes Mission Control
+        wait(Spaces.MCwaitTime)
+        mouseClick(end_position)
+    else
+        -- not switching to the destination space, so close Mission Control
+        Spaces.closeMissionControl()
+    end
 
     return true
 end
