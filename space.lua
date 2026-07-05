@@ -18,7 +18,7 @@ function Space.init(paperwm)
 end
 
 ---switch to a Mission Control space by spaceID
----@param spaceID number space identification
+---@param spaceID Space space identification
 function Space.switchToSpaceID(spaceID)
     if Space.PaperWM.preserve_app_focus then
         Spaces.gotoSpace(spaceID)

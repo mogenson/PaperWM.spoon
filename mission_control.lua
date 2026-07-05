@@ -63,20 +63,7 @@ local function mouseDrag(start_position, end_position)
     if _WarpMouseEventTap then _WarpMouseEventTap:stop() end
     mouseMove(start_position)
     mouseDown(start_position)
-
-    -- Smoothly drag from start_position to end_position
-    local steps = 10
-    local interval = 0.02
-    local sx, sy = start_position.x, start_position.y
-    local ex, ey = end_position.x, end_position.y
-
-    for i = 1, steps do
-        local t = i / steps
-        local x = sx + (ex - sx) * t
-        local y = sy + (ey - sy) * t
-        Event.newMouseEvent(EventTypes.leftMouseDragged, { x = x, y = y }):post()
-        hs.timer.usleep(math.floor(interval * 1e6))  -- blocks ~0.02 s per step
-    end
+    Event.newMouseEvent(EventTypes.leftMouseDragged, end_position):post()
     mouseUp(end_position)
 
     ---@diagnostic disable-next-line: undefined-global
