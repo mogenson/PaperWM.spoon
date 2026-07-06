@@ -29,6 +29,7 @@ Config.default_hotkeys = {
     slurp_in             = { { "alt", "cmd" }, "i" },
     barf_out             = { { "alt", "cmd" }, "o" },
     split_screen         = { { "alt", "cmd" }, "s" },
+    switch_recent_space  = { { "ctrl", "alt", "cmd" }, "6" },
     switch_space_l       = { { "alt", "cmd" }, "," },
     switch_space_r       = { { "alt", "cmd" }, "." },
     switch_space_1       = { { "alt", "cmd" }, "1" },
@@ -106,5 +107,11 @@ Config.center_mouse = true ---@type boolean
 
 ---wrap focus around when reaching the edge of the window list
 Config.infinite_loop_window = false ---@type boolean
+
+---whether to preserve app focus after switching space
+Config.preserve_app_focus = false ---@type boolean
+
+---whether to stay on the current space after moving a window to another space
+Config.move_window_keep_space = false ---@type boolean
 
 return Config

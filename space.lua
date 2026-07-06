@@ -13,6 +13,20 @@ function Space.init(paperwm)
     Space.PaperWM = paperwm
     Space.MissionControl = dofile(hs.spoons.resourcePath("mission_control.lua"))
     Space.MissionControl.PaperWM = paperwm -- Pass PaperWM reference for config access
+    Space.MissionControl.log.setLogLevel(paperwm.logger.getLogLevel())
+    Space.Tracker = dofile(hs.spoons.resourcePath("space_tracker.lua"))
+end
+
+---switch to a Mission Control space by spaceID
+---@param spaceID Space space identification
+function Space.switchToSpaceID(spaceID)
+    if Space.PaperWM.preserve_app_focus then
+        Spaces.gotoSpace(spaceID)
+    else
+        local screen = Screen(Spaces.spaceDisplay(spaceID))
+        local window = Space.PaperWM.windows.getFirstVisibleWindow(spaceID, screen:frame())
+        Space.MissionControl:focusSpace(spaceID, window)
+    end
 end
 
 ---switch to a Mission Control space
@@ -23,10 +37,17 @@ function Space.switchToSpace(index)
         Space.PaperWM.logger.d("space not found")
         return
     end
+    Space.switchToSpaceID(space)
+end
 
-    local screen = Screen(Spaces.spaceDisplay(space))
-    local window = Space.PaperWM.windows.getFirstVisibleWindow(space, screen:frame())
-    Space.MissionControl:focusSpace(space, window)
+---switch to a recent Mission Control space
+function Space.switchToRecentSpace()
+    local space = Space.Tracker.getRecentSpace()
+    if not space then
+        Space.PaperWM.logger.d("no recent space to switch to")
+        return
+    end
+    Space.switchToSpaceID(space)
 end
 
 ---switch to a Mission Control space to the left or right of current space
@@ -106,6 +127,10 @@ function Space.moveWindowToSpace(index)
         Space.PaperWM.floating.toggleFloating(focused_window)
     end
 
+    -- switch to the destination space after dragging, unless the user wants to
+    -- stay on the current space
+    local switch_to_space = not Space.PaperWM.move_window_keep_space
+
     local ret, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space)
     if not ret or err then
         Space.PaperWM.logger.e(err)
@@ -121,7 +146,9 @@ function Space.moveWindowToSpace(index)
 
             -- now we can toggle it not floating, add the window, and tile new space
             Space.PaperWM.floating.toggleFloating(focused_window)
-            Space.MissionControl:focusSpace(new_space, focused_window)
+            if switch_to_space then
+                Space.MissionControl:focusSpace(new_space, focused_window)
+            end
             return true -- done
         end)
 

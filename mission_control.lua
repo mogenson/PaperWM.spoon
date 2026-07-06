@@ -65,6 +65,7 @@ local function mouseDrag(start_position, end_position)
     mouseDown(start_position)
     Event.newMouseEvent(EventTypes.leftMouseDragged, end_position):post()
     mouseUp(end_position)
+
     ---@diagnostic disable-next-line: undefined-global
     if _WarpMouseEventTap then _WarpMouseEventTap:start() end
 end
@@ -186,6 +187,7 @@ end
 
 ---move the currently focused window to a space for the space ID
 ---@param space_id number
+---dragging the window there; if false, Mission Control is closed instead
 ---@return boolean, string|nil
 function MissionControl:moveWindowToSpace(focused_window, space_id)
     if not focused_window then
@@ -210,6 +212,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     -- open mission control and move mouse to expand spaces list
     Spaces.openMissionControl()
     mouseMove({ x = 10, y = 10 })
+    wait(Spaces.MCwaitTime)
 
     -- get all windows in mission control
     local windows, err = getMissionControlWindows()
@@ -255,11 +258,8 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
     local end_position = Geometry(space.AXFrame).center
     self.log.vf("draging window from %s to %s", start_position, end_position)
 
-    -- drag window to space then click on space to switch
-    wait(hs.spaces.MCwaitTime)
+    -- drag window to space
     mouseDrag(start_position, end_position)
-    wait(hs.spaces.MCwaitTime)
-    mouseClick(end_position)
 
     return true
 end
