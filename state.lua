@@ -61,7 +61,8 @@ function State.windowList(space, column, row)
                 __index = function(_, row) return rows[row] end,
                 __newindex = function(_, row, window)
                     rows[row] = window
-                    if not next(columns[column]) then table.remove(columns, column) end
+                    -- count only array entries: stacked columns carry metadata keys
+                    if #columns[column] == 0 then table.remove(columns, column) end
                     if not next(window_list[space]) then window_list[space] = nil end
                     update_index(space)
                 end,
@@ -155,6 +156,69 @@ function State.xPositions(space)
     })
 end
 
+---get the raw column table for metadata access
+---@param space Space
+---@param col number
+---@return table|nil
+local function raw_column(space, col)
+    local columns = window_list[space]
+    return columns and columns[col]
+end
+
+---set or clear the stacked flag for a column
+---the flag is stored on the column table itself so it follows the column
+---through swaps, slurps, and barfs
+---@param space Space
+---@param col number
+---@param stacked boolean
+function State.setStacked(space, col, stacked)
+    local column = raw_column(space, col)
+    if not column then return end
+    column.stacked = stacked or nil
+    if not stacked then column.stack_signature = nil end
+end
+
+---check whether a column is stacked
+---@param space Space
+---@param col number
+---@return boolean
+function State.isStacked(space, col)
+    local column = raw_column(space, col)
+    return (column and column.stacked) == true
+end
+
+---set the active (expanded) row for a stacked column
+---@param space Space
+---@param col number
+---@param row number
+function State.setActiveRow(space, col, row)
+    local column = raw_column(space, col)
+    if column then column.active_row = row end
+end
+
+---get the active (expanded) row for a stacked column, clamped to column size
+---@param space Space
+---@param col number
+---@return number
+function State.activeRow(space, col)
+    local column = raw_column(space, col)
+    if not column then return 1 end
+    return math.max(1, math.min(column.active_row or 1, #column))
+end
+
+---adjust the active row before a window leaves a stacked column, so the same
+---window stays expanded after rows shift. call from every removal path
+---(close, barf, slurp out) before mutating the column
+---@param space Space
+---@param col number
+---@param row number row about to be removed
+function State.stackRowRemoved(space, col, row)
+    local column = raw_column(space, col)
+    if not column or not column.stacked then return end
+    local active = column.active_row or 1
+    if row <= active then column.active_row = math.max(1, active - 1) end
+end
+
 ---check for the presence of a window in the tiled list
 ---@param id number Window ID
 ---@return boolean
@@ -183,7 +247,10 @@ function State.dump()
     for space, columns in pairs(window_list) do
         table.insert(output, string.format("  Space %s:", tostring(space)))
         for col_idx, column in ipairs(columns) do
-            table.insert(output, string.format("    Column %d:", col_idx))
+            local stacked = column.stacked
+                and string.format(" (stacked, active=%d)", math.min(column.active_row or 1, #column))
+                or ""
+            table.insert(output, string.format("    Column %d:%s", col_idx, stacked))
             for row_idx, window in ipairs(column) do
                 table.insert(output, string.format("      Row %d: %s (%d)", row_idx, window:title(), window:id()))
             end

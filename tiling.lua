@@ -65,6 +65,60 @@ function Tiling.tileColumn(windows, bounds, h, w, id, h4id)
     return w -- return width of column
 end
 
+---tile a stacked column as an accordion: every window shares the same width
+---and height, offset vertically by accordion_peek so each title bar stays
+---visible and clickable. windows above the active row cascade from the top of
+---the bounds, windows below start at the active window's bottom edge and
+---overflow the bottom of the bounds. windows are raised in row order with the
+---active window raised last so every peeking strip stays on top of the window
+---before it
+---@param windows Window[] column of windows
+---@param bounds Frame bounds to constrain column of tiled windows
+---@param active_row number row of the expanded window
+---@param w number|nil set windows to specified width
+---@return number width of tiled column
+function Tiling.tileStackedColumn(windows, bounds, active_row, w)
+    local peek <const> = Tiling.PaperWM.accordion_peek
+    local n = #windows
+    active_row = math.max(1, math.min(active_row, n))
+    w = w or windows[1]:frame().w
+    local x = bounds.x or (bounds.x2 - w)
+    local h = math.max(Tiling.PaperWM.stack_min_height, (bounds.y2 - bounds.y) - ((n - 1) * peek))
+
+    for row, window in ipairs(windows) do
+        local frame = window:frame()
+        frame.x = x
+        frame.w = w
+        frame.h = h
+        if row <= active_row then
+            frame.y = bounds.y + ((row - 1) * peek)
+        else
+            frame.y = bounds.y + ((active_row - 1) * peek) + h + ((row - active_row - 1) * peek)
+        end
+        frame.x2 = frame.x + frame.w
+        frame.y2 = frame.y + frame.h
+        Tiling.PaperWM.windows.moveWindow(window, frame)
+    end
+
+    -- raising the active window makes it its app's main window, which steals
+    -- focus when the app is frontmost. apps may also refuse requested frames
+    -- (minimum sizes), so achieved frames can never be trusted to settle:
+    -- restack only when the stack composition or the active row changes
+    local signature = tostring(active_row)
+    for _, window in ipairs(windows) do
+        signature = signature .. ":" .. window:id()
+    end
+    local column_meta = windows --[[@as table]]
+    if column_meta.stack_signature ~= signature then
+        for row, window in ipairs(windows) do
+            if row ~= active_row then window:raise() end
+        end
+        windows[active_row]:raise()
+        column_meta.stack_signature = signature
+    end
+    return w
+end
+
 ---tile all column in a space by moving and resizing windows
 ---optionally starting with anchor_window and moving out
 ---@param space Space
@@ -133,7 +187,22 @@ function Tiling.tileSpace(space, anchor_window)
     end
 
     -- TODO: need a minimum window height
-    if #column == 1 then
+    if Tiling.PaperWM.state.isStacked(space, anchor_index.col) then
+        -- the anchor can be a fallback pick (e.g. first visible window) during
+        -- background retiles: only the focused window may change the active row
+        local focused_window = Window.focusedWindow()
+        if focused_window and focused_window:id() == anchor_window:id() then
+            Tiling.PaperWM.state.setActiveRow(space, anchor_index.col, anchor_index.row)
+        end
+        local bounds = {
+            x = anchor_frame.x,
+            x2 = nil,
+            y = canvas.y,
+            y2 = canvas.y2,
+        }
+        local active_row = Tiling.PaperWM.state.activeRow(space, anchor_index.col)
+        Tiling.tileStackedColumn(column, bounds, active_row, anchor_frame.w)
+    elseif #column == 1 then
         anchor_frame.y, anchor_frame.h = canvas.y, canvas.h
         Tiling.PaperWM.windows.moveWindow(anchor_window, anchor_frame)
     else
@@ -164,7 +233,12 @@ function Tiling.tileSpace(space, anchor_window)
             y2 = canvas.y2,
         }
         local column = Tiling.PaperWM.state.windowList(space, col)
-        local width = Tiling.tileColumn(column, bounds)
+        local width
+        if Tiling.PaperWM.state.isStacked(space, col) then
+            width = Tiling.tileStackedColumn(column, bounds, Tiling.PaperWM.state.activeRow(space, col))
+        else
+            width = Tiling.tileColumn(column, bounds)
+        end
         update_virtual_positions(space, column, x)
         x = x + width + right_gap
     end
@@ -179,7 +253,12 @@ function Tiling.tileSpace(space, anchor_window)
             y2 = canvas.y2,
         }
         local column = Tiling.PaperWM.state.windowList(space, col)
-        local width = Tiling.tileColumn(column, bounds)
+        local width
+        if Tiling.PaperWM.state.isStacked(space, col) then
+            width = Tiling.tileStackedColumn(column, bounds, Tiling.PaperWM.state.activeRow(space, col))
+        else
+            width = Tiling.tileColumn(column, bounds)
+        end
         update_virtual_positions(space, column, x2 - width)
         x2 = x2 - width - left_gap
     end

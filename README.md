@@ -84,6 +84,9 @@ PaperWM:bindHotkeys({
     slurp_in = {{"alt", "cmd"}, "i"},
     barf_out = {{"alt", "cmd"}, "o"},
 
+    -- toggle accordion stacking for the focused column
+    toggle_stack = {{"alt", "cmd", "shift"}, "s"},
+
     -- split screen focused window with left window
     split_screen = {{ "alt", "cmd" }, "s"},
 
@@ -280,6 +283,29 @@ switching to follow the window. Default is `false`. For example:
 ```lua
 -- stay on the current space after moving a window to another space
 PaperWM.move_window_keep_space = true
+```
+
+### Stacked Columns
+
+The `toggle_stack` action turns the focused window's column into an accordion:
+every window in the column shares the full column size, offset vertically so
+each title bar stays visible. The focused window is expanded; click a peeking
+title bar (or use `focus_up` / `focus_down`) to expand another window. Windows
+below the expanded one overflow the bottom of the screen by design. `slurp_in`
+adds a window to a stacked column, `barf_out` removes one, and toggling again
+returns the column to equal-height tiling.
+
+The title bar offset is configurable:
+
+```lua
+PaperWM.accordion_peek = 36 -- pixels of each collapsed window left visible
+```
+
+Deep stacks keep windows at a usable height instead of shrinking them
+indefinitely, at the cost of the last title bars sliding off-screen:
+
+```lua
+PaperWM.stack_min_height = 150 -- floor for the shared window height
 ```
 
 ### Smooth Scrolling
