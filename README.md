@@ -134,7 +134,7 @@ PaperWM:bindHotkeys({
     move_window_6 = {{"alt", "cmd", "shift"}, "6"},
     move_window_7 = {{"alt", "cmd", "shift"}, "7"},
     move_window_8 = {{"alt", "cmd", "shift"}, "8"},
-    move_window_9 = {{"alt", "cmd", "shift"}, "9"}
+    move_window_9 = {{"alt", "cmd", "shift"}, "9"},
 
     -- refresh/retile windows (forcedly)
     refresh_windows          = { { "alt", "cmd", "shift" }, "r" },
