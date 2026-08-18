@@ -183,7 +183,7 @@ function Events.swipeHandler(self)
     ---callback for touchpad swipe gesture event
     ---@param id number unique id across callbacks for the same swipe
     ---@param type number one of Swipe.BEGIN, Swipe.MOVED, Swipe.END
-    ---@param dx number change in horizonal position since last callback: between 0 and 1
+    ---@param dx number change in horizontal position since last callback: between 0 and 1
     ---@param dy number change in vertical position since last callback: between 0 and 1
     return function(id, type, dx, dy)
         if type == Events.Swipe.BEGIN then

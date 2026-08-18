@@ -379,7 +379,7 @@ function Windows.focusWindow(direction, focused_index)
         return
     end
 
-    -- focus new window, windowFocused event will be emited immediately
+    -- focus new window, windowFocused event will be emitted immediately
     new_focused_window:focus()
 
     -- try to prevent MacOS from stealing focus away to another window
@@ -739,7 +739,7 @@ end
 function Windows.slurpWindow()
     -- TODO paperwm behavior:
     -- add top window from column to the right to bottom of current column
-    -- if no colum to the right and current window is only window in current column,
+    -- if no column to the right and current window is only window in current column,
     -- add current window to bottom of column to the left
 
     -- get current focused window
