@@ -256,7 +256,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id)
 
     -- get position of space
     local end_position = Geometry(space.AXFrame).center
-    self.log.vf("draging window from %s to %s", start_position, end_position)
+    self.log.vf("dragging window from %s to %s", start_position, end_position)
 
     -- drag window to space
     mouseDrag(start_position, end_position)
