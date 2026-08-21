@@ -29,7 +29,7 @@ function Floating.removeFloating(window)
     Floating.persistFloatingList()
 end
 
----restore floating windows from persistant settings, filtering for valid windows
+---restore floating windows from persistent settings, filtering for valid windows
 function Floating.restoreFloating()
     local persisted = hs.settings.get(IsFloatingKey) or {}
     for _, id in ipairs(persisted) do

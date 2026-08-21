@@ -137,7 +137,7 @@ PaperWM:bindHotkeys({
     move_window_6 = {{"alt", "cmd", "shift"}, "6"},
     move_window_7 = {{"alt", "cmd", "shift"}, "7"},
     move_window_8 = {{"alt", "cmd", "shift"}, "8"},
-    move_window_9 = {{"alt", "cmd", "shift"}, "9"}
+    move_window_9 = {{"alt", "cmd", "shift"}, "9"},
 
     -- refresh/retile windows (forcedly)
     refresh_windows          = { { "alt", "cmd", "shift" }, "r" },
@@ -354,7 +354,7 @@ slide all windows on a space left or right. Release the hotkey to stop. Change
 and sensitivity.
 
 ```lua
--- set to a table of modifier keys to enable window scroling, default is nil
+-- set to a table of modifier keys to enable window scrolling, default is nil
 PaperWM.scroll_window = { "alt", "cmd" }`
 
 -- increase move windows further when scrolling, invert to change direction
@@ -430,7 +430,7 @@ Watcher <const> = hs.uielement.watcher`)
 
 Code format checking and linting is provided by
 [lua-language-server](https://github.com/LuaLS/lua-language-server) for commits
-and pull requests. Run `lua-language-server --check .` locally before commiting.
+and pull requests. Run `lua-language-server --check .` locally before committing.
 
 [Busted](https://lunarmodules.github.io/busted/) is used for unit testing. Run
 `busted` from the repo root to run tests locally.

@@ -88,7 +88,7 @@ Config.screen_margin = 1 ---@type number
 ---number of fingers to detect a horizontal swipe, set to 0 to disable
 Config.swipe_fingers = 0 ---@type number
 
----increase this number to make windows move futher when swiping
+---increase this number to make windows move further when swiping
 Config.swipe_gain = 1 ---@type number
 
 ---set to a table of modifier keys to enable window dragging
