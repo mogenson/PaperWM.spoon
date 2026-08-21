@@ -59,6 +59,21 @@ describe("PaperWM stacking", function()
             assert.is_nil(State.windowList(1, 1).active_row)
         end)
 
+        it("should respect column_layout config setting", function()
+            make_column(1, { 101, 102 })
+            mock_paperwm.column_layout = "tiled"
+            assert.is_false(State.isStacked(1, 1))
+
+            mock_paperwm.column_layout = "stacked"
+            assert.is_true(State.isStacked(1, 1))
+
+            -- explicit setStacked overrides column_layout
+            State.setStacked(1, 1, false)
+            assert.is_true(State.isStacked(1, 1))
+
+            mock_paperwm.column_layout = "tiled"
+        end)
+
         it("should clamp the active row to the column size", function()
             make_column(1, { 101, 102 })
             State.setStacked(1, 1, true)

@@ -123,4 +123,7 @@ Config.accordion_peek = 36 ---@type number
 ---usable windows at the cost of the last title bars sliding off-screen
 Config.stack_min_height = 150 ---@type number
 
+---default column layout mode: "tiled" or "stacked"
+Config.column_layout = "tiled" ---@type "tiled"|"stacked"
+
 return Config

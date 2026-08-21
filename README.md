@@ -295,6 +295,13 @@ below the expanded one overflow the bottom of the screen by design. `slurp_in`
 adds a window to a stacked column, `barf_out` removes one, and toggling again
 returns the column to equal-height tiling.
 
+The default column layout mode can be set to `"tiled"` (equal-height split) or
+`"stacked"` (expanding accordion stack):
+
+```lua
+PaperWM.column_layout = "tiled" -- "tiled" or "stacked"
+```
+
 The title bar offset is configurable:
 
 ```lua

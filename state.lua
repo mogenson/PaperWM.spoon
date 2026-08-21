@@ -174,8 +174,8 @@ end
 function State.setStacked(space, col, stacked)
     local column = raw_column(space, col)
     if not column then return end
-    column.stacked = stacked or nil
-    if not stacked then
+    column.stacked = stacked and true or false
+    if not column.stacked then
         column.stack_signature = nil
         column.active_row = nil
     end
@@ -187,7 +187,7 @@ end
 ---@return boolean
 function State.isStacked(space, col)
     local column = raw_column(space, col)
-    return (column and column.stacked) == true
+    return (column and column.stacked or State.PaperWM.column_layout == "stacked") == true
 end
 
 ---set the active (expanded) row for a stacked column

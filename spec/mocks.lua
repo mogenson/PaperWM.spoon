@@ -77,6 +77,7 @@ function M.get_mock_paperwm(modules)
         window_gap = 8,
         accordion_peek = 36,
         stack_min_height = 150,
+        column_layout = "tiled",
         tileSpace = function(_, space, anchor) modules.Tiling.tileSpace(space, anchor) end,
     }
 end
