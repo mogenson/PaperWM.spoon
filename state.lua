@@ -175,7 +175,10 @@ function State.setStacked(space, col, stacked)
     local column = raw_column(space, col)
     if not column then return end
     column.stacked = stacked or nil
-    if not stacked then column.stack_signature = nil end
+    if not stacked then
+        column.stack_signature = nil
+        column.active_row = nil
+    end
 end
 
 ---check whether a column is stacked

@@ -52,9 +52,11 @@ describe("PaperWM stacking", function()
             make_column(1, { 101, 102 })
             assert.is_false(State.isStacked(1, 1))
             State.setStacked(1, 1, true)
+            State.setActiveRow(1, 1, 2)
             assert.is_true(State.isStacked(1, 1))
             State.setStacked(1, 1, false)
             assert.is_false(State.isStacked(1, 1))
+            assert.is_nil(State.windowList(1, 1).active_row)
         end)
 
         it("should clamp the active row to the column size", function()
@@ -302,6 +304,20 @@ describe("PaperWM stacking", function()
             local landed = Windows.focusWindow(Windows.Direction.LEFT)
 
             assert.are.equal(stack[2]:id(), landed:id())
+        end)
+
+        it("should land on the active window when wrapping left to a stacked column with infinite_loop_window", function()
+            local stack = make_column(2, { 101, 102, 103 })
+            local left = make_column(1, { 104 })
+            State.setStacked(1, 2, true)
+            State.setActiveRow(1, 2, 3)
+            focused_window = left[1]
+            mock_paperwm.infinite_loop_window = true
+
+            local landed = Windows.focusWindow(Windows.Direction.LEFT)
+
+            assert.are.equal(stack[3]:id(), landed:id())
+            mock_paperwm.infinite_loop_window = false
         end)
     end)
 end)

@@ -343,14 +343,19 @@ function Windows.focusWindow(direction, focused_index)
             local num_cols = columns and #columns or 0
             if num_cols > 1 then
                 local wrap_col = direction == Direction.LEFT and num_cols or 1
-                for row = focused_index.row, 1, -1 do
-                    new_focused_window = columns[wrap_col][row]
-                    if new_focused_window then
-                        local windows = table.remove(columns, wrap_col)
-                        table.insert(columns, wrap_col == 1 and num_cols or 1, windows) -- insert wrap column at beginging or end
-                        Windows.PaperWM:tileSpace(focused_index.space)                  -- tile before focusing to move wrap column
-                        break
+                if Windows.PaperWM.state.isStacked(focused_index.space, wrap_col) then
+                    local active_row = Windows.PaperWM.state.activeRow(focused_index.space, wrap_col)
+                    new_focused_window = columns[wrap_col][active_row]
+                else
+                    for row = focused_index.row, 1, -1 do
+                        new_focused_window = columns[wrap_col][row]
+                        if new_focused_window then break end
                     end
+                end
+                if new_focused_window then
+                    local windows = table.remove(columns, wrap_col)
+                    table.insert(columns, wrap_col == 1 and num_cols or 1, windows) -- insert wrap column at beginging or end
+                    Windows.PaperWM:tileSpace(focused_index.space)                  -- tile before focusing to move wrap column
                 end
             end
         end
