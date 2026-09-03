@@ -287,6 +287,8 @@ PaperWM.move_window_keep_space = true
 
 ### Stacked Columns
 
+https://github.com/user-attachments/assets/cb6f81ba-57f2-4f3b-9d7b-bd08c1ad0a91
+
 The `toggle_stack` action turns the focused window's column into an accordion:
 every window in the column shares the full column size, offset vertically so
 each title bar stays visible. The focused window is expanded; click a peeking
