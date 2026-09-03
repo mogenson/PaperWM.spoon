@@ -2,6 +2,8 @@
 
 local M = {}
 
+M.raise_log = {} -- window ids in raise order, reset from specs as needed
+
 function M.mock_screen()
     return {
         frame = function() return { x = 0, y = 32, w = 1000, h = 668, x2 = 1000, y2 = 700, center = { x = 500, y = 366 } } end,
@@ -10,7 +12,7 @@ function M.mock_screen()
     }
 end
 
-function M.mock_window(id, title, frame)
+function M.mock_window(id, title, frame, opts)
     frame = frame or { x = 0, y = 0, w = 100, h = 100 }
     frame.center = { x = frame.x + frame.w / 2, y = frame.y + frame.h / 2 }
     frame.x2 = frame.x + frame.w
@@ -18,7 +20,14 @@ function M.mock_window(id, title, frame)
     return {
         id = function() return id end,
         title = function() return title end,
-        frame = function() return frame end,
+        -- windows with opts return frame copies so setFrame constraints apply,
+        -- mimicking apps that clamp requested frames (e.g. minimum sizes)
+        frame = function()
+            if not opts then return frame end
+            local copy = {}
+            for k, v in pairs(frame) do copy[k] = v end
+            return copy
+        end,
         application = function() return { bundleID = function() return "com.apple.Terminal" end } end,
         tabCount = function() return 0 end,
         isMaximizable = function() return true end,
@@ -29,7 +38,14 @@ function M.mock_window(id, title, frame)
             }
         end,
         focus = function() end,
-        setFrame = function(new_frame) frame = new_frame end,
+        raise = function() table.insert(M.raise_log, id) end,
+        setFrame = function(_, new_frame) -- invoked window:setFrame(frame)
+            if opts and opts.min_height and new_frame.h < opts.min_height then
+                new_frame.h = opts.min_height
+                new_frame.y2 = new_frame.y + new_frame.h
+            end
+            frame = new_frame
+        end,
         screen = function() return M.mock_screen() end,
     }
 end
@@ -59,7 +75,10 @@ function M.get_mock_paperwm(modules)
         },
         screen_margin = 8,
         window_gap = 8,
-        tileSpace = function(space) modules.Tiling.tileSpace(space) end,
+        accordion_peek = 36,
+        stack_min_height = 150,
+        column_layout = "tiled",
+        tileSpace = function(_, space, anchor) modules.Tiling.tileSpace(space, anchor) end,
     }
 end
 

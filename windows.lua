@@ -275,6 +275,9 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
         end
     end
 
+    -- keep the same window expanded when removing from a stacked column
+    Windows.PaperWM.state.stackRowRemoved(remove_index.space, remove_index.col, remove_index.row)
+
     -- remove window
     if remove_window ~= table.remove(
             Windows.PaperWM.state.windowList(remove_index.space, remove_index.col), remove_index.row)
@@ -323,10 +326,16 @@ function Windows.focusWindow(direction, focused_index)
     -- get new focused window
     local new_focused_window = nil
     if direction == Direction.LEFT or direction == Direction.RIGHT then
+        -- land on the expanded window when moving into a stacked column
+        local target_col = focused_index.col + direction
+        if Windows.PaperWM.state.isStacked(focused_index.space, target_col) then
+            local active_row = Windows.PaperWM.state.activeRow(focused_index.space, target_col)
+            new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, target_col, active_row)
+        end
         -- walk down column, looking for match in neighbor column
         for row = focused_index.row, 1, -1 do
-            new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col + direction, row)
             if new_focused_window then break end
+            new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col + direction, row)
         end
         -- wrap around: if no window found, go to the opposite end
         if not new_focused_window and Windows.PaperWM.infinite_loop_window then
@@ -334,14 +343,19 @@ function Windows.focusWindow(direction, focused_index)
             local num_cols = columns and #columns or 0
             if num_cols > 1 then
                 local wrap_col = direction == Direction.LEFT and num_cols or 1
-                for row = focused_index.row, 1, -1 do
-                    new_focused_window = columns[wrap_col][row]
-                    if new_focused_window then
-                        local windows = table.remove(columns, wrap_col)
-                        table.insert(columns, wrap_col == 1 and num_cols or 1, windows) -- insert wrap column at beginging or end
-                        Windows.PaperWM:tileSpace(focused_index.space)                  -- tile before focusing to move wrap column
-                        break
+                if Windows.PaperWM.state.isStacked(focused_index.space, wrap_col) then
+                    local active_row = Windows.PaperWM.state.activeRow(focused_index.space, wrap_col)
+                    new_focused_window = columns[wrap_col][active_row]
+                else
+                    for row = focused_index.row, 1, -1 do
+                        new_focused_window = columns[wrap_col][row]
+                        if new_focused_window then break end
                     end
+                end
+                if new_focused_window then
+                    local windows = table.remove(columns, wrap_col)
+                    table.insert(columns, wrap_col == 1 and num_cols or 1, windows) -- insert wrap column at beginging or end
+                    Windows.PaperWM:tileSpace(focused_index.space)                  -- tile before focusing to move wrap column
                 end
             end
         end
@@ -772,12 +786,18 @@ function Windows.slurpWindow()
     end
 
     -- remove window and append to end of target column
+    Windows.PaperWM.state.stackRowRemoved(focused_index.space, focused_index.col, focused_index.row)
     assert(focused_window == table.remove(current_column, focused_index.row))
     table.insert(target_column, focused_window)
 
-    -- final column frames should be equal in height
     local final_column = Windows.PaperWM.state.windowList(focused_index.space, target_index)
-    tile_column_equaly(final_column)
+    if Windows.PaperWM.state.isStacked(focused_index.space, target_index) then
+        -- slurped window keeps focus, so it becomes the expanded window
+        Windows.PaperWM.state.setActiveRow(focused_index.space, target_index, #final_column)
+    else
+        -- final column frames should be equal in height
+        tile_column_equaly(final_column)
+    end
 
     -- update layout
     Windows.PaperWM:tileSpace(focused_index.space)
@@ -816,6 +836,7 @@ function Windows.barfWindow()
 
     -- remove window and insert in new column
     local target_column = focused_index.col + 1
+    Windows.PaperWM.state.stackRowRemoved(focused_index.space, focused_index.col, focused_index.row)
     assert(focused_window == table.remove(current_column, focused_index.row))
     table.insert(Windows.PaperWM.state.windowList(focused_index.space), target_column, { focused_window })
 
@@ -824,12 +845,46 @@ function Windows.barfWindow()
     focused_frame.x = focused_frame.x2 + Windows.getGap("right")
     Windows.moveWindow(focused_window, focused_frame)
 
-    -- remaining column frames should be equal in height
-    local final_column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
-    tile_column_equaly(final_column)
+    -- remaining column frames should be equal in height, unless stacked
+    if not Windows.PaperWM.state.isStacked(focused_index.space, focused_index.col) then
+        local final_column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
+        tile_column_equaly(final_column)
+    end
 
     -- update layout
     Windows.PaperWM:tileSpace(focused_index.space)
+end
+
+---toggle accordion stacking for the focused window's column
+function Windows.toggleStack()
+    local focused_window = Window.focusedWindow()
+    if not focused_window then
+        Windows.PaperWM.logger.d("focused window not found")
+        return
+    end
+
+    local focused_index = Windows.PaperWM.state.windowIndex(focused_window)
+    if not focused_index then
+        Windows.PaperWM.logger.e("focused index not found")
+        return
+    end
+
+    local column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
+    if not column then
+        Windows.PaperWM.logger.ef("focused column %d not found on space %d", focused_index.col, focused_index.space)
+        return
+    end
+
+    local stacked = Windows.PaperWM.state.isStacked(focused_index.space, focused_index.col)
+    Windows.PaperWM.state.setStacked(focused_index.space, focused_index.col, not stacked)
+    if stacked then
+        -- unstack in a single geometry pass: the column keeps its width and x,
+        -- so no space-wide retile is needed and none can race the animation
+        if #column > 1 then tile_column_equaly(column) end
+    else
+        Windows.PaperWM.state.setActiveRow(focused_index.space, focused_index.col, focused_index.row)
+        Windows.PaperWM:tileSpace(focused_index.space, focused_window)
+    end
 end
 
 ---evenly split screen the current column and the left column horizontally

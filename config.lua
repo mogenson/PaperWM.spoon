@@ -28,6 +28,7 @@ Config.default_hotkeys = {
     reverse_cycle_height = { { "ctrl", "alt", "cmd", "shift" }, "r" },
     slurp_in             = { { "alt", "cmd" }, "i" },
     barf_out             = { { "alt", "cmd" }, "o" },
+    toggle_stack         = { { "alt", "cmd", "shift" }, "s" },
     split_screen         = { { "alt", "cmd" }, "s" },
     switch_recent_space  = { { "ctrl", "alt", "cmd" }, "6" },
     switch_space_l       = { { "alt", "cmd" }, "," },
@@ -113,5 +114,16 @@ Config.preserve_app_focus = false ---@type boolean
 
 ---whether to stay on the current space after moving a window to another space
 Config.move_window_keep_space = false ---@type boolean
+
+---vertical offset in pixels for each collapsed window in a stacked column,
+---enough to keep every title bar visible and clickable
+Config.accordion_peek = 36 ---@type number
+
+---floor for the shared window height in a stacked column: deep stacks keep
+---usable windows at the cost of the last title bars sliding off-screen
+Config.stack_min_height = 150 ---@type number
+
+---default column layout mode: "tiled" or "stacked"
+Config.column_layout = "tiled" ---@type "tiled"|"stacked"
 
 return Config
