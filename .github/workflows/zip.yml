@@ -17,6 +17,11 @@ jobs:
           mkdir PaperWM.spoon
           cp *.lua PaperWM.spoon
 
+      - name: Set version
+        run: |
+          VERSION="$(date -u +%Y.%m.%d)"
+          sed -i "s/^PaperWM.version = .*/PaperWM.version = \"$VERSION\"/" PaperWM.spoon/init.lua
+
       - name: Create zip
         run: zip -r -q Spoons/PaperWM.spoon.zip PaperWM.spoon
 
