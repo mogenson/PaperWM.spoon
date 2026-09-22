@@ -308,6 +308,19 @@ local function getSpaceDropPoint(space, window_manager)
     return { x = point.x, y = point.y }
 end
 
+---match a Mission Control thumbnail title against a window title
+---Mission Control shortens long titles in the middle with an ellipsis, e.g.
+---"a very long window...title" for "a very long window title"
+---@param candidate string|nil thumbnail AXTitle
+---@param title string window title
+---@return boolean
+local function titleMatches(candidate, title)
+    if candidate == title then return true end
+    local prefix, suffix = (candidate or ""):match("^(.-)…(.*)$")
+    if not prefix or #prefix < 8 then return false end
+    return title:sub(1, #prefix) == prefix and (suffix == "" or title:sub(-#suffix) == suffix)
+end
+
 ---move the currently focused window to a space for the space ID
 ---the gesture runs in a coroutine so the steps can be timed without blocking
 ---Hammerspoon, and the result is reported once the window really moved
@@ -383,7 +396,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
             local modern = candidate_space ~= nil
             local same_app = not modern or (bundle_id and identifier:sub(1, #bundle_id + 7) == bundle_id .. ".space.")
             -- another space can hold a window with the same title
-            if candidate.AXTitle == title and same_app and (not modern or candidate_space == active_space) then
+            if titleMatches(candidate.AXTitle, title) and same_app and (not modern or candidate_space == active_space) then
                 if thumbnail then return false, "multiple windows have the same title" end
                 thumbnail, window_manager = candidate, modern
             end
