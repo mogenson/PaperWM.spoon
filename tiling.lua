@@ -129,6 +129,9 @@ function Tiling.tileSpace(space, anchor_window)
         return
     end
 
+    -- floating the last tiled window leaves nothing to arrange
+    if #Tiling.PaperWM.state.windowList(space) == 0 then return end
+
     -- find screen for space
     local screen = Screen(Spaces.spaceDisplay(space))
     if not screen then

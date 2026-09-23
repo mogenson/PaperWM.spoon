@@ -23,56 +23,126 @@ MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
 MissionControl.log        = hs.logger.new(MissionControl.name)
 
----blocking wait
+---yield while moving a window; every other caller keeps blocking
 ---@param seconds number
 local function wait(seconds)
-    local start = Timer.secondsSinceEpoch()
-    while Timer.secondsSinceEpoch() - start < seconds do end
+    local moving = MissionControl.moving
+    if moving and coroutine.running() == moving.coroutine then
+        coroutine.yield(seconds)
+    else
+        Timer.usleep(math.floor(seconds * 1000000))
+    end
 end
 
----move mouse to position
+-- macOS 27 correlates a mouse-down, drag and up into a single gesture using
+-- kCGMouseEventNumber, and ignores a gesture whose events do not share it.
+-- Lua cannot read the HID event counters, so start above them like other
+-- remote input tools do (OpenJDK's Robot starts at 32000).
+local robot_event_number_start = 32000
+local mouse_event_number
+---@return number|nil, string|nil error
+local function nextMouseEventNumber()
+    if not mouse_event_number then mouse_event_number = robot_event_number_start end
+    if mouse_event_number >= 0x7fffffff then
+        return nil, "mouse event number exhausted; reload Hammerspoon"
+    end
+    mouse_event_number = mouse_event_number + 1
+    return mouse_event_number
+end
+
+---move mouse to position, without modifiers from the hotkey that started us
 ---@param position table
 local function mouseMove(position)
-    Event.newMouseEvent(EventTypes.mouseMoved, position):post()
+    Event.newMouseEvent(EventTypes.mouseMoved, position):rawFlags(0):post()
 end
 
----left mouse button down
+---post one part of a left button gesture
+---@param event_type string
 ---@param position table
-local function mouseDown(position)
-    Event.newMouseEvent(EventTypes.leftMouseDown, position):post()
+---@param number number event number shared by the whole gesture
+---@param dx number|nil horizontal movement for this event
+---@param dy number|nil vertical movement for this event
+local function mouseButtonEvent(event_type, position, number, dx, dy)
+    Event.newMouseEvent(event_type, position)
+        :rawFlags(0)
+        :setProperty(Event.properties.mouseEventNumber, number)
+        :setProperty(Event.properties.mouseEventClickState, 1)
+        :setProperty(Event.properties.mouseEventDeltaX, dx or 0)
+        :setProperty(Event.properties.mouseEventDeltaY, dy or 0)
+        :post()
 end
 
----left mouse button up
----@param position table
-local function mouseUp(position)
-    Event.newMouseEvent(EventTypes.leftMouseUp, position):post()
+---abort a drag in flight without dropping on an unknown target
+---@param moving table
+local function cancelMouseDrag(moving)
+    if moving.active_drag then
+        hs.eventtap.keyStroke({}, "escape", 0)
+        mouseButtonEvent(EventTypes.leftMouseUp, moving.active_drag.start, moving.active_drag.number)
+        moving.active_drag = nil
+    end
 end
 
----click left mouse button
----@param position table
-local function mouseClick(position)
-    mouseDown(position)
-    mouseUp(position)
-end
-
----drag mouse while left button is down
+---drag the mouse from one position to another
+---Mission Control only follows a gesture that begins with a small movement and
+---continues in steps; a single jump between the two positions is ignored
+---@param moving table
 ---@param start_position table
 ---@param end_position table
-local function mouseDrag(start_position, end_position)
-    ---@diagnostic disable-next-line: undefined-global
-    if _WarpMouseEventTap then _WarpMouseEventTap:stop() end
+---@param validate_drop function|nil called while the button is still down
+---@return boolean, string|nil error
+local function mouseDrag(moving, start_position, end_position, validate_drop)
+    local number, err = nextMouseEventNumber()
+    if not number then return false, err end
+    local vx, vy = end_position.x - start_position.x, end_position.y - start_position.y
+    local distance = math.sqrt(vx * vx + vy * vy)
+    if distance <= 8 then return false, "drag start and end are too close" end
     mouseMove(start_position)
-    mouseDown(start_position)
-    Event.newMouseEvent(EventTypes.leftMouseDragged, end_position):post()
-    mouseUp(end_position)
-
-    ---@diagnostic disable-next-line: undefined-global
-    if _WarpMouseEventTap then _WarpMouseEventTap:start() end
+    wait(0.08)
+    moving.active_drag = { start = start_position, number = number }
+    mouseButtonEvent(EventTypes.leftMouseDown, start_position, number)
+    wait(0.12)
+    local first = { x = start_position.x + vx * 8 / distance, y = start_position.y + vy * 8 / distance }
+    local previous = start_position
+    local function step(position)
+        mouseButtonEvent(EventTypes.leftMouseDragged, position, number,
+            math.floor(position.x) - math.floor(previous.x), math.floor(position.y) - math.floor(previous.y))
+        previous = position
+    end
+    step(first)
+    wait(0.12)
+    local steps = math.ceil((distance - 8) / 20)
+    for i = 1, steps do
+        step({ x = first.x + (end_position.x - first.x) * i / steps,
+            y = first.y + (end_position.y - first.y) * i / steps })
+        wait(0.02)
+    end
+    wait(0.4)
+    if validate_drop then
+        local valid, drop_err = validate_drop()
+        if not valid then cancelMouseDrag(moving); return false, drop_err end
+    end
+    mouseButtonEvent(EventTypes.leftMouseUp, end_position, number)
+    moving.active_drag = nil
+    return true
 end
 
----find mission control AXGroup from Dock app
+---find the Mission Control accessibility group
+---macOS 26 moved Mission Control's accessibility tree from the Dock to the
+---WindowManager process, where the mc.display groups hang directly off the
+---application element. The Dock is left holding an empty "mc" stub.
 ---return userdata|nil, string|nil error
 local function getMissionControlGroup()
+    local manager = Application.applicationsForBundleID("com.apple.WindowManager")[1]
+    if manager then
+        local manager_element = Axuielement.applicationElement(manager)
+        for _, element in ipairs(manager_element) do
+            if element.AXIdentifier == "mc.display" then
+                return manager_element
+            end
+        end
+    end
+
+    -- macOS 15 and earlier
     local dock_app = Application.applicationsForBundleID("com.apple.dock")[1]
     local dock_element = Axuielement.applicationElement(dock_app)
     for _, element in ipairs(dock_element) do
@@ -82,6 +152,19 @@ local function getMissionControlGroup()
     end
 
     return nil, "mission control is not open"
+end
+
+---wait until the Mission Control accessibility tree is available
+---the tree does not exist until the opening animation finishes
+---@param timeout number seconds to wait before giving up
+---@return boolean
+local function waitForMissionControl(timeout)
+    local start = Timer.secondsSinceEpoch()
+    repeat
+        if getMissionControlGroup() then return true end
+        wait(0.01)
+    until Timer.secondsSinceEpoch() - start > timeout
+    return false
 end
 
 ---collect all of the Mission Control display AXGroup elements
@@ -99,7 +182,27 @@ local function getDisplayGroups()
         end
     end
 
-    return display_groups
+    -- Mission Control lists displays in its own order; match the order of
+    -- Screen.allScreens() so space indexes line up with Spaces.allSpaces().
+    -- mc.display frames cover the whole display, so compare against fullFrame()
+    -- (frame() excludes the menu bar and Dock on the primary display)
+    local ordered = {}
+    for _, screen in ipairs(Screen.allScreens()) do
+        local frame = screen:fullFrame()
+        for i, group in ipairs(display_groups) do
+            local group_frame = group.AXFrame
+            if group_frame and group_frame.x == frame.x and group_frame.y == frame.y then
+                table.insert(ordered, table.remove(display_groups, i))
+                break
+            end
+        end
+    end
+    for _, group in ipairs(display_groups) do
+        -- displays Mission Control knows about but hs.screen does not
+        table.insert(ordered, group)
+    end
+
+    return ordered
 end
 
 ---collect all of the windows in Mission Control
@@ -117,6 +220,10 @@ local function getMissionControlWindows()
                 for _, mc_window in ipairs(element) do
                     table.insert(windows, mc_window)
                 end
+            elseif element.AXIdentifier and element.AXIdentifier:find("%.space%.%d+$") then
+                -- macOS 26+: window thumbnails are direct children of mc.display,
+                -- identified as "<bundle id>.space.<space id>"
+                table.insert(windows, element)
             end
         end
     end
@@ -185,82 +292,227 @@ function MissionControl:getSpaceID(index)
     end
 end
 
+---get a safe drop point for a desktop thumbnail
+---WindowManager reports an anchor inside the thumbnail rather than a top left
+---corner, so adding half of the reported size lands outside of it
+---@param space userdata|nil AXButton of the target desktop
+---@param window_manager boolean|nil thumbnail was read from WindowManager
+---@return table|nil, string|nil error
+local function getSpaceDropPoint(space, window_manager)
+    if not space or not space.AXFrame then return nil, "target desktop disappeared" end
+    if not window_manager then return Geometry(space.AXFrame).center end
+    local point = space.AXPosition
+    local bar = space.AXParent and space.AXParent.AXFrame
+    if not point or not bar or bar.h <= 40 then return nil, "desktop bar is not expanded" end
+    if point.x <= bar.x or point.x >= bar.x + bar.w or point.y <= bar.y or point.y >= bar.y + bar.h then
+        return nil, "desktop anchor is outside its bar"
+    end
+    return { x = point.x, y = point.y }
+end
+
+---match a Mission Control thumbnail title against a window title
+---Mission Control shortens long titles in the middle with an ellipsis, e.g.
+---"a very long window...title" for "a very long window title"
+---@param candidate string|nil thumbnail AXTitle
+---@param title string window title
+---@return boolean
+local function titleMatches(candidate, title)
+    if candidate == title then return true end
+    local prefix, suffix = (candidate or ""):match("^(.-)…(.*)$")
+    if not prefix or #prefix < 8 then return false end
+    return title:sub(1, #prefix) == prefix
+        and (suffix == "" or title:sub(#title - #suffix + 1) == suffix)
+end
+
 ---move the currently focused window to a space for the space ID
+---the gesture runs in a coroutine so the steps can be timed without blocking
+---Hammerspoon, and the result is reported once the window really moved
+---@param focused_window Window
 ---@param space_id number
----dragging the window there; if false, Mission Control is closed instead
----@return boolean, string|nil
-function MissionControl:moveWindowToSpace(focused_window, space_id)
-    if not focused_window then
-        return false, "no focused window"
-    end
-
+---@param callback function|nil called with (success, error) when finished
+---@return boolean started, string|nil error
+function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
+    if self.moving then return false, "another window move is in progress" end
+    if not focused_window then return false, "no focused window" end
+    if Spaces.spaceType(space_id) ~= "user" then return false, "target is not a normal desktop" end
+    local app = focused_window:application()
+    if not app then return false, "window application is no longer available" end
     local title = focused_window:title()
-    if not title or #title == 0 then
-        title = focused_window:application():title()
-    end
-    if not title or #title == 0 then
-        return false, "no title for window"
+    if not title or #title == 0 then title = app:title() end
+    if not title or #title == 0 then return false, "no title for window or application" end
+    local target_screen = Screen(Spaces.spaceDisplay(space_id))
+    if not target_screen then return false, "no screen for target space" end
+    local bundle_id = app:bundleID()
+    local title_before = title
+    local moving = {
+        active_drag = nil,
+        completed = false,
+        coroutine = nil,
+        cursor = Mouse.absolutePosition(),
+        focused_window = focused_window,
+        paused = {},
+        pending = nil,
+        space_id = space_id,
+        timeout = nil,
+    }
+    self.moving = moving
+
+    local function finish(success, err)
+        if self.moving ~= moving or moving.completed then return end
+        moving.completed = true
+        if moving.pending then moving.pending:stop() end
+        if moving.timeout then moving.timeout:stop() end
+        pcall(cancelMouseDrag, moving)
+        pcall(Spaces.closeMissionControl)
+        for _, tap in ipairs(moving.paused) do tap:start() end
+        Mouse.absolutePosition(moving.cursor)
+        self.moving = nil
+        if callback then callback(success, err)
+        elseif not success then self.log.e(err) end
     end
 
+    moving.coroutine = coroutine.create(function()
+        -- PaperWM's own mouse watchers must not consume the synthetic gesture
+        local events = self.PaperWM and self.PaperWM.events
+        ---@diagnostic disable-next-line: undefined-global
+        local warp_mouse_tap = _WarpMouseEventTap
+        for _, tap in pairs({ warp = warp_mouse_tap, paperwm = events and events.mouse_watcher }) do
+            if tap:isEnabled() then moving.paused[#moving.paused + 1] = tap; tap:stop() end
+        end
+        focused_window:focus()
+        wait(0.4)
+        Spaces.openMissionControl()
+        local full = target_screen:fullFrame()
+        -- hovering the spaces bar expands it, which its geometry depends on
+        mouseMove({ x = full.x + full.w / 2, y = full.y + 20 })
+        if not waitForMissionControl(2) then return false, "mission control did not open" end
+        wait(math.max(0.8, Spaces.MCwaitTime))
+
+        local source_screen = focused_window:screen()
+        if not source_screen then return false, "source screen disappeared" end
+        local active_space = Spaces.activeSpaceOnScreen(source_screen)
+        local source_active = false
+        for _, space in ipairs(Spaces.windowSpaces(focused_window) or {}) do
+            if space == active_space then source_active = true end
+        end
+        if not source_active then return false, "source space is not active" end
+
+        -- a title can change while Mission Control animates
+        local current_title = focused_window:title()
+        if current_title and #current_title > 0 then title = current_title end
+        local windows, err = getMissionControlWindows()
+        if not windows then return false, err end
+        local thumbnail, window_manager
+        for _, candidate in ipairs(windows) do
+            local identifier = candidate.AXIdentifier or ""
+            local candidate_space = tonumber(identifier:match("%.space%.(%d+)$"))
+            local modern = candidate_space ~= nil
+            local same_app = not modern or (bundle_id and identifier:sub(1, #bundle_id + 7) == bundle_id .. ".space.")
+            -- another space can hold a window with the same title
+            if titleMatches(candidate.AXTitle, title) and same_app and (not modern or candidate_space == active_space) then
+                if thumbnail then return false, "multiple windows have the same title" end
+                thumbnail, window_manager = candidate, modern
+            end
+        end
+        if not thumbnail then
+            return false, string.format("couldn't find mission control window %q (was %q)", title, title_before)
+        end
+        local start_position = Geometry(thumbnail.AXFrame).center
+        if hs.host.operatingSystemVersion().major >= 27 then
+            local hit = Axuielement.systemWideElement():elementAtPosition(start_position)
+            local hit_space = hit and tonumber((hit.AXIdentifier or ""):match("%.space%.(%d+)$"))
+            local source_frame = source_screen:fullFrame()
+            -- hit testing can return an overlapping hidden thumbnail from another
+            -- space; ignore only that case, any other mismatch is a real one
+            local hidden_hit = window_manager and hit_space and hit_space ~= active_space
+                and hit.AXRole == "AXButton" and thumbnail.AXRole == "AXButton"
+                and Spaces.spaceDisplay(hit_space) == source_screen:getUUID()
+                and thumbnail:pid() ~= nil and hit:pid() == thumbnail:pid()
+                and start_position.x >= source_frame.x and start_position.x < source_frame.x + source_frame.w
+                and start_position.y >= source_frame.y and start_position.y < source_frame.y + source_frame.h
+            if hidden_hit then
+                self.log.df("ignoring thumbnail from space %d while dragging in space %d", hit_space, active_space)
+            elseif not hit or hit.AXTitle ~= thumbnail.AXTitle or hit.AXIdentifier ~= thumbnail.AXIdentifier then
+                return false, "drag start does not hit the selected window"
+            end
+        end
+        local function destination()
+            local spaces, space_err = getMissionControlSpaces()
+            if not spaces then return nil, space_err end
+            return getSpaceDropPoint(spaces[self:getSpaceIndex(space_id)], window_manager)
+        end
+        local end_position, point_err = destination()
+        if not end_position then return false, point_err end
+        local dragged, drag_err = mouseDrag(moving, start_position, end_position, function()
+            if not getMissionControlGroup() then return false, "mission control closed during drag" end
+            local point, live_err = destination()
+            if not point then return false, live_err end
+            if math.abs(point.x - end_position.x) > 2 or math.abs(point.y - end_position.y) > 2 then
+                return false, "target desktop moved during drag"
+            end
+            return true
+        end)
+        if not dragged then return false, drag_err end
+        wait(0.8)
+        Spaces.closeMissionControl()
+        wait(0.5)
+        local actual = Spaces.windowSpaces(focused_window) or {}
+        for _, space in ipairs(actual) do
+            if space == space_id then return true end
+        end
+        return false, "window did not reach the target space; actual=" .. hs.inspect(actual)
+    end)
+
+    local function resume()
+        if self.moving ~= moving or moving.completed then return end
+        local ok, value, err = coroutine.resume(moving.coroutine)
+        if not ok then finish(false, tostring(value))
+        elseif coroutine.status(moving.coroutine) == "dead" then finish(value, err)
+        else moving.pending = Timer.doAfter(value, resume) end
+    end
+    moving.timeout = Timer.doAfter(15, function() finish(false, "window move timed out") end)
+    moving.pending = Timer.doAfter(0, resume)
+    return true
+end
+
+---switch to a space by pressing its Mission Control thumbnail
+---hs.spaces.gotoSpace() fails on macOS 27 and Mission Control ignores synthetic
+---clicks, so use the accessibility action instead
+---@param space_id number
+---@return boolean, string|nil error
+function MissionControl:gotoSpace(space_id)
+    if self.moving then return false, "a window move is in progress" end
     local space_index = self:getSpaceIndex(space_id)
     if not space_index then
         return false, "can't find space_id in spaces"
     end
 
-    self.log.vf("moving window %s to space %d", title, space_index)
-
-    -- open mission control and move mouse to expand spaces list
     Spaces.openMissionControl()
     mouseMove({ x = 10, y = 10 })
+
+    if not waitForMissionControl(2) then
+        Spaces.closeMissionControl()
+        return false, "mission control did not open"
+    end
     wait(Spaces.MCwaitTime)
 
-    -- get all windows in mission control
-    local windows, err = getMissionControlWindows()
-    if err or not windows then
-        Spaces.closeMissionControl()
-        return false, "couldn't get mission control windows: " .. err
-    end
-
-    -- find position of window with matching title
-    local start_position
-    repeat
-        self.log.vf("looking for window with title: %s", title)
-        for _, window in ipairs(windows) do
-            local ax_title = window:attributeValue("AXTitle")
-            if ax_title and ax_title:find(title, 1, true) then
-                start_position = Geometry(window.AXFrame).center
-            end
-        end
-        -- remove either the last word or the last character until we have a match
-        local separater = title:find("%s+%S*$") or #title
-        title = title:sub(1, separater - 1)
-    until start_position or #title == 0
-    if not start_position then
-        Spaces.closeMissionControl()
-        return false, "couldn't find mission control window"
-    end
-
-    -- get all spaces in mission control
     local spaces, err = getMissionControlSpaces()
     if err or not spaces then
         Spaces.closeMissionControl()
-        return false, "couldn't get mission control spaces: " .. err
+        return false, "couldn't get mission control spaces: " .. tostring(err)
     end
 
-    -- get space for space index
     local space = spaces[space_index]
     if not space then
         Spaces.closeMissionControl()
         return false, "no space for space index: " .. space_index
     end
 
-    -- get position of space
-    local end_position = Geometry(space.AXFrame).center
-    self.log.vf("dragging window from %s to %s", start_position, end_position)
-
-    -- drag window to space
-    mouseDrag(start_position, end_position)
-
+    local pressed, press_err = space:performAction("AXPress")
+    if not pressed then
+        Spaces.closeMissionControl()
+        return false, "couldn't press space thumbnail: " .. tostring(press_err)
+    end
     return true
 end
 
@@ -274,7 +526,7 @@ function MissionControl:focusSpace(space_id, window)
     end
 
     if Spaces.focusedSpace() ~= space_id then
-        Spaces.gotoSpace(space_id)
+        self:gotoSpace(space_id)
     end
 
     local do_window_focus = coroutine.wrap(function()
