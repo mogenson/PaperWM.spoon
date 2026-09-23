@@ -23,12 +23,11 @@ MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
 MissionControl.log        = hs.logger.new(MissionControl.name)
 
-local move_coroutine, active_drag
-
 ---yield while moving a window; every other caller keeps blocking
 ---@param seconds number
 local function wait(seconds)
-    if coroutine.running() == move_coroutine then
+    local moving = MissionControl.moving
+    if moving and coroutine.running() == moving.coroutine then
         coroutine.yield(seconds)
     else
         Timer.usleep(math.floor(seconds * 1000000))
@@ -54,17 +53,18 @@ end
 ---move mouse to position, without modifiers from the hotkey that started us
 ---@param position table
 local function mouseMove(position)
-    Event.newMouseEvent(EventTypes.mouseMoved, position, {}):post()
+    Event.newMouseEvent(EventTypes.mouseMoved, position):rawFlags(0):post()
 end
 
 ---post one part of a left button gesture
----@param event_type number
+---@param event_type string
 ---@param position table
 ---@param number number event number shared by the whole gesture
 ---@param dx number|nil horizontal movement for this event
 ---@param dy number|nil vertical movement for this event
 local function mouseButtonEvent(event_type, position, number, dx, dy)
-    Event.newMouseEvent(event_type, position, {})
+    Event.newMouseEvent(event_type, position)
+        :rawFlags(0)
         :setProperty(Event.properties.mouseEventNumber, number)
         :setProperty(Event.properties.mouseEventClickState, 1)
         :setProperty(Event.properties.mouseEventDeltaX, dx or 0)
@@ -73,22 +73,24 @@ local function mouseButtonEvent(event_type, position, number, dx, dy)
 end
 
 ---abort a drag in flight without dropping on an unknown target
-local function cancelMouseDrag()
-    if active_drag then
+---@param moving table
+local function cancelMouseDrag(moving)
+    if moving.active_drag then
         hs.eventtap.keyStroke({}, "escape", 0)
-        mouseButtonEvent(EventTypes.leftMouseUp, active_drag.start, active_drag.number)
-        active_drag = nil
+        mouseButtonEvent(EventTypes.leftMouseUp, moving.active_drag.start, moving.active_drag.number)
+        moving.active_drag = nil
     end
 end
 
 ---drag the mouse from one position to another
 ---Mission Control only follows a gesture that begins with a small movement and
 ---continues in steps; a single jump between the two positions is ignored
+---@param moving table
 ---@param start_position table
 ---@param end_position table
 ---@param validate_drop function|nil called while the button is still down
 ---@return boolean, string|nil error
-local function mouseDrag(start_position, end_position, validate_drop)
+local function mouseDrag(moving, start_position, end_position, validate_drop)
     local number, err = nextMouseEventNumber()
     if not number then return false, err end
     local vx, vy = end_position.x - start_position.x, end_position.y - start_position.y
@@ -96,7 +98,7 @@ local function mouseDrag(start_position, end_position, validate_drop)
     if distance <= 8 then return false, "drag start and end are too close" end
     mouseMove(start_position)
     wait(0.08)
-    active_drag = { start = start_position, number = number }
+    moving.active_drag = { start = start_position, number = number }
     mouseButtonEvent(EventTypes.leftMouseDown, start_position, number)
     wait(0.12)
     local first = { x = start_position.x + vx * 8 / distance, y = start_position.y + vy * 8 / distance }
@@ -117,10 +119,10 @@ local function mouseDrag(start_position, end_position, validate_drop)
     wait(0.4)
     if validate_drop then
         local valid, drop_err = validate_drop()
-        if not valid then cancelMouseDrag(); return false, drop_err end
+        if not valid then cancelMouseDrag(moving); return false, drop_err end
     end
     mouseButtonEvent(EventTypes.leftMouseUp, end_position, number)
-    active_drag = nil
+    moving.active_drag = nil
     return true
 end
 
@@ -318,7 +320,8 @@ local function titleMatches(candidate, title)
     if candidate == title then return true end
     local prefix, suffix = (candidate or ""):match("^(.-)…(.*)$")
     if not prefix or #prefix < 8 then return false end
-    return title:sub(1, #prefix) == prefix and (suffix == "" or title:sub(-#suffix) == suffix)
+    return title:sub(1, #prefix) == prefix
+        and (suffix == "" or title:sub(#title - #suffix + 1) == suffix)
 end
 
 ---move the currently focused window to a space for the space ID
@@ -341,30 +344,40 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
     if not target_screen then return false, "no screen for target space" end
     local bundle_id = app:bundleID()
     local title_before = title
-    local paused, cursor = {}, Mouse.absolutePosition()
-    local pending, timeout, completed
-    self.moving = true
+    local moving = {
+        active_drag = nil,
+        completed = false,
+        coroutine = nil,
+        cursor = Mouse.absolutePosition(),
+        focused_window = focused_window,
+        paused = {},
+        pending = nil,
+        space_id = space_id,
+        timeout = nil,
+    }
+    self.moving = moving
 
     local function finish(success, err)
-        if completed then return end
-        completed = true
-        if pending then pending:stop() end
-        if timeout then timeout:stop() end
-        pcall(cancelMouseDrag)
+        if self.moving ~= moving or moving.completed then return end
+        moving.completed = true
+        if moving.pending then moving.pending:stop() end
+        if moving.timeout then moving.timeout:stop() end
+        pcall(cancelMouseDrag, moving)
         pcall(Spaces.closeMissionControl)
-        for _, tap in ipairs(paused) do tap:start() end
-        Mouse.absolutePosition(cursor)
-        move_coroutine = nil
-        self.moving = false
+        for _, tap in ipairs(moving.paused) do tap:start() end
+        Mouse.absolutePosition(moving.cursor)
+        self.moving = nil
         if callback then callback(success, err)
         elseif not success then self.log.e(err) end
     end
 
-    move_coroutine = coroutine.create(function()
+    moving.coroutine = coroutine.create(function()
         -- PaperWM's own mouse watchers must not consume the synthetic gesture
         local events = self.PaperWM and self.PaperWM.events
-        for _, tap in pairs({ warp = _WarpMouseEventTap, paperwm = events and events.mouse_watcher }) do
-            if tap:isEnabled() then paused[#paused + 1] = tap; tap:stop() end
+        ---@diagnostic disable-next-line: undefined-global
+        local warp_mouse_tap = _WarpMouseEventTap
+        for _, tap in pairs({ warp = warp_mouse_tap, paperwm = events and events.mouse_watcher }) do
+            if tap:isEnabled() then moving.paused[#moving.paused + 1] = tap; tap:stop() end
         end
         focused_window:focus()
         wait(0.4)
@@ -405,21 +418,23 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
             return false, string.format("couldn't find mission control window %q (was %q)", title, title_before)
         end
         local start_position = Geometry(thumbnail.AXFrame).center
-        local hit = Axuielement.systemWideElement():elementAtPosition(start_position)
-        local hit_space = hit and tonumber((hit.AXIdentifier or ""):match("%.space%.(%d+)$"))
-        local source_frame = source_screen:fullFrame()
-        -- hit testing can return an overlapping hidden thumbnail from another
-        -- space; ignore only that case, any other mismatch is a real one
-        local hidden_hit = window_manager and hit_space and hit_space ~= active_space
-            and hit.AXRole == "AXButton" and thumbnail.AXRole == "AXButton"
-            and Spaces.spaceDisplay(hit_space) == source_screen:getUUID()
-            and thumbnail:pid() ~= nil and hit:pid() == thumbnail:pid()
-            and start_position.x >= source_frame.x and start_position.x < source_frame.x + source_frame.w
-            and start_position.y >= source_frame.y and start_position.y < source_frame.y + source_frame.h
-        if hidden_hit then
-            self.log.df("ignoring thumbnail from space %d while dragging in space %d", hit_space, active_space)
-        elseif not hit or hit.AXTitle ~= thumbnail.AXTitle or hit.AXIdentifier ~= thumbnail.AXIdentifier then
-            return false, "drag start does not hit the selected window"
+        if hs.host.operatingSystemVersion().major >= 27 then
+            local hit = Axuielement.systemWideElement():elementAtPosition(start_position)
+            local hit_space = hit and tonumber((hit.AXIdentifier or ""):match("%.space%.(%d+)$"))
+            local source_frame = source_screen:fullFrame()
+            -- hit testing can return an overlapping hidden thumbnail from another
+            -- space; ignore only that case, any other mismatch is a real one
+            local hidden_hit = window_manager and hit_space and hit_space ~= active_space
+                and hit.AXRole == "AXButton" and thumbnail.AXRole == "AXButton"
+                and Spaces.spaceDisplay(hit_space) == source_screen:getUUID()
+                and thumbnail:pid() ~= nil and hit:pid() == thumbnail:pid()
+                and start_position.x >= source_frame.x and start_position.x < source_frame.x + source_frame.w
+                and start_position.y >= source_frame.y and start_position.y < source_frame.y + source_frame.h
+            if hidden_hit then
+                self.log.df("ignoring thumbnail from space %d while dragging in space %d", hit_space, active_space)
+            elseif not hit or hit.AXTitle ~= thumbnail.AXTitle or hit.AXIdentifier ~= thumbnail.AXIdentifier then
+                return false, "drag start does not hit the selected window"
+            end
         end
         local function destination()
             local spaces, space_err = getMissionControlSpaces()
@@ -428,7 +443,7 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
         end
         local end_position, point_err = destination()
         if not end_position then return false, point_err end
-        local dragged, drag_err = mouseDrag(start_position, end_position, function()
+        local dragged, drag_err = mouseDrag(moving, start_position, end_position, function()
             if not getMissionControlGroup() then return false, "mission control closed during drag" end
             local point, live_err = destination()
             if not point then return false, live_err end
@@ -449,14 +464,14 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
     end)
 
     local function resume()
-        if completed then return end
-        local ok, value, err = coroutine.resume(move_coroutine)
+        if self.moving ~= moving or moving.completed then return end
+        local ok, value, err = coroutine.resume(moving.coroutine)
         if not ok then finish(false, tostring(value))
-        elseif coroutine.status(move_coroutine) == "dead" then finish(value, err)
-        else pending = Timer.doAfter(value, resume) end
+        elseif coroutine.status(moving.coroutine) == "dead" then finish(value, err)
+        else moving.pending = Timer.doAfter(value, resume) end
     end
-    timeout = Timer.doAfter(15, function() finish(false, "window move timed out") end)
-    pending = Timer.doAfter(0, resume)
+    moving.timeout = Timer.doAfter(15, function() finish(false, "window move timed out") end)
+    moving.pending = Timer.doAfter(0, resume)
     return true
 end
 
