@@ -20,13 +20,24 @@ end
 ---switch to a Mission Control space by spaceID
 ---@param spaceID Space space identification
 function Space.switchToSpaceID(spaceID)
+    local screen = Screen(Spaces.spaceDisplay(spaceID))
+    if not screen then return end
+    local window
     if Space.PaperWM.preserve_app_focus then
-        Spaces.gotoSpace(spaceID)
+        local focused = Window.focusedWindow()
+        local app = focused and focused:application()
+        if app and type(app.visibleWindows) == "function" then
+            for _, win in ipairs(app:visibleWindows()) do
+                if Fnutils.contains(Spaces.windowSpaces(win) or {}, spaceID) then
+                    window = win
+                    break
+                end
+            end
+        end
     else
-        local screen = Screen(Spaces.spaceDisplay(spaceID))
-        local window = Space.PaperWM.windows.getFirstVisibleWindow(spaceID, screen:frame())
-        Space.MissionControl:focusSpace(spaceID, window)
+        window = Space.PaperWM.windows.getFirstVisibleWindow(spaceID, screen:frame())
     end
+    Space.MissionControl:focusSpace(spaceID, window)
 end
 
 ---switch to a Mission Control space
@@ -96,7 +107,8 @@ function Space.moveWindowToSpace(index)
         return
     end
 
-    if new_space == Spaces.windowSpaces(focused_window)[1] then
+    local old_space = Spaces.windowSpaces(focused_window)[1]
+    if new_space == old_space then
         Space.PaperWM.logger.d("window already on space")
         return
     end
@@ -140,15 +152,19 @@ function Space.moveWindowToSpace(index)
             Space.PaperWM.logger.e(err)
             return
         end
-        -- the window is on the new space now, so tile it there
+        -- the window is on the new space now, so tile it there without focusing
+        -- it if we are staying on the current space
         if Fnutils.contains(allowed_screens, new_screen) and Space.PaperWM.floating.isFloating(focused_window) then
-            Space.PaperWM.floating.toggleFloating(focused_window)
+            Space.PaperWM.floating.toggleFloating(focused_window, not switch_to_space)
         end
         if switch_to_space then
             Space.MissionControl:focusSpace(new_space, focused_window)
+        else
+            local window = Space.PaperWM.windows.getFirstVisibleWindow(old_space, old_screen:frame())
+            if window then window:focus() end
         end
     end
-    local started, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space, finished)
+    local started, err = Space.MissionControl:moveWindowToSpace(focused_window, new_space, finished, switch_to_space)
     if not started then finished(false, err) end
 end
 

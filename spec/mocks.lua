@@ -4,12 +4,14 @@ local M = {}
 
 M.raise_log = {} -- window ids in raise order, reset from specs as needed
 
+local default_screen = {
+    frame = function() return { x = 0, y = 32, w = 1000, h = 668, x2 = 1000, y2 = 700, center = { x = 500, y = 366 } } end,
+    fullFrame = function() return { x = 0, y = 0, w = 1000, h = 800, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } } end,
+    getUUID = function() return "mock_screen_uuid" end,
+}
+
 function M.mock_screen()
-    return {
-        frame = function() return { x = 0, y = 32, w = 1000, h = 668, x2 = 1000, y2 = 700, center = { x = 500, y = 366 } } end,
-        fullFrame = function() return { x = 0, y = 0, w = 1000, h = 800, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } } end,
-        getUUID = function() return "mock_screen_uuid" end,
-    }
+    return default_screen
 end
 
 function M.mock_window(id, title, frame, opts)
@@ -89,6 +91,7 @@ function M.init_mocks(modules)
             spaceType = function(_) return "user" end,
             spaceDisplay = function(_) return "mock_screen_uuid" end,
             focusedSpace = function() return 1 end,
+            activeSpaceOnScreen = function(_) return 1 end,
             allSpaces = function() return { mock_screen_uuid = { 1, 2, 3 } } end,
             activeSpaces = function() return { mock_screen_uuid = 1 } end,
         },
