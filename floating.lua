@@ -50,7 +50,8 @@ end
 
 ---add or remove focused window from the floating layer and retile the space
 ---@param window Window|nil optional window to float and focus
-function Floating.toggleFloating(window)
+---@param skip_focus boolean|nil don't focus window after toggling if true
+function Floating.toggleFloating(window, skip_focus)
     window = window or Window.focusedWindow()
     if not window then
         Floating.PaperWM.logger.d("focused window not found")
@@ -68,7 +69,7 @@ function Floating.toggleFloating(window)
         end
     end)()
     if space then
-        window:focus()
+        if not skip_focus then window:focus() end
         Floating.PaperWM:tileSpace(space)
     end
 end

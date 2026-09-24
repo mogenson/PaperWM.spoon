@@ -23,6 +23,8 @@ MissionControl.license    = "MIT - https://opensource.org/licenses/MIT"
 
 MissionControl.log        = hs.logger.new(MissionControl.name)
 
+local SmallWait <const>   = 0.01 -- 10 ms wait
+
 ---yield while moving a window; every other caller keeps blocking
 ---@param seconds number
 local function wait(seconds)
@@ -38,17 +40,18 @@ end
 -- kCGMouseEventNumber, and ignores a gesture whose events do not share it.
 -- Lua cannot read the HID event counters, so start above them like other
 -- remote input tools do (OpenJDK's Robot starts at 32000).
-local robot_event_number_start = 32000
-local mouse_event_number
----@return number|nil, string|nil error
-local function nextMouseEventNumber()
-    if not mouse_event_number then mouse_event_number = robot_event_number_start end
-    if mouse_event_number >= 0x7fffffff then
-        return nil, "mouse event number exhausted; reload Hammerspoon"
+---@type fun(): (number|nil, string|nil)
+local nextMouseEventNumber = (function()
+    local mouse_event_number
+    return function()
+        if not mouse_event_number then mouse_event_number = 32000 end
+        if mouse_event_number >= 0x7fffffff then
+            return nil, "mouse event number exhausted; reload Hammerspoon"
+        end
+        mouse_event_number = mouse_event_number + 1
+        return mouse_event_number
     end
-    mouse_event_number = mouse_event_number + 1
-    return mouse_event_number
-end
+end)()
 
 ---move mouse to position, without modifiers from the hotkey that started us
 ---@param position table
@@ -97,10 +100,10 @@ local function mouseDrag(moving, start_position, end_position, validate_drop)
     local distance = math.sqrt(vx * vx + vy * vy)
     if distance <= 8 then return false, "drag start and end are too close" end
     mouseMove(start_position)
-    wait(0.08)
+    wait(SmallWait)
     moving.active_drag = { start = start_position, number = number }
     mouseButtonEvent(EventTypes.leftMouseDown, start_position, number)
-    wait(0.12)
+    wait(SmallWait)
     local first = { x = start_position.x + vx * 8 / distance, y = start_position.y + vy * 8 / distance }
     local previous = start_position
     local function step(position)
@@ -109,17 +112,21 @@ local function mouseDrag(moving, start_position, end_position, validate_drop)
         previous = position
     end
     step(first)
-    wait(0.12)
-    local steps = math.ceil((distance - 8) / 20)
+    wait(SmallWait)
+    local steps = math.ceil((distance - 8) / 100)
     for i = 1, steps do
-        step({ x = first.x + (end_position.x - first.x) * i / steps,
-            y = first.y + (end_position.y - first.y) * i / steps })
-        wait(0.02)
+        step({
+            x = first.x + (end_position.x - first.x) * i / steps,
+            y = first.y + (end_position.y - first.y) * i / steps,
+        })
+        wait(SmallWait)
     end
-    wait(0.4)
+    wait(SmallWait)
     if validate_drop then
         local valid, drop_err = validate_drop()
-        if not valid then cancelMouseDrag(moving); return false, drop_err end
+        if not valid then
+            cancelMouseDrag(moving); return false, drop_err
+        end
     end
     mouseButtonEvent(EventTypes.leftMouseUp, end_position, number)
     moving.active_drag = nil
@@ -156,14 +163,17 @@ end
 
 ---wait until the Mission Control accessibility tree is available
 ---the tree does not exist until the opening animation finishes
----@param timeout number seconds to wait before giving up
+---if the tree is not available by the time MCwaitTime elapses, return false
 ---@return boolean
-local function waitForMissionControl(timeout)
+local function waitForMissionControl()
     local start = Timer.secondsSinceEpoch()
     repeat
-        if getMissionControlGroup() then return true end
-        wait(0.01)
-    until Timer.secondsSinceEpoch() - start > timeout
+        if getMissionControlGroup() then
+            wait(Spaces.MCwaitTime) -- we need extra padding time until the tree is ready to be used
+            return true
+        end
+        wait(SmallWait)
+    until Timer.secondsSinceEpoch() - start > Spaces.MCwaitTime
     return false
 end
 
@@ -244,6 +254,7 @@ local function getMissionControlSpaces()
         for _, element in ipairs(display_group) do
             if element.AXIdentifier == "mc.spaces" then
                 local mc_spaces = element
+                ---@diagnostic disable-next-line redefined-local
                 for _, element in ipairs(mc_spaces) do
                     if element.AXIdentifier == "mc.spaces.list" then
                         local mc_spaces_list = element
@@ -330,8 +341,9 @@ end
 ---@param focused_window Window
 ---@param space_id number
 ---@param callback function|nil called with (success, error) when finished
+---@param switch_to_space boolean|nil whether to switch to the target space in Mission Control
 ---@return boolean started, string|nil error
-function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
+function MissionControl:moveWindowToSpace(focused_window, space_id, callback, switch_to_space)
     if self.moving then return false, "another window move is in progress" end
     if not focused_window then return false, "no focused window" end
     if Spaces.spaceType(space_id) ~= "user" then return false, "target is not a normal desktop" end
@@ -363,12 +375,19 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
         if moving.pending then moving.pending:stop() end
         if moving.timeout then moving.timeout:stop() end
         pcall(cancelMouseDrag, moving)
-        pcall(Spaces.closeMissionControl)
+        if not success or getMissionControlGroup() then
+            pcall(Spaces.closeMissionControl)
+        end
         for _, tap in ipairs(moving.paused) do tap:start() end
-        Mouse.absolutePosition(moving.cursor)
+        if not (success and switch_to_space and self.PaperWM and self.PaperWM.center_mouse) then
+            Mouse.absolutePosition(moving.cursor)
+        end
         self.moving = nil
-        if callback then callback(success, err)
-        elseif not success then self.log.e(err) end
+        if callback then
+            callback(success, err)
+        elseif not success then
+            self.log.e(err)
+        end
     end
 
     moving.coroutine = coroutine.create(function()
@@ -377,16 +396,17 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
         ---@diagnostic disable-next-line: undefined-global
         local warp_mouse_tap = _WarpMouseEventTap
         for _, tap in pairs({ warp = warp_mouse_tap, paperwm = events and events.mouse_watcher }) do
-            if tap:isEnabled() then moving.paused[#moving.paused + 1] = tap; tap:stop() end
+            if tap:isEnabled() then
+                moving.paused[#moving.paused + 1] = tap; tap:stop()
+            end
         end
         focused_window:focus()
-        wait(0.4)
+        wait(SmallWait)
         Spaces.openMissionControl()
         local full = target_screen:fullFrame()
         -- hovering the spaces bar expands it, which its geometry depends on
         mouseMove({ x = full.x + full.w / 2, y = full.y + 20 })
-        if not waitForMissionControl(2) then return false, "mission control did not open" end
-        wait(math.max(0.8, Spaces.MCwaitTime))
+        if not waitForMissionControl() then return false, "mission control did not open" end
 
         local source_screen = focused_window:screen()
         if not source_screen then return false, "source screen disappeared" end
@@ -453,9 +473,17 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
             return true
         end)
         if not dragged then return false, drag_err end
-        wait(0.8)
-        Spaces.closeMissionControl()
-        wait(0.5)
+        wait(SmallWait)
+        local switched = false
+        if switch_to_space then
+            local spaces = getMissionControlSpaces()
+            local space = spaces and spaces[self:getSpaceIndex(space_id)]
+            switched = (space and space:performAction("AXPress")) or false
+        end
+        if not switched then
+            Spaces.closeMissionControl()
+        end
+        wait(Spaces.MCwaitTime)
         local actual = Spaces.windowSpaces(focused_window) or {}
         for _, space in ipairs(actual) do
             if space == space_id then return true end
@@ -466,9 +494,13 @@ function MissionControl:moveWindowToSpace(focused_window, space_id, callback)
     local function resume()
         if self.moving ~= moving or moving.completed then return end
         local ok, value, err = coroutine.resume(moving.coroutine)
-        if not ok then finish(false, tostring(value))
-        elseif coroutine.status(moving.coroutine) == "dead" then finish(value, err)
-        else moving.pending = Timer.doAfter(value, resume) end
+        if not ok then
+            finish(false, tostring(value))
+        elseif coroutine.status(moving.coroutine) == "dead" then
+            finish(value, err)
+        else
+            moving.pending = Timer.doAfter(value, resume)
+        end
     end
     moving.timeout = Timer.doAfter(15, function() finish(false, "window move timed out") end)
     moving.pending = Timer.doAfter(0, resume)
@@ -486,29 +518,38 @@ function MissionControl:gotoSpace(space_id)
     if not space_index then
         return false, "can't find space_id in spaces"
     end
+    local target_screen = Screen(Spaces.spaceDisplay(space_id))
+    if not target_screen then
+        return false, "no screen for target space"
+    end
 
+    local cursor = Mouse.absolutePosition()
     Spaces.openMissionControl()
-    mouseMove({ x = 10, y = 10 })
+    local full = target_screen:fullFrame()
+    mouseMove({ x = full.x + full.w / 2, y = full.y + 20 })
 
-    if not waitForMissionControl(2) then
+    if not waitForMissionControl() then
         Spaces.closeMissionControl()
+        Mouse.absolutePosition(cursor)
         return false, "mission control did not open"
     end
-    wait(Spaces.MCwaitTime)
 
     local spaces, err = getMissionControlSpaces()
     if err or not spaces then
         Spaces.closeMissionControl()
+        Mouse.absolutePosition(cursor)
         return false, "couldn't get mission control spaces: " .. tostring(err)
     end
 
     local space = spaces[space_index]
     if not space then
         Spaces.closeMissionControl()
+        Mouse.absolutePosition(cursor)
         return false, "no space for space index: " .. space_index
     end
 
     local pressed, press_err = space:performAction("AXPress")
+    Mouse.absolutePosition(cursor)
     if not pressed then
         Spaces.closeMissionControl()
         return false, "couldn't press space thumbnail: " .. tostring(press_err)
@@ -525,15 +566,15 @@ function MissionControl:focusSpace(space_id, window)
         return
     end
 
-    if Spaces.focusedSpace() ~= space_id then
+    if Spaces.activeSpaceOnScreen(screen) ~= space_id then
         self:gotoSpace(space_id)
     end
 
-    local do_window_focus = coroutine.wrap(function()
-        if window then
+    if window then
+        local do_window_focus = coroutine.wrap(function()
             local function check_focus(win, n)
                 local focused = true
-                for i = 1, n do -- ensure that window focus does not change
+                for _ = 1, n do -- ensure that window focus does not change
                     focused = focused and (Window.focusedWindow() == win)
                     if not focused then return false end
                     coroutine.yield(false) -- not done
@@ -545,15 +586,15 @@ function MissionControl:focusSpace(space_id, window)
                 window:focus()
                 coroutine.yield(false) -- not done
             until check_focus(window, 3)
-        end
 
-        return true -- done
-    end)
+            return true -- done
+        end)
 
-    local start_time = Timer.secondsSinceEpoch()
-    Timer.doUntil(do_window_focus, function(timer)
-        if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
-    end, Window.animationDuration)
+        local start_time = Timer.secondsSinceEpoch()
+        Timer.doUntil(do_window_focus, function(timer)
+            if Timer.secondsSinceEpoch() - start_time > 1 then timer:stop() end
+        end, Window.animationDuration)
+    end
 
     if MissionControl.PaperWM and MissionControl.PaperWM.center_mouse then
         Mouse.absolutePosition(screen:frame().center)
