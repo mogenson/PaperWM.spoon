@@ -220,6 +220,33 @@ describe("PaperWM.windows", function()
             assert.are.equal(win2, state.window_list[1][1][1])
             assert.are.equal(win1, state.window_list[1][1][2])
         end)
+
+        it("should not drop window when swapping up at top row", function()
+            local win1 = mock_window(101, "Window 1")
+            Windows.addWindow(win1)
+            focused_window = win1
+
+            Windows.swapWindows(Windows.Direction.UP)
+
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(win1, state.window_list[1][1][1])
+            assert.is_not_nil(state.index_table[101])
+        end)
+
+        it("should not drop window when swapping down at bottom row", function()
+            local win1 = mock_window(101, "Window 1", { x = 0, y = 0, w = 100, h = 100, y2 = 100 })
+            local win2 = mock_window(102, "Window 2", { x = 0, y = 108, w = 100, h = 100, y2 = 208 })
+            Windows.addWindow(win1)
+            table.insert(State.windowList(1, 1), win2)
+            focused_window = win2
+
+            Windows.swapWindows(Windows.Direction.DOWN)
+
+            local state = Windows.PaperWM.state.get()
+            assert.are.equal(win1, state.window_list[1][1][1])
+            assert.are.equal(win2, state.window_list[1][1][2])
+            assert.is_not_nil(state.index_table[102])
+        end)
     end)
 
     describe("slurpWindow", function()

@@ -502,6 +502,10 @@ function Windows.swapWindows(direction)
 
         local current_row = focused_index.row
         local target_row = focused_index.row + (direction // 2)
+        if not windows[target_row] then
+            Windows.PaperWM.logger.d("no row to swap with")
+            return
+        end
 
         -- remove and insert to swap
         local window = table.remove(windows, current_row)
