@@ -189,6 +189,30 @@ describe("PaperWM.windows", function()
             assert.is_nil(state.index_table[101])
             assert.is_nil(state.ui_watchers[101])
         end)
+
+        it("should focus adjacent window and not wrap when infinite_loop_window is true", function()
+            Windows.PaperWM.infinite_loop_window = true
+            local win1 = mock_window(101, "Window 1")
+            local win2 = mock_window(102, "Window 2")
+            local win3 = mock_window(103, "Window 3")
+            Windows.addWindow(win1)
+            Windows.addWindow(win2)
+            Windows.addWindow(win3)
+
+            local s2 = spy.on(win2, "focus")
+            local s3 = spy.on(win3, "focus")
+
+            Windows.removeWindow(win1)
+
+            assert.spy(s2).was.called()
+            assert.spy(s3).was_not.called()
+
+            local state = Windows.PaperWM.state.get()
+            assert.is_nil(state.index_table[101])
+            assert.are.equal(2, #state.window_list[1])
+            assert.are.equal(win2, state.window_list[1][1][1])
+            assert.are.equal(win3, state.window_list[1][2][1])
+        end)
     end)
 
     describe("swapWindows", function()
@@ -531,6 +555,20 @@ describe("PaperWM.windows", function()
 
                 local result = Windows.focusWindow(Windows.Direction.DOWN)
                 assert.is_nil(result)
+            end)
+
+            it("should not wrap horizontally when no_wrap is true", function()
+                local win1 = mock_window(101, "Window 1")
+                local win2 = mock_window(102, "Window 2")
+                Windows.addWindow(win1)
+                Windows.addWindow(win2)
+                focused_window = win1
+
+                local s = spy.on(win2, "focus")
+                local index = Windows.PaperWM.state.windowIndex(win1)
+                local result = Windows.focusWindow(Windows.Direction.LEFT, index, true)
+                assert.is_nil(result)
+                assert.spy(s).was_not.called()
             end)
         end)
     end)

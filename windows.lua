@@ -270,7 +270,7 @@ function Windows.removeWindow(remove_window, skip_new_window_focus)
         for _, direction in ipairs({
             Direction.DOWN, Direction.UP, Direction.LEFT, Direction.RIGHT,
         }) do
-            focused_window = Windows.focusWindow(direction, remove_index)
+            focused_window = Windows.focusWindow(direction, remove_index, true)
             if focused_window then break end
         end
     end
@@ -304,8 +304,9 @@ end
 ---move focus to a new window next to the currently focused window
 ---@param direction Direction use either Direction UP, DOWN, LEFT, or RIGHT
 ---@param focused_index Index index of focused window within the windowList
+---@param no_wrap boolean|nil don't wrap around if true
 ---@return Window?
-function Windows.focusWindow(direction, focused_index)
+function Windows.focusWindow(direction, focused_index, no_wrap)
     if not focused_index then
         -- get current focused window
         local focused_window = Window.focusedWindow()
@@ -338,7 +339,7 @@ function Windows.focusWindow(direction, focused_index)
             new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col + direction, row)
         end
         -- wrap around: if no window found, go to the opposite end
-        if not new_focused_window and Windows.PaperWM.infinite_loop_window then
+        if not no_wrap and not new_focused_window and Windows.PaperWM.infinite_loop_window then
             local columns = Windows.PaperWM.state.windowList(focused_index.space)
             local num_cols = columns and #columns or 0
             if num_cols > 1 then
@@ -363,7 +364,7 @@ function Windows.focusWindow(direction, focused_index)
         local target_row = focused_index.row + (direction // 2)
         new_focused_window = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col, target_row)
         -- wrap around: if no window found, go to the opposite end
-        if not new_focused_window and Windows.PaperWM.infinite_loop_window then
+        if not no_wrap and not new_focused_window and Windows.PaperWM.infinite_loop_window then
             local column = Windows.PaperWM.state.windowList(focused_index.space, focused_index.col)
             local num_rows = column and #column or 0
             if num_rows > 1 then
