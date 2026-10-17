@@ -334,6 +334,25 @@ PaperWM.swipe_fingers = 0
 PaperWM.swipe_gain = 1.0
 ```
 
+The configured finger count starts a gesture, which stays
+active until all fingers lift. Changes in finger count do not restart it.
+Each gesture moves at most one column: swipe left for the next window or right
+for the previous window. Both directions align the target's left edge with the
+left canvas edge. At the right end, scrolling stops at the last window's right
+edge so no empty area is exposed. Dragging is bounded by the adjacent targets;
+movement under 12 pixels returns to the current window. Content narrower than
+the canvas stays left-aligned without resizing the windows.
+When a window needs alignment on release, its recent drag velocity feeds a
+120–350 ms smooth alignment animation. Initial speed is limited to prevent
+overshoot, and a new swipe takes over at the current position.
+
+Gesture initialization reuses PaperWM's managed window objects without enumerating
+application windows. Touch callbacks accumulate movement; a 60 Hz timer applies
+the latest position once per tick. Release animation starts from the last applied
+position and estimates velocity using input timestamps. Normal completion keeps
+the resulting layout and virtual positions; a full retile is only needed when
+selection changes the active row of a stacked column.
+
 Inspired by [ScrollDesktop.spoon](https://github.com/jocap/ScrollDesktop.spoon)
 
 ### Mouse Dragging

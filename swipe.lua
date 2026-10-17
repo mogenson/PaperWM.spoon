@@ -18,29 +18,6 @@ function Cache:clear()
     self.touches = {}
 end
 
-function Cache:none(touches)
-    local absent = true
-    for _, touch in ipairs(touches) do
-        absent = absent and (self.touches[touch.identity] == nil)
-    end
-    return absent
-end
-
-function Cache:all(touches)
-    local present = true
-    for _, touch in ipairs(touches) do
-        present = present and (self.touches[touch.identity] ~= nil)
-    end
-    return present
-end
-
-function Cache:any(touches)
-    for _, touch in ipairs(touches) do
-        if self.touches[touch.identity] then return true end
-    end
-    return false
-end
-
 function Cache:set(touches)
     self:clear()
     for i, touch in ipairs(touches) do
@@ -57,22 +34,27 @@ function Cache:set(touches)
 end
 
 function Cache:detect(touches)
-    local moved = true
+    local moved = false
     local delta = { dx = 0, dy = 0 }
-    local size = 0
-    for i, touch in ipairs(touches) do
-        local id = touch.identity
-        local x, y = touch.normalizedPosition.x, touch.normalizedPosition.y
-        local dx, dy = x - assert(self.touches[id]).x, y - assert(self.touches[id]).y
-
-        moved = moved and (touch.phase == "moved")
-        delta = { dx = delta.dx + dx, dy = delta.dy + dy }
-        self.touches[id] = { x = x, y = y, dx = dx, dy = dy }
-        size = i
+    local trackedCount = 0
+    local currentTouches = {}
+    for _, touch in ipairs(touches) do
+        local previous = self.touches[touch.identity]
+        local currentX, currentY = touch.normalizedPosition.x, touch.normalizedPosition.y
+        if previous then
+            delta.dx = delta.dx + currentX - previous.x
+            delta.dy = delta.dy + currentY - previous.y
+            trackedCount = trackedCount + 1
+            moved = moved or touch.phase == "moved"
+        end
+        currentTouches[touch.identity] = { x = currentX, y = currentY }
     end
 
-    assert(self.size == size)
-    delta = { dx = delta.dx / size, dy = delta.dy / size }
+    self.touches = currentTouches
+    self.size = #touches
+    if trackedCount > 0 then
+        delta = { dx = delta.dx / trackedCount, dy = delta.dy / trackedCount }
+    end
 
     return moved, delta, self.id
 end
@@ -87,26 +69,33 @@ local gesture <const> = hs.eventtap.event.types.gesture
 function Swipe:start(fingers, callback)
     assert(fingers > 1)
     assert(callback)
-
-    self.watcher = hs.eventtap.new({ gesture }, function(event)
+    local function handleEvent(event)
         local type = event:getType(true)
         if type ~= gesture then return end
-        local touches = event:getTouches()
-
-        if #touches ~= fingers then
-            if Cache.id and Cache:any(touches) then
-                callback(Cache.id, Swipe.END, 0, 0)
-                Cache:clear()
-            end
-        elseif Cache:none(touches) then
-            callback(Cache:set(touches), Swipe.BEGIN, 0, 0)
-        elseif Cache:all(touches) then
-            local moved, delta, id = Cache:detect(touches)
-            if moved then
-                callback(id, Swipe.MOVED, delta.dx, delta.dy)
+        local inputTime = event.timestamp and event:timestamp() / 1e9 or nil
+        local touches = {}
+        for _, touch in ipairs(event:getTouches()) do
+            if touch.phase ~= "ended" and touch.phase ~= "cancelled" then
+                touches[#touches + 1] = touch
             end
         end
-    end)
+        if not Cache.id then
+            if #touches == fingers then
+                callback(Cache:set(touches), Swipe.BEGIN, 0, 0, inputTime)
+            end
+        elseif #touches == 0 then
+            local finishedId = Cache.id
+            Cache:clear()
+            callback(finishedId, Swipe.END, 0, 0, inputTime)
+        else
+            local moved, delta, id = Cache:detect(touches)
+            if moved then
+                callback(id, Swipe.MOVED, delta.dx, delta.dy, inputTime)
+            end
+        end
+    end
+
+    self.watcher = hs.eventtap.new({ gesture }, handleEvent)
 
     Cache:clear()
     self.watcher:start()

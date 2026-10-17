@@ -23,12 +23,14 @@ Events.__index = Events
 function Events.init(paperwm)
     Events.PaperWM = paperwm
     Events.Swipe = dofile(hs.spoons.resourcePath("swipe.lua"))
+    Events.SwipeMotion = dofile(hs.spoons.resourcePath("swipe_motion.lua")).new(paperwm)
 end
 
 ---refresh window layout on screen change
 local screen_watcher = Screen.watcher.new((function()
     local pending_timer = nil
     return function()
+        if Events.SwipeMotion then Events.SwipeMotion:cancel() end
         if not pending_timer then
             pending_timer = Timer.doAfter(Window.animationDuration, function()
                 pending_timer = nil
@@ -40,13 +42,20 @@ local screen_watcher = Screen.watcher.new((function()
 end)())
 
 ---track spaces on space changed
-local space_watcher = Spaces.watcher.new(function(spaceID) Events.PaperWM.space.Tracker.trackSpaces(spaceID) end)
+local space_watcher = Spaces.watcher.new(function(spaceID)
+    if Events.SwipeMotion then Events.SwipeMotion:cancel() end
+    Events.PaperWM.space.Tracker.trackSpaces(spaceID)
+end)
 
 ---callback for window events
 ---@param window Window
 ---@param event string name of the event
 ---@param self PaperWM
 function Events.windowEventHandler(window, event, self)
+    if Events.SwipeMotion and Events.SwipeMotion.session then
+        if event == "AXWindowMoved" or event == "AXWindowResized" then return end
+        Events.SwipeMotion:cancel()
+    end
     if not window["id"] then
         self.logger.ef("no id method for window %s in windowEventHandler", window)
         return
@@ -177,49 +186,14 @@ end
 ---generate callback function for touchpad swipe gesture event
 ---@param self PaperWM
 function Events.swipeHandler(self)
-    -- saved upvalues between callback function calls
-    local swipe_coro, screen_frame = nil, nil
-
-    ---callback for touchpad swipe gesture event
-    ---@param id number unique id across callbacks for the same swipe
-    ---@param type number one of Swipe.BEGIN, Swipe.MOVED, Swipe.END
-    ---@param dx number change in horizontal position since last callback: between 0 and 1
-    ---@param dy number change in vertical position since last callback: between 0 and 1
-    return function(id, type, dx, dy)
+    local motion = Events.SwipeMotion
+    return function(id, type, dx, dy, inputTime)
         if type == Events.Swipe.BEGIN then
-            self.logger.df("new swipe: %d", id)
-
-            -- use focused window for space to scroll windows
-            local focused_window = Window.focusedWindow()
-            if not focused_window then
-                self.logger.d("focused window not found")
-                return
-            end
-
-            local focused_index = self.state.windowIndex(focused_window)
-            if not focused_index then
-                self.logger.e("focused index not found")
-                return
-            end
-
-            local screen = Screen(Spaces.spaceDisplay(focused_index.space))
-            if not screen then
-                self.logger.e("no screen for space")
-                return
-            end
-
-            -- cache upvalues
-            screen_frame = screen:frame()
-            swipe_coro = coroutine.wrap(slide_windows)
-            swipe_coro(self, focused_index.space, screen_frame)
-        elseif swipe_coro and type == Events.Swipe.END then
-            self.logger.df("swipe end: %d", id)
-            swipe_coro(nil)
-            swipe_coro = nil
-        elseif swipe_coro and screen_frame and type == Events.Swipe.MOVED then
-            if math.abs(dy) >= math.abs(dx) then return end -- horizontal swipes only
-            dx = math.floor(self.swipe_gain * dx * screen_frame.w)
-            swipe_coro(dx)
+            motion:run(motion.begin, id, inputTime)
+        elseif type == Events.Swipe.END then
+            motion:run(motion.finish, id, inputTime)
+        elseif type == Events.Swipe.MOVED then
+            motion:run(motion.move, id, dx, dy, inputTime)
         end
     end
 end
@@ -400,6 +374,7 @@ end
 
 ---stop monitoring for window events
 function Events.stop()
+    if Events.SwipeMotion then Events.SwipeMotion:cancel() end
     -- stop events
     Events.PaperWM.window_filter:unsubscribeAll()
     Events.PaperWM.state.uiWatcherStopAll()
