@@ -3,6 +3,7 @@ local Spaces <const> = hs.spaces
 local Fnutils <const> = hs.fnutils
 local Window <const> = hs.window
 local Timer <const> = hs.timer
+local Mouse <const> = hs.mouse
 
 local Space = {}
 Space.__index = Space
@@ -28,10 +29,23 @@ function Space.switchToSpaceID(spaceID)
         local app = focused and focused:application()
         if app and type(app.visibleWindows) == "function" then
             for _, win in ipairs(app:visibleWindows()) do
-                if Fnutils.contains(Spaces.windowSpaces(win) or {}, spaceID) then
-                    window = win
-                    break
+                -- Many apps create windows with no title, such as floating panels, popovers, tooltips, or transparent overlays. 
+                -- They count as visible windows and can sit on a different display than your real window.
+                if win:isStandard() and win:title() ~= "" then 
+                    if Fnutils.contains(Spaces.windowSpaces(win) or {}, spaceID) then
+                        window = win
+                        break
+                    end
                 end
+            end
+        end
+
+        if not window then
+            -- There is no previous app window focused when goto a space that site in another monitor
+            -- so give it the first visible window
+            local focusedScreen = focused and focused:screen() or Mouse.getCurrentScreen()
+            if focusedScreen:id() ~= screen:id() then
+                window = Space.PaperWM.windows.getFirstVisibleWindow(spaceID, screen:frame())
             end
         end
     else
