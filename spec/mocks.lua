@@ -8,6 +8,7 @@ local default_screen = {
     frame = function() return { x = 0, y = 32, w = 1000, h = 668, x2 = 1000, y2 = 700, center = { x = 500, y = 366 } } end,
     fullFrame = function() return { x = 0, y = 0, w = 1000, h = 800, x2 = 1000, y2 = 800, center = { x = 500, y = 400 } } end,
     getUUID = function() return "mock_screen_uuid" end,
+    id = function() return 1 end,
 }
 
 function M.mock_screen()
@@ -22,6 +23,7 @@ function M.mock_window(id, title, frame, opts)
     return {
         id = function() return id end,
         title = function() return title end,
+        isStandard = function() return true end,
         -- windows with opts return frame copies so setFrame constraints apply,
         -- mimicking apps that clamp requested frames (e.g. minimum sizes)
         frame = function()
