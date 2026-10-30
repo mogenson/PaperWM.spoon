@@ -162,14 +162,18 @@ describe("PaperWM.space", function()
             local app_panel_space2 = mock_window(102, "App A Panel")
             app_panel_space2.isStandard = function() return false end
             local app_untitled_space2 = mock_window(103, "")
+            local app_nil_title_space2 = mock_window(104, nil)
             window_spaces[101] = { 1 }
             window_spaces[201] = { 2 }
             window_spaces[102] = { 2 }
             window_spaces[103] = { 2 }
+            window_spaces[104] = { 2 }
 
             local app_a = {
                 bundleID = function() return "com.example.AppA" end,
-                visibleWindows = function() return { app_win_space1, app_panel_space2, app_untitled_space2 } end,
+                visibleWindows = function()
+                    return { app_win_space1, app_panel_space2, app_untitled_space2, app_nil_title_space2 }
+                end,
             }
             app_win_space1.application = function() return app_a end
 
@@ -263,6 +267,23 @@ describe("PaperWM.space", function()
             -- mouse on the target screen: no window is forced
             hs.mouse.getCurrentScreen = function() return second_screen end
             Space.switchToSpaceID(2)
+            assert.spy(Space.MissionControl.focusSpace).was.called_with(Space.MissionControl, 2, nil)
+        end)
+
+        it("does not error when no focused window and no mouse screen are found", function()
+            local win1 = mock_window(201, "Space 2 Col 1", { x = 10, y = 40, w = 400, h = 600 })
+            window_spaces[201] = { 2 }
+
+            Windows.addWindow(win1)
+            put_space_on_second_screen(2)
+
+            focused_window = nil
+            hs.mouse.getCurrentScreen = function() return nil end
+            mock_paperwm.preserve_app_focus = true
+            Space.MissionControl.focusSpace = spy.new(function() end)
+
+            Space.switchToSpaceID(2)
+
             assert.spy(Space.MissionControl.focusSpace).was.called_with(Space.MissionControl, 2, nil)
         end)
     end)
